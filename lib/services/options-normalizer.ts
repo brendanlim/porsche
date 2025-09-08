@@ -24,7 +24,7 @@ export async function normalizeOptions(rawOptionsText: string): Promise<string[]
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
     
     const prompt = `${SYSTEM_PROMPT}
 

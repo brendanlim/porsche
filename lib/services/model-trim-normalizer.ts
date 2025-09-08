@@ -33,12 +33,23 @@ export async function normalizeModelTrim(title: string): Promise<ModelTrimResult
       return fallbackParsing(title);
     }
 
-    // Use gemini-1.5-flash for better performance
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Try with gemini-1.5-pro first (better model)
+    let model;
+    let result;
     
-    const prompt = `${SYSTEM_PROMPT}\n\nExtract model and trim from this title:\n"${title}"`;
+    try {
+      model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+      const prompt = `${SYSTEM_PROMPT}\n\nExtract model and trim from this title:\n"${title}"`;
+      result = await model.generateContent(prompt);
+    } catch (error: any) {
+      if (error.status === 429) {
+        // Quota exceeded, use fallback parsing
+        console.warn('Gemini quota exceeded, using fallback parsing for:', title);
+        return fallbackParsing(title);
+      }
+      throw error;
+    }
     
-    const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
     

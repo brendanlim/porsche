@@ -88,7 +88,7 @@ export class BaTScraper extends BaseScraper {
       
       // Fetch multiple pages to get more listings
       const searches = [];
-      const maxPages = options?.maxPages || 5; // Default to 5 pages
+      const maxPages = params?.maxPages || 5; // Default to 5 pages
       
       // Add pagination - BaT uses /page/N/ format
       for (let page = 1; page <= maxPages; page++) {

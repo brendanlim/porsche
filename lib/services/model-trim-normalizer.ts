@@ -33,12 +33,12 @@ export async function normalizeModelTrim(title: string): Promise<ModelTrimResult
       return fallbackParsing(title);
     }
 
-    // Try with gemini-1.5-pro first (better model)
+    // Use gemini-1.5-flash which has better availability
     let model;
     let result;
     
     try {
-      model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+      model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
       const prompt = `${SYSTEM_PROMPT}\n\nExtract model and trim from this title:\n"${title}"`;
       result = await model.generateContent(prompt);
     } catch (error: any) {

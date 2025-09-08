@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-// Initialize Gemini
+// Initialize Gemini with Google Cloud API key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 // Load prompt from file
@@ -33,6 +33,7 @@ export async function normalizeModelTrim(title: string): Promise<ModelTrimResult
       return fallbackParsing(title);
     }
 
+    // Use gemini-1.5-flash for better performance
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     
     const prompt = `${SYSTEM_PROMPT}\n\nExtract model and trim from this title:\n"${title}"`;

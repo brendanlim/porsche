@@ -6,22 +6,48 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "scrape:daily": "tsx scripts/daily-collection.ts",
+    "scrape:parallel": "tsx scripts/daily-collection.ts --parallel",
+    "scrape:test": "tsx scripts/test-scrapers.ts",
+    "test:html": "tsx scripts/test-with-stored-html.ts"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@radix-ui/react-tabs": "^1.1.13",
+    "@stripe/stripe-js": "^7.9.0",
+    "@supabase/auth-helpers-nextjs": "^0.10.0",
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.57.2",
+    "@types/node-cron": "^3.0.11",
+    "axios": "^1.11.0",
+    "cheerio": "^1.1.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "https-proxy-agent": "^7.0.6",
+    "lucide-react": "^0.542.0",
+    "next": "15.5.2",
+    "node-cron": "^4.2.1",
+    "puppeteer": "^24.19.0",
+    "puppeteer-core": "^24.19.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "next": "15.5.2"
+    "recharts": "^3.1.2",
+    "stripe": "^18.5.0",
+    "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
+    "dotenv": "^17.2.2",
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
-    "@eslint/eslintrc": "^3"
+    "tailwindcss": "^4",
+    "tsx": "^4.20.5",
+    "typescript": "^5"
   }
 }

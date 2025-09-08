@@ -1,103 +1,271 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useState, useEffect } from 'react';
+import { MarketChart } from '@/components/MarketChart';
+import { ChartDataPoint } from '@/lib/types/database';
+import { formatPrice } from '@/lib/utils';
+import { TrendingUp, Users, Shield, BarChart3 } from 'lucide-react';
+import Link from 'next/link';
+
+export default function HomePage() {
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [selectedModel, setSelectedModel] = useState('911');
+
+  useEffect(() => {
+    fetchMarketData();
+  }, [selectedModel]);
+
+  const fetchMarketData = async () => {
+    try {
+      const response = await fetch(`/api/market-data?model=${selectedModel}&limit=100`);
+      const data = await response.json();
+      if (data.success) {
+        setChartData(data.data);
+        setStats(data.stats);
+      }
+    } catch (error) {
+      console.error('Failed to fetch market data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const popularModels = [
+    { name: '911', trims: ['GT3', 'GT3 RS', 'Turbo S'] },
+    { name: '718 Cayman', trims: ['GT4', 'GT4 RS', 'GTS 4.0'] },
+    { name: '718 Boxster', trims: ['Spyder', 'Spyder RS', 'GTS 4.0'] },
+  ];
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="bg-gray-50">
+      {/* Hero Section */}
+      <section className="bg-gradient-to-br from-blue-600 to-blue-800 text-white">
+        <div className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h1 className="text-5xl font-bold mb-6">
+              Never Overpay for Your Dream Porsche
+            </h1>
+            <p className="text-xl mb-8 text-blue-100">
+              Real-time market data and price analysis for every Porsche model.
+              Make informed decisions with confidence.
+            </p>
+            <div className="flex gap-4 justify-center">
+              <Link
+                href="/browse"
+                className="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition"
+              >
+                Browse Listings
+              </Link>
+              <Link
+                href="/signup"
+                className="bg-blue-500 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-400 transition"
+              >
+                Start Free Trial
+              </Link>
+            </div>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </section>
+
+      {/* Stats Section */}
+      {stats && (
+        <section className="py-12 bg-white">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-gray-900">
+                  {stats.count.toLocaleString()}
+                </div>
+                <div className="text-sm text-gray-600">Active Listings</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-gray-900">
+                  {formatPrice(stats.medianPrice)}
+                </div>
+                <div className="text-sm text-gray-600">Median Price</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-gray-900">
+                  7
+                </div>
+                <div className="text-sm text-gray-600">Models Tracked</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-gray-900">
+                  24/7
+                </div>
+                <div className="text-sm text-gray-600">Data Updates</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Market Chart Section */}
+      <section className="py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              Live Market Analysis
+            </h2>
+            <p className="text-lg text-gray-600">
+              Price vs. mileage trends for {selectedModel} models
+            </p>
+          </div>
+
+          {/* Model Selector */}
+          <div className="flex justify-center gap-4 mb-8">
+            {popularModels.map(model => (
+              <button
+                key={model.name}
+                onClick={() => setSelectedModel(model.name)}
+                className={`px-6 py-2 rounded-lg font-medium transition ${
+                  selectedModel === model.name
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {model.name}
+              </button>
+            ))}
+          </div>
+
+          {/* Chart */}
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            {loading ? (
+              <div className="h-[600px] flex items-center justify-center">
+                <div className="text-gray-500">Loading market data...</div>
+              </div>
+            ) : (
+              <MarketChart
+                data={chartData}
+                isBlurred={!isAuthenticated}
+                onPointClick={(point) => {
+                  if (point.url) {
+                    window.open(point.url, '_blank');
+                  }
+                }}
+              />
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-16 bg-white">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              Why PorscheTrends?
+            </h2>
+            <p className="text-lg text-gray-600">
+              The most comprehensive Porsche market intelligence platform
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="text-center">
+              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <TrendingUp className="w-8 h-8 text-blue-600" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">Real-Time Data</h3>
+              <p className="text-gray-600">
+                Live market data updated daily from multiple sources
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <BarChart3 className="w-8 h-8 text-blue-600" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">Price History</h3>
+              <p className="text-gray-600">
+                Track price changes and market trends over time
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Shield className="w-8 h-8 text-blue-600" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">VIN Tracking</h3>
+              <p className="text-gray-600">
+                Complete history for any Porsche by VIN number
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8 text-blue-600" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">Expert Analysis</h3>
+              <p className="text-gray-600">
+                AI-powered insights and market recommendations
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Popular Models Section */}
+      <section className="py-16 bg-gray-50">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              Popular Models
+            </h2>
+            <p className="text-lg text-gray-600">
+              Explore market data for specific models and trims
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {popularModels.map(model => (
+              <div key={model.name} className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-xl font-semibold mb-4">{model.name}</h3>
+                <div className="space-y-2 mb-4">
+                  {model.trims.map(trim => (
+                    <Link
+                      key={trim}
+                      href={`/browse?model=${encodeURIComponent(model.name)}&trim=${encodeURIComponent(trim)}`}
+                      className="block text-blue-600 hover:text-blue-800 hover:underline"
+                    >
+                      {trim}
+                    </Link>
+                  ))}
+                </div>
+                <Link
+                  href={`/browse?model=${encodeURIComponent(model.name)}`}
+                  className="text-sm text-gray-600 hover:text-blue-600"
+                >
+                  View all {model.name} listings →
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 bg-blue-600">
+        <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold text-white mb-4">
+            Ready to Find Your Perfect Porsche?
+          </h2>
+          <p className="text-xl text-blue-100 mb-8">
+            Join thousands of enthusiasts using PorscheTrends to make smarter decisions
+          </p>
+          <Link
+            href="/signup"
+            className="inline-block bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition"
+          >
+            Start Your Free Trial
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }

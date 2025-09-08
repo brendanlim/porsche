@@ -558,6 +558,7 @@ export class BaTScraper extends BaseScraper {
   }
 
   private extractMileage($: cheerio.CheerioAPI): number | undefined {
+    // First try structured elements
     const mileageLocations = [
       $('.essentials-item:contains("Mileage")').text(),
       $('dt:contains("Mileage")').next('dd').text(),
@@ -570,6 +571,40 @@ export class BaTScraper extends BaseScraper {
         const mileage = parseInt(match[0].replace(/,/g, ''));
         if (!isNaN(mileage) && mileage > 0 && mileage < 500000) {
           return mileage;
+        }
+      }
+    }
+    
+    // Fall back to text pattern matching
+    const bodyText = $('body').text();
+    
+    // Pattern 1: Look for "XX,XXX miles" or "XX,XXX-Mile"
+    const pattern1 = /(\d{1,3}(?:,\d{3})*)\s*(?:-?[Mm]ile|[Mm]iles)/g;
+    const matches1 = bodyText.match(pattern1);
+    if (matches1) {
+      for (const match of matches1) {
+        const numMatch = match.match(/(\d{1,3}(?:,\d{3})*)/);
+        if (numMatch) {
+          const mileage = parseInt(numMatch[1].replace(/,/g, ''));
+          // Filter out unrealistic values (too low or too high)
+          if (mileage >= 5 && mileage < 500000) {
+            return mileage;
+          }
+        }
+      }
+    }
+    
+    // Pattern 2: Look for "XXk miles"
+    const pattern2 = /(\d+)[Kk]\s*(?:-?[Mm]ile|[Mm]iles)/g;
+    const matches2 = bodyText.match(pattern2);
+    if (matches2) {
+      for (const match of matches2) {
+        const numMatch = match.match(/(\d+)/);
+        if (numMatch) {
+          const mileage = parseInt(numMatch[1]) * 1000;
+          if (mileage >= 1000 && mileage < 500000) {
+            return mileage;
+          }
         }
       }
     }

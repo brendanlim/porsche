@@ -531,27 +531,29 @@ export class BaTScraper extends BaseScraper {
   }
 
   private extractVIN($: cheerio.CheerioAPI): string | undefined {
-    const vinPattern = /\b[A-HJ-NPR-Z0-9]{17}\b/;
+    // Look for VIN in BaT Essentials list items
+    let vin: string | undefined;
     
-    // Check common locations for VIN
-    const vinLocations = [
-      $('.essentials-item:contains("VIN")').text(),
-      $('dt:contains("VIN")').next('dd').text(),
-      $('[class*="vin"]').text()
-    ];
-    
-    for (const location of vinLocations) {
-      const match = location.match(vinPattern);
-      if (match) {
-        return match[0].toUpperCase();
+    // Check list items for "Chassis: [VIN]"
+    $('ul li').each((i, el) => {
+      const text = $(el).text().trim();
+      if (text.includes('Chassis:')) {
+        // Porsche VINs start with WP0 or WP1
+        const match = text.match(/WP[01][A-Z0-9]{14}/);
+        if (match) {
+          vin = match[0];
+          return false; // Break the loop
+        }
       }
-    }
+    });
     
-    // Search full page text
-    const fullText = $('body').text();
-    const match = fullText.match(/VIN[:\s]+([A-HJ-NPR-Z0-9]{17})/i);
-    if (match) {
-      return match[1].toUpperCase();
+    if (vin) return vin;
+    
+    // Fallback: Look for Porsche VIN pattern in body
+    const bodyText = $('body').text();
+    const vinMatch = bodyText.match(/WP[01][A-Z0-9]{14}/);
+    if (vinMatch) {
+      return vinMatch[0];
     }
     
     return undefined;
@@ -612,17 +614,42 @@ export class BaTScraper extends BaseScraper {
     return undefined;
   }
 
-  private extractLocation($: cheerio.CheerioAPI): { city?: string; state?: string } | undefined {
-    const locationText = $('.essentials-item:contains("Location")').text() ||
+  private extractLocation($: cheerio.CheerioAPI): { city?: string; state?: string; zip?: string } | undefined {
+    // Look for location in BaT Essentials list items
+    let location: { city?: string; state?: string; zip?: string } | undefined;
+    
+    // Check list items for "Location: City, State ZIP"
+    $('ul li').each((i, el) => {
+      const text = $(el).text().trim();
+      if (text.includes('Location:')) {
+        // Pattern: "Location: Palo Alto, California 94306"
+        const match = text.match(/Location:\s*([^,]+),\s*([A-Za-z\s]+?)\s*(\d{5})?$/);
+        if (match) {
+          location = {
+            city: match[1].trim(),
+            state: match[2].trim(),
+            zip: match[3] || undefined
+          };
+          return false; // Break the loop
+        }
+      }
+    });
+    
+    if (location) return location;
+    
+    // Fallback to other selectors
+    const locationText = $('.seller-location').text() ||
+                        $('.essentials-item:contains("Location")').text() ||
                         $('dt:contains("Location")').next('dd').text() ||
                         $('[class*="location"]').text();
     
     if (locationText) {
-      const match = locationText.match(/([^,]+),\s*([A-Z]{2})/);
+      const match = locationText.match(/([^,]+),\s*([A-Za-z\s]+?)\s*(\d{5})?$/);
       if (match) {
         return {
           city: match[1].trim(),
-          state: match[2]
+          state: match[2].trim(),
+          zip: match[3] || undefined
         };
       }
     }
@@ -631,67 +658,172 @@ export class BaTScraper extends BaseScraper {
   }
 
   private extractExteriorColor($: cheerio.CheerioAPI): string | undefined {
+    // First try structured elements
     const colorText = $('.essentials-item:contains("Exterior Color")').text() ||
                      $('dt:contains("Exterior")').next('dd').text() ||
                      $('.essentials-item:contains("Color")').text();
     
     if (colorText) {
       const color = colorText.replace(/.*:/, '').trim();
-      return color || undefined;
+      if (color) return color;
+    }
+    
+    // Try to extract from description
+    const description = $('.post-excerpt').text() || $('.listing-text').text() || $('p').first().text();
+    
+    // Pattern: "Color over Interior" 
+    const overPattern = /(\w+(?:\s+\w+)?)\s+over\s+/i;
+    const overMatch = description.match(overPattern);
+    if (overMatch) {
+      const color = overMatch[1].trim();
+      if (!['This', 'is', 'finished', 'in', 'with'].includes(color)) {
+        return color;
+      }
+    }
+    
+    // Pattern: "finished in [color]"
+    const finishedPattern = /finished\s+in\s+(?:paint-to-sample\s+)?([\w\s]+?)(?:\s+over|\s+with|\s+and|[,.])/i;
+    const finishedMatch = description.match(finishedPattern);
+    if (finishedMatch) {
+      return finishedMatch[1].trim();
+    }
+    
+    // Look in title
+    const title = $('h1').first().text();
+    const commonColors = ['Black', 'White', 'Silver', 'Gray', 'Grey', 'Blue', 'Red', 'Yellow',
+                         'Green', 'Orange', 'Brown', 'Gold', 'Mint', 'Ruby', 'Sapphire', 'Chalk'];
+    for (const color of commonColors) {
+      if (title.includes(color)) return color;
     }
     
     return undefined;
   }
 
   private extractInteriorColor($: cheerio.CheerioAPI): string | undefined {
+    // First try structured elements
     const colorText = $('.essentials-item:contains("Interior Color")').text() ||
                      $('dt:contains("Interior")').next('dd').text();
     
     if (colorText) {
       const color = colorText.replace(/.*:/, '').trim();
-      return color || undefined;
+      if (color) return color;
+    }
+    
+    // Try to extract from description
+    const description = $('.post-excerpt').text() || $('.listing-text').text() || $('p').first().text();
+    
+    // Pattern: "over [interior]"
+    const overPattern = /over\s+([\w\s]+?)(?:\s+leather|\s+upholstery|\s+Race-Tex|\s+interior|[,.])/i;
+    const overMatch = description.match(overPattern);
+    if (overMatch) {
+      const interior = overMatch[1].trim();
+      if (!['the', 'a', 'with'].includes(interior.toLowerCase())) {
+        return interior;
+      }
+    }
+    
+    // Pattern: "[color] interior/leather"
+    const interiorPattern = /(\w+(?:\s+\w+)?)\s+(?:leather|interior|upholstery|Race-Tex)/i;
+    const intMatch = description.match(interiorPattern);
+    if (intMatch) {
+      const color = intMatch[1].trim();
+      if (!['the', 'with', 'and', 'in', 'over'].includes(color.toLowerCase())) {
+        return color;
+      }
     }
     
     return undefined;
   }
 
   private extractTransmission($: cheerio.CheerioAPI, title: string): string | undefined {
+    // First check structured elements
     const transText = $('.essentials-item:contains("Transmission")').text() ||
                      $('dt:contains("Transmission")').next('dd').text();
     
     if (transText) {
       const trans = transText.replace(/.*:/, '').trim();
-      return trans || undefined;
+      if (trans) return trans;
     }
     
-    // Check title for transmission type
-    if (title.toLowerCase().includes('manual')) return 'Manual';
-    if (title.toLowerCase().includes('pdk')) return 'PDK';
-    if (title.toLowerCase().includes('tiptronic')) return 'Tiptronic';
+    // Check title for transmission info
+    const titleLower = title.toLowerCase();
+    if (titleLower.includes('6-speed') || titleLower.includes('six-speed')) return '6-Speed Manual';
+    if (titleLower.includes('7-speed') || titleLower.includes('seven-speed')) {
+      return titleLower.includes('pdk') ? '7-Speed PDK' : '7-Speed Manual';
+    }
+    if (titleLower.includes('5-speed') || titleLower.includes('five-speed')) return '5-Speed Manual';
+    if (titleLower.includes('pdk')) return 'PDK';
+    if (titleLower.includes('tiptronic')) return 'Tiptronic';
+    
+    // Check description
+    const description = $('.post-excerpt').text() || $('.listing-text').text() || $('p').first().text();
+    
+    // Pattern matching
+    const patterns = [
+      /(\d+)[-\s]?speed\s+(manual|automatic|PDK)/i,
+      /(six|seven|five|6|7|5)[-\s]?speed\s*(manual)?/i,
+      /\b(manual|automatic|PDK|tiptronic)\s*(transaxle|transmission|gearbox)?/i
+    ];
+    
+    for (const pattern of patterns) {
+      const match = description.match(pattern);
+      if (match) {
+        return match[0].replace(/transaxle|transmission|gearbox/gi, '').trim();
+      }
+    }
     
     return undefined;
   }
 
   private extractOptions($: cheerio.CheerioAPI): string {
-    // Get description text
-    const description = $('.listing-description').text() ||
-                       $('.description-text').text() ||
-                       $('[class*="description"]').text();
+    const options: string[] = [];
     
-    // Look for key Porsche options
-    const optionKeywords = [
-      'PCCB', 'Sport Chrono', 'PDCC', 'PASM', 'Sport Exhaust', 'PSE',
-      'Carbon', 'Leather', 'Bose', 'Burmester', 'Paint to Sample', 'PTS',
-      'Weissach', 'Lightweight', 'Bucket Seats', 'LWBS', 'Matrix', 'LED',
-      'Front Axle Lift', 'PDLS', 'Sport PASM', 'Carbon Fiber', 'Alcantara',
-      'Extended Leather', 'Premium Package', 'Sport Package'
-    ];
+    // Find the BaT Essentials list that contains the VIN (to ensure we're in the right section)
+    let essentialsList: cheerio.Cheerio<cheerio.Element> | null = null;
     
-    const foundOptions = optionKeywords.filter(keyword => 
-      description.toLowerCase().includes(keyword.toLowerCase())
-    );
+    $('ul').each((i, ul) => {
+      const items = $(ul).find('li');
+      const hasVIN = items.toArray().some(li => $(li).text().includes('Chassis:'));
+      if (hasVIN) {
+        essentialsList = $(ul);
+        return false; // Break the loop
+      }
+    });
     
-    return foundOptions.join(', ');
+    if (essentialsList) {
+      // Extract all list items from the essentials section
+      essentialsList.find('li').each((i, el) => {
+        const text = $(el).text().trim();
+        
+        // Skip non-option items using regex for better precision
+        const skipPatterns = [
+          /^Chassis:/, // VIN
+          /^\d+k?\s+Miles$/i, // Mileage (e.g., "8k Miles")
+          /^Location:/, // Location
+          /^Private Party/i, // Seller type
+          /^Dealer:/i, // Seller type
+          /^Lot #/, // Auction lot
+          /Carfax Report$/i, // Report
+          /^\d+\.\d+-Liter/, // Engine size (e.g., "4.0-Liter Flat-Six")
+          /^Six-Speed Manual Transaxle$/i, // Basic transmission
+          /^Seven-Speed PDK$/i, // Basic transmission
+          /^Five-Speed Manual$/i, // Basic transmission
+          /^Window Sticker$/i, // Documentation
+          /^Clean Carfax/i, // Report status
+          /^Total Price of/, // Original price (we'll extract this separately)
+          /^MSRP/ // Original MSRP
+        ];
+        
+        const shouldSkip = skipPatterns.some(pattern => pattern.test(text));
+        
+        if (!shouldSkip && text.length > 3 && text.length < 200) {
+          // This is likely an option or feature
+          options.push(text);
+        }
+      });
+    }
+    
+    return options.join('; ');
   }
 
   private determineGeneration(model: string, year?: number): string | undefined {

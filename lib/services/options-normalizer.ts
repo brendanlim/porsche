@@ -2,7 +2,21 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-const SYSTEM_PROMPT = `You are a Porsche vehicle expert and a data normalization specialist. Your task is to extract key vehicle options from raw text and return them as a clean, structured JSON array. Normalize common abbreviations. For example, "PDK" becomes "Porsche Doppelkupplung (PDK)", "LWBS" becomes "Lightweight Bucket Seats", and "PCCB" becomes "Porsche Ceramic Composite Brakes". Only include options, not standard features or descriptive sentences. If a color is "Paint to Sample", identify the specific color if mentioned.`;
+const SYSTEM_PROMPT = `You are a Porsche vehicle expert and a data normalization specialist. Your task is to extract key vehicle options from raw text and return them as a clean, structured JSON array. 
+
+Rules:
+1. Normalize common abbreviations (e.g., "PCCB" → "Porsche Ceramic Composite Brakes")
+2. Keep paint colors separate from Paint-to-Sample notation
+3. Include all genuine options but exclude basic components like "Limited-Slip Differential" (standard on GT3)
+4. Exclude basic specifications like engine size or transmission type
+5. Include upholstery and interior materials as options
+6. Clean up redundant text (e.g., "20" & 21" Center-Lock Wheels" → "Center-Lock Wheels")
+
+Example input from BaT:
+"Limited-Slip Differential; Paint-To-Sample Mint Green Paint; Carbon-Fiber Roof; Black Leather & Race-Tex Upholstery; 20" & 21" Center-Lock Wheels; Porsche Ceramic Composite Brakes"
+
+Example output:
+["Paint to Sample - Mint Green", "Carbon Fiber Roof", "Black Leather/Race-Tex Interior", "Center-Lock Wheels", "Porsche Ceramic Composite Brakes (PCCB)"]`;
 
 export async function normalizeOptions(rawOptionsText: string): Promise<string[]> {
   if (!rawOptionsText || rawOptionsText.trim() === '') {

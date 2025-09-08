@@ -80,7 +80,8 @@ export class BaTScraper extends BaseScraper {
     onlySold?: boolean;
   }): Promise<ScraperResult[]> {
     const results: ScraperResult[] = [];
-    const processedUrls = new Set<string>();
+    const processedUrls = new Set<string>();  // For tracking duplicates in JSON
+    const fetchedDetailUrls = new Set<string>();  // For tracking which detail pages we've fetched
     const allSoldListings: any[] = [];
     
     try {
@@ -274,14 +275,15 @@ export class BaTScraper extends BaseScraper {
       // Step 2: Fetch detail pages for all sold listings
       if (allSoldListings.length > 0) {
         console.log('\n📥 Fetching detail pages...\n');
+        console.log(`Processing ${allSoldListings.length} listings...`);
         
         for (const listing of allSoldListings) {
           const fullUrl = listing.url.startsWith('http') ? listing.url : `${this.baseUrl}${listing.url}`;
           
-          if (processedUrls.has(fullUrl)) {
+          if (fetchedDetailUrls.has(fullUrl)) {
             continue;
           }
-          processedUrls.add(fullUrl);
+          fetchedDetailUrls.add(fullUrl);
           
           console.log(`Fetching: ${fullUrl}`);
           

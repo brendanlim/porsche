@@ -144,7 +144,7 @@ export abstract class BaseScraper {
         model: normalizedModel,
         trim: normalizedTrim,
         generation: normalizedGeneration,
-        exterior_color: result.exterior_color,
+        // exterior_color: result.exterior_color, // TODO: Add after migration
         interior_color: result.interior_color,
         transmission: result.transmission,
         source: this.source as any,

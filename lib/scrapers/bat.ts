@@ -660,7 +660,7 @@ export class BaTScraper extends BaseScraper {
   }
 
   private extractExteriorColor($: cheerio.CheerioAPI): string | undefined {
-    // First try structured elements
+    // First try structured elements in BaT Essentials
     const colorText = $('.essentials-item:contains("Exterior Color")').text() ||
                      $('dt:contains("Exterior")').next('dd').text() ||
                      $('.essentials-item:contains("Color")').text();
@@ -670,32 +670,58 @@ export class BaTScraper extends BaseScraper {
       if (color) return color;
     }
     
-    // Try to extract from description
-    const description = $('.post-excerpt').text() || $('.listing-text').text() || $('p').first().text();
+    // Look in the BaT Essentials list for Paint items
+    let paintColor: string | undefined;
+    $('ul li').each((i, el) => {
+      const text = $(el).text().trim();
+      if (text.includes('Paint-To-Sample') || text.includes('Paint')) {
+        // Extract color from "Paint-To-Sample Mint Green Paint" 
+        const match = text.match(/Paint-To-Sample\s+([\w\s]+?)(?:\s+Paint)?$/i) ||
+                     text.match(/([\w\s]+?)\s+(?:Metallic\s+)?Paint$/i);
+        if (match) {
+          paintColor = match[1].trim();
+          return false;
+        }
+      }
+    });
     
-    // Pattern: "Color over Interior" 
-    const overPattern = /(\w+(?:\s+\w+)?)\s+over\s+/i;
-    const overMatch = description.match(overPattern);
-    if (overMatch) {
-      const color = overMatch[1].trim();
-      if (!['This', 'is', 'finished', 'in', 'with'].includes(color)) {
+    if (paintColor) return paintColor;
+    
+    // Try to extract from description (first 2 paragraphs)
+    const description = $('.post-excerpt').text() || 
+                       $('.listing-text').text() || 
+                       $('p').first().text() + ' ' + $('p').eq(1).text();
+    
+    // Pattern: "finished in [color] over [interior]"
+    const finishedPattern = /(?:finished|painted)\s+in\s+([\w\s]+?)(?:\s+\([A-Z0-9]+\))?\s*(?:over|with|\.|,|and)/i;
+    const finishedMatch = description.match(finishedPattern);
+    if (finishedMatch) {
+      let color = finishedMatch[1].trim();
+      // Remove "paint-to-sample" prefix if present
+      color = color.replace(/^paint-to-sample\s+/i, '');
+      // Don't return generic words
+      if (!['the', 'a', 'this'].includes(color.toLowerCase())) {
         return color;
       }
     }
     
-    // Pattern: "finished in [color]"
-    const finishedPattern = /finished\s+in\s+(?:paint-to-sample\s+)?([\w\s]+?)(?:\s+over|\s+with|\s+and|[,.])/i;
-    const finishedMatch = description.match(finishedPattern);
-    if (finishedMatch) {
-      return finishedMatch[1].trim();
+    // Pattern: "[Color] Metallic" or "[Color] over"
+    const overPattern = /([\w\s]+?(?:\s+Metallic)?)\s+over\s+/i;
+    const overMatch = description.match(overPattern);
+    if (overMatch) {
+      const color = overMatch[1].trim();
+      if (!['This', 'is', 'The', 'car'].includes(color)) {
+        return color;
+      }
     }
     
-    // Look in title
+    // Last resort: Look in title for color words
     const title = $('h1').first().text();
     const commonColors = ['Black', 'White', 'Silver', 'Gray', 'Grey', 'Blue', 'Red', 'Yellow',
-                         'Green', 'Orange', 'Brown', 'Gold', 'Mint', 'Ruby', 'Sapphire', 'Chalk'];
+                         'Green', 'Orange', 'Brown', 'Gold', 'Mint', 'Ruby', 'Sapphire', 'Chalk',
+                         'Midnight Blue', 'Guards Red', 'Speed Yellow', 'Arctic Silver'];
     for (const color of commonColors) {
-      if (title.includes(color)) return color;
+      if (title.toLowerCase().includes(color.toLowerCase())) return color;
     }
     
     return undefined;
@@ -711,10 +737,28 @@ export class BaTScraper extends BaseScraper {
       if (color) return color;
     }
     
-    // Try to extract from description
-    const description = $('.post-excerpt').text() || $('.listing-text').text() || $('p').first().text();
+    // Look in BaT Essentials list for upholstery items
+    let interiorColor: string | undefined;
+    $('ul li').each((i, el) => {
+      const text = $(el).text().trim();
+      if (text.includes('Upholstery') || text.includes('Leather') || text.includes('Race-Tex')) {
+        // Extract color from "Black Leather & Race-Tex Upholstery"
+        const match = text.match(/^([\w\s]+?)\s+(?:Leather|Race-Tex|Upholstery)/i);
+        if (match) {
+          interiorColor = match[1].trim();
+          return false;
+        }
+      }
+    });
     
-    // Pattern: "over [interior]"
+    if (interiorColor) return interiorColor;
+    
+    // Try to extract from description (first 2 paragraphs)
+    const description = $('.post-excerpt').text() || 
+                       $('.listing-text').text() || 
+                       $('p').first().text() + ' ' + $('p').eq(1).text();
+    
+    // Pattern: "over [interior color] leather/upholstery"
     const overPattern = /over\s+([\w\s]+?)(?:\s+leather|\s+upholstery|\s+Race-Tex|\s+interior|[,.])/i;
     const overMatch = description.match(overPattern);
     if (overMatch) {
@@ -724,12 +768,12 @@ export class BaTScraper extends BaseScraper {
       }
     }
     
-    // Pattern: "[color] interior/leather"
-    const interiorPattern = /(\w+(?:\s+\w+)?)\s+(?:leather|interior|upholstery|Race-Tex)/i;
+    // Pattern: "[color] leather/interior"
+    const interiorPattern = /([\w\s]+?)\s+(?:leather|interior|upholstery|Race-Tex)/i;
     const intMatch = description.match(interiorPattern);
     if (intMatch) {
       const color = intMatch[1].trim();
-      if (!['the', 'with', 'and', 'in', 'over'].includes(color.toLowerCase())) {
+      if (!['the', 'with', 'and', 'in', 'over', 'features'].includes(color.toLowerCase())) {
         return color;
       }
     }

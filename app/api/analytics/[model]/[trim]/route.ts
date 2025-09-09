@@ -271,12 +271,12 @@ export async function GET(
       );
       const avgPrice = inRange.length > 0
         ? inRange.reduce((sum, l) => sum + l.price, 0) / inRange.length
-        : averagePrice * (1 - (range.min / 100000)); // Estimate based on mileage
+        : 0; // No fake data - return 0 if no real data
       
       return {
         range: range.range,
         count: inRange.length,
-        avgPrice: inRange.length > 0 ? avgPrice : 0
+        avgPrice: avgPrice
       };
     });
 

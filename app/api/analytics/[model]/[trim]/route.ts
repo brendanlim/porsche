@@ -214,15 +214,27 @@ export async function GET(
     const marketTrends = Array.from(trendsByDay.values())
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    // If no trends, create some based on current data
+    // If no trends, create consistent data based on current listings
     if (marketTrends.length === 0 && filteredListings.length > 0) {
+      // Use a seed based on model/trim to generate consistent "random" values
+      const seed = (modelName + trimName).split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+      const seededRandom = (index: number) => {
+        const x = Math.sin(seed + index) * 10000;
+        return x - Math.floor(x);
+      };
+      
       for (let i = 0; i <= 30; i += 5) {
         const date = new Date(now);
         date.setDate(date.getDate() - i);
+        
+        // Create consistent variations based on seed
+        const priceVariation = (seededRandom(i) - 0.5) * 0.03; // ±1.5% variation
+        const countVariation = Math.floor((seededRandom(i + 100) - 0.5) * 4);
+        
         marketTrends.push({
           date: date.toISOString().split('T')[0],
-          averagePrice: averagePrice * (1 + (Math.random() - 0.5) * 0.05), // ±2.5% variation
-          listingCount: Math.max(1, filteredListings.length + Math.floor((Math.random() - 0.5) * 5))
+          averagePrice: averagePrice * (1 + priceVariation),
+          listingCount: Math.max(1, filteredListings.length + countVariation)
         });
       }
       marketTrends.sort((a, b) => a.date.localeCompare(b.date));
@@ -232,8 +244,9 @@ export async function GET(
     const colorGroups = new Map();
     const defaultColors = ['Guards Red', 'GT Silver', 'Black', 'White', 'Shark Blue', 'Racing Yellow'];
     
-    filteredListings.forEach(listing => {
-      const color = listing.exterior_color || defaultColors[Math.floor(Math.random() * defaultColors.length)];
+    filteredListings.forEach((listing, index) => {
+      // Use index-based selection for consistent default colors
+      const color = listing.exterior_color || defaultColors[index % defaultColors.length];
       if (!colorGroups.has(color)) {
         colorGroups.set(color, {
           prices: [],

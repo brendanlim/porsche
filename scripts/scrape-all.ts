@@ -9,7 +9,12 @@ async function main() {
   // Parse command line arguments
   const args = process.argv.slice(2);
   const sourceArg = args.find(arg => arg.startsWith('--source='));
+  const modelArg = args.find(arg => arg.startsWith('--model='));
+  const trimArg = args.find(arg => arg.startsWith('--trim='));
+  
   const source = sourceArg ? sourceArg.split('=')[1].toLowerCase() : null;
+  const model = modelArg ? modelArg.split('=')[1].toLowerCase() : null;
+  const trim = trimArg ? trimArg.split('=')[1].toLowerCase() : null;
   
   // Available sources
   const availableSources = ['bat', 'classic', 'carsandbids', 'edmunds', 'cars'];
@@ -17,7 +22,7 @@ async function main() {
   if (source && !availableSources.includes(source)) {
     console.error(`Invalid source: ${source}`);
     console.error(`Available sources: ${availableSources.join(', ')}`);
-    console.error('Usage: npx tsx scripts/scrape-all.ts [--source=bat|classic|carsandbids|edmunds|cars]');
+    console.error('Usage: npx tsx scripts/scrape-all.ts [--source=bat|classic|carsandbids|edmunds|cars] [--model=911|718-cayman|...] [--trim=gt3|gt4-rs|...]');
     process.exit(1);
   }
   
@@ -27,6 +32,12 @@ async function main() {
   } else {
     console.log('COMPREHENSIVE PORSCHE DATA SCRAPING - ALL SOURCES');
     console.log('Sources: BaT, Classic.com, Cars.com, Edmunds, Cars and Bids');
+  }
+  if (model) {
+    console.log(`Model filter: ${model}`);
+  }
+  if (trim) {
+    console.log(`Trim filter: ${trim}`);
   }
   console.log('='.repeat(80));
   console.log('Golden Rule: Storage is cheap, scraping is not');
@@ -61,7 +72,9 @@ async function main() {
       // Use Puppeteer version for BaT to handle dynamic loading
       const batScraper = new BaTScraperPuppeteer();
       const batResults = await batScraper.scrapeListings({
-        maxPages: 5,  // Process 5 model pages (out of 34 total)
+        model: model || undefined,
+        trim: trim || undefined,
+        maxPages: model && trim ? 1 : 5,  // Just 1 page for specific model/trim
         onlySold: true
       });
       results.bat = batResults.length;
@@ -79,7 +92,9 @@ async function main() {
     try {
       const classicScraper = new ClassicScraper();
       const classicResults = await classicScraper.scrapeListings({
-        maxPages: 5,
+        model: model || undefined,
+        trim: trim || undefined,
+        maxPages: model && trim ? 2 : 5,
         onlySold: true
       });
       results.classic = classicResults.length;
@@ -97,7 +112,9 @@ async function main() {
     try {
       const cabScraper = new CarsAndBidsScraper();
       const cabResults = await cabScraper.scrapeListings({
-        maxPages: 5,
+        model: model || undefined,
+        trim: trim || undefined,
+        maxPages: model && trim ? 2 : 5,
         onlySold: true
       });
       results.carsAndBids = cabResults.length;
@@ -115,7 +132,9 @@ async function main() {
     try {
       const edmundsScraper = new EdmundsScraper();
       const edmundsResults = await edmundsScraper.scrapeListings({
-        maxPages: 5,
+        model: model || undefined,
+        trim: trim || undefined,
+        maxPages: model && trim ? 2 : 5,
         onlySold: true
       });
       results.edmunds = edmundsResults.length;
@@ -133,7 +152,9 @@ async function main() {
     try {
       const carsScraper = new CarsScraper();
       const carsResults = await carsScraper.scrapeListings({
-        maxPages: 5,
+        model: model || undefined,
+        trim: trim || undefined,
+        maxPages: model && trim ? 2 : 5,
         onlySold: true
       });
       results.cars = carsResults.length;

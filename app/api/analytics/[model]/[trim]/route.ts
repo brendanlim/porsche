@@ -409,19 +409,42 @@ export async function GET(
     // Price vs Mileage scatter data - IMPORTANT!
     const priceVsMileage = filteredListings
       .filter(l => l.price > 0 && l.mileage > 0)
-      .map(l => ({
-        mileage: l.mileage,
-        price: l.price,
-        year: l.year || 0,
-        color: l.exterior_color || 'Unknown',
-        generation: getGeneration(l.year || 0, modelName)
-      }));
+      .map(l => {
+        // Default year based on trim for models without year data
+        let defaultYear = 2023;
+        if (trimName.toLowerCase().includes('gt4 rs')) {
+          defaultYear = 2022; // GT4 RS started in 2022
+        } else if (trimName.toLowerCase().includes('gt3 rs')) {
+          defaultYear = 2023; // Latest GT3 RS
+        }
+        
+        const year = l.year || defaultYear;
+        return {
+          mileage: l.mileage,
+          price: l.price,
+          year: year,
+          color: l.exterior_color || 'Unknown',
+          generation: getGeneration(year, modelName)
+        };
+      });
 
     // If not enough data points, add some synthetic ones based on the distribution
     if (priceVsMileage.length < 10) {
       const syntheticPoints = [];
       for (let i = 0; i < 15; i++) {
-        const year = 2020 + Math.floor(Math.random() * 5);
+        // Adjust year range based on model
+        let yearStart = 2020;
+        let yearRange = 5;
+        
+        if (trimName.toLowerCase().includes('gt4 rs')) {
+          yearStart = 2022; // GT4 RS production started in 2022
+          yearRange = 3;    // 2022-2024
+        } else if (trimName.toLowerCase().includes('gt3 rs')) {
+          yearStart = 2022; // Latest GT3 RS gen
+          yearRange = 3;
+        }
+        
+        const year = yearStart + Math.floor(Math.random() * yearRange);
         const mileage = Math.floor(Math.random() * 30000) + 1000;
         const basePrice = getMSRP(trimName, year);
         const depreciationFactor = 1 - (mileage / 100000) * 0.3; // 30% depreciation per 100k miles

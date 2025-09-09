@@ -34,7 +34,7 @@ const BAT_MODELS: BaTModel[] = [
   
   // 718/Cayman/Boxster Models
   { name: '718 Cayman', slug: '718-cayman', trim: 'GT4', searchUrl: 'https://bringatrailer.com/porsche/cayman-gt4/' },
-  { name: '718 Cayman', slug: '718-cayman', trim: 'GT4 RS', searchUrl: 'https://bringatrailer.com/porsche/718-cayman-gt4-rs/' },
+  { name: '718 Cayman', slug: '718-cayman', trim: 'GT4 RS', searchUrl: 'https://bringatrailer.com/porsche/cayman-gt4/' },  // GT4 RS included in GT4 page
   { name: '718 Cayman', slug: '718-cayman', trim: 'GTS', searchUrl: 'https://bringatrailer.com/porsche/718-cayman-gts/' },
   { name: '718 Cayman', slug: '718-cayman', trim: 'GTS 4.0', searchUrl: 'https://bringatrailer.com/porsche/718-cayman-gts-4-0/' },
   { name: '718 Cayman', slug: '718-cayman', trim: 'S', searchUrl: 'https://bringatrailer.com/porsche/718-cayman-s/' },

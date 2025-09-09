@@ -239,8 +239,14 @@ export class BaTScraperPuppeteer extends BaseScraper {
             // Parse the detail page for full data
             const parsed = await this.parseListing(listingData.html, listing.url);
             if (parsed) {
-              // Merge the parsed data with the listing
+              // Merge the parsed data with the listing, but preserve the price we already have
+              const existingPrice = listing.price;
               Object.assign(listing, parsed);
+              
+              // If we didn't find a price in the detail page, use the one from search results
+              if ((!parsed.price || parsed.price === 0) && existingPrice > 0) {
+                listing.price = existingPrice;
+              }
               
               // Save to database
               await this.saveListing(listing);
@@ -271,10 +277,36 @@ export class BaTScraperPuppeteer extends BaseScraper {
     let price = 0;
     let status: 'sold' | 'active' = 'active';
     
-    const bodyText = $('body').text();
-    const soldMatch = bodyText.match(/Sold for \$([0-9,]+)/);
-    if (soldMatch) {
-      price = parseInt(soldMatch[1].replace(/,/g, ''));
+    // Try multiple selectors for price
+    const priceSelectors = [
+      '.listing-available-info',  // BaT's main price display
+      '.sold-for',
+      '.final-price',
+      '.winning-bid'
+    ];
+    
+    let priceText = '';
+    for (const selector of priceSelectors) {
+      const element = $(selector).first();
+      if (element.length > 0) {
+        priceText = element.text();
+        break;
+      }
+    }
+    
+    // If no specific element, search the body text
+    if (!priceText) {
+      const bodyText = $('body').text();
+      const soldMatch = bodyText.match(/Sold for (?:USD\s*)?\$([0-9,]+)/i);
+      if (soldMatch) {
+        priceText = soldMatch[0];
+      }
+    }
+    
+    // Extract price from text
+    const priceMatch = priceText.match(/\$([0-9,]+)/);
+    if (priceMatch) {
+      price = parseInt(priceMatch[1].replace(/,/g, ''));
       status = 'sold';
     }
     

@@ -147,7 +147,7 @@ export class BrightDataPuppeteer {
       const soldListings = await page.evaluate(() => {
         const listings: any[] = [];
         
-        // BaT uses .content divs for each listing
+        // BaT structure: <a class="listing-card"><div class="content">...</div></a>
         const items = document.querySelectorAll('.content');
         console.log(`Found ${items.length} .content items`);
         
@@ -160,19 +160,37 @@ export class BrightDataPuppeteer {
           
           // Check if it's sold (not just bid to)
           if (resultsText.includes('Sold for')) {
-            // Get the link from the h3 a tag
-            const linkEl = item.querySelector('h3 a');
-            if (!linkEl) return;
+            // The parent <a> tag contains the URL
+            const parentLink = item.closest('a.listing-card');
+            // The title is in the h3 inside .content
+            const titleEl = item.querySelector('h3');
             
-            const url = linkEl.href;
-            const title = linkEl.textContent?.trim() || '';
+            if (!parentLink || !titleEl) return;
+            
+            const url = parentLink.href;
+            const title = titleEl.textContent?.trim() || '';
             
             // Extract price from "Sold for USD $XXX"
             const priceMatch = resultsText.match(/\$([0-9,]+)/);
             const price = priceMatch ? parseInt(priceMatch[1].replace(/,/g, '')) : 0;
             
-            // Skip if price too low (not a real car)
+            // Skip if price too low (not a real car) or if it's parts/accessories
             if (price < 15000) return;
+            
+            // Skip non-car items (wheels, seats, tools, etc.)
+            const titleLower = title.toLowerCase();
+            if (titleLower.includes('wheel') || titleLower.includes('seat') || 
+                titleLower.includes('tool') || titleLower.includes('kit') ||
+                titleLower.includes('emblem') || titleLower.includes('manual')) {
+              // But don't skip if it's actually a car (e.g., "1985 Porsche 911 with Tool Kit")
+              // Only skip if Porsche model number is NOT in the title
+              if (!titleLower.includes('911') && !titleLower.includes('718') && 
+                  !titleLower.includes('boxster') && !titleLower.includes('cayman') &&
+                  !titleLower.includes('gt3') && !titleLower.includes('gt2') &&
+                  !titleLower.includes('gt4') && !titleLower.includes('turbo')) {
+                return;
+              }
+            }
             
             listings.push({
               url: url,

@@ -6,16 +6,36 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 // Delay imports until after dotenv is loaded
 
 async function main() {
+  // Parse command line arguments
+  const args = process.argv.slice(2);
+  const sourceArg = args.find(arg => arg.startsWith('--source='));
+  const source = sourceArg ? sourceArg.split('=')[1].toLowerCase() : null;
+  
+  // Available sources
+  const availableSources = ['bat', 'classic', 'carsandbids', 'edmunds', 'cars'];
+  
+  if (source && !availableSources.includes(source)) {
+    console.error(`Invalid source: ${source}`);
+    console.error(`Available sources: ${availableSources.join(', ')}`);
+    console.error('Usage: npx tsx scripts/scrape-all.ts [--source=bat|classic|carsandbids|edmunds|cars]');
+    process.exit(1);
+  }
+  
   console.log('\n' + '='.repeat(80));
-  console.log('COMPREHENSIVE PORSCHE DATA SCRAPING - ALL SOURCES');
+  if (source) {
+    console.log(`SCRAPING PORSCHE DATA - SOURCE: ${source.toUpperCase()}`);
+  } else {
+    console.log('COMPREHENSIVE PORSCHE DATA SCRAPING - ALL SOURCES');
+    console.log('Sources: BaT, Classic.com, Cars.com, Edmunds, Cars and Bids');
+  }
   console.log('='.repeat(80));
-  console.log('Sources: BaT, Classic.com, Cars.com, Edmunds, Cars and Bids');
   console.log('Golden Rule: Storage is cheap, scraping is not');
   console.log('Organization: source/model/trim/date/type/');
   console.log('='.repeat(80) + '\n');
   
   // Import scrapers after dotenv is loaded
   const { BaTScraper } = await import('../lib/scrapers/bat');
+  const { BaTScraperPuppeteer } = await import('../lib/scrapers/bat-puppeteer');
   const { ClassicScraper } = await import('../lib/scrapers/classic');
   const { CarsAndBidsScraper } = await import('../lib/scrapers/carsandbids');
   const { EdmundsScraper } = await import('../lib/scrapers/edmunds');
@@ -30,84 +50,97 @@ async function main() {
     total: 0
   };
 
-  // Run Bring a Trailer scraper (PRIORITY - best data)
-  console.log('='.repeat(50));
-  console.log('1. Scraping Bring a Trailer (Priority Source)...');
-  console.log('='.repeat(50));
-  try {
-    const batScraper = new BaTScraper();
-    const batResults = await batScraper.scrapeListings({
-      maxPages: 10,  // More pages for BaT as it's our best source
-      onlySold: true
-    });
-    results.bat = batResults.length;
-    console.log(`✅ Bring a Trailer: ${batResults.length} sold listings\n`);
-  } catch (error) {
-    console.error('❌ Bring a Trailer failed:', error);
+  // Run only specific source if specified
+  if (source === 'bat' || !source) {
+    // Run Bring a Trailer scraper (PRIORITY - best data)
+    console.log('='.repeat(50));
+    console.log('1. Scraping Bring a Trailer (Priority Source)...');
+    console.log('   Using Puppeteer to click "Show More" button');
+    console.log('='.repeat(50));
+    try {
+      // Use Puppeteer version for BaT to handle dynamic loading
+      const batScraper = new BaTScraperPuppeteer();
+      const batResults = await batScraper.scrapeListings({
+        maxPages: 5,  // Process 5 model pages (out of 34 total)
+        onlySold: true
+      });
+      results.bat = batResults.length;
+      console.log(`✅ Bring a Trailer: ${batResults.length} sold listings\n`);
+    } catch (error) {
+      console.error('❌ Bring a Trailer failed:', error);
+    }
   }
 
-  // Run Classic.com scraper
-  console.log('='.repeat(50));
-  console.log('2. Scraping Classic.com...');
-  console.log('='.repeat(50));
-  try {
-    const classicScraper = new ClassicScraper();
-    const classicResults = await classicScraper.scrapeListings({
-      maxPages: 5,
-      onlySold: true
-    });
-    results.classic = classicResults.length;
-    console.log(`✅ Classic.com: ${classicResults.length} sold listings\n`);
-  } catch (error) {
-    console.error('❌ Classic.com failed:', error);
+  if (source === 'classic' || !source) {
+    // Run Classic.com scraper
+    console.log('='.repeat(50));
+    console.log('2. Scraping Classic.com...');
+    console.log('='.repeat(50));
+    try {
+      const classicScraper = new ClassicScraper();
+      const classicResults = await classicScraper.scrapeListings({
+        maxPages: 5,
+        onlySold: true
+      });
+      results.classic = classicResults.length;
+      console.log(`✅ Classic.com: ${classicResults.length} sold listings\n`);
+    } catch (error) {
+      console.error('❌ Classic.com failed:', error);
+    }
   }
 
-  // Run Cars and Bids scraper
-  console.log('='.repeat(50));
-  console.log('3. Scraping Cars and Bids...');
-  console.log('='.repeat(50));
-  try {
-    const cabScraper = new CarsAndBidsScraper();
-    const cabResults = await cabScraper.scrapeListings({
-      maxPages: 5,
-      onlySold: true
-    });
-    results.carsAndBids = cabResults.length;
-    console.log(`✅ Cars and Bids: ${cabResults.length} sold listings\n`);
-  } catch (error) {
-    console.error('❌ Cars and Bids failed:', error);
+  if (source === 'carsandbids' || !source) {
+    // Run Cars and Bids scraper
+    console.log('='.repeat(50));
+    console.log('3. Scraping Cars and Bids...');
+    console.log('='.repeat(50));
+    try {
+      const cabScraper = new CarsAndBidsScraper();
+      const cabResults = await cabScraper.scrapeListings({
+        maxPages: 5,
+        onlySold: true
+      });
+      results.carsAndBids = cabResults.length;
+      console.log(`✅ Cars and Bids: ${cabResults.length} sold listings\n`);
+    } catch (error) {
+      console.error('❌ Cars and Bids failed:', error);
+    }
   }
 
-  // Run Edmunds scraper
-  console.log('='.repeat(50));
-  console.log('4. Scraping Edmunds...');
-  console.log('='.repeat(50));
-  try {
-    const edmundsScraper = new EdmundsScraper();
-    const edmundsResults = await edmundsScraper.scrapeListings({
-      maxPages: 5,
-      onlySold: true
-    });
-    results.edmunds = edmundsResults.length;
-    console.log(`✅ Edmunds: ${edmundsResults.length} sold listings\n`);
-  } catch (error) {
-    console.error('❌ Edmunds failed:', error);
+  if (source === 'edmunds' || !source) {
+    // Run Edmunds scraper
+    console.log('='.repeat(50));
+    console.log('4. Scraping Edmunds...');
+    console.log('='.repeat(50));
+    try {
+      const edmundsScraper = new EdmundsScraper();
+      const edmundsResults = await edmundsScraper.scrapeListings({
+        maxPages: 5,
+        onlySold: true
+      });
+      results.edmunds = edmundsResults.length;
+      console.log(`✅ Edmunds: ${edmundsResults.length} sold listings\n`);
+    } catch (error) {
+      console.error('❌ Edmunds failed:', error);
+    }
   }
 
-  // Run Cars.com scraper
-  console.log('='.repeat(50));
-  console.log('5. Scraping Cars.com...');
-  console.log('='.repeat(50));
-  try {
-    const carsScraper = new CarsScraper();
-    const carsResults = await carsScraper.scrapeListings({
-      maxPages: 5,
-      onlySold: true
-    });
-    results.cars = carsResults.length;
-    console.log(`✅ Cars.com: ${carsResults.length} sold listings\n`);
-  } catch (error) {
-    console.error('❌ Cars.com failed:', error);
+  if (source === 'cars' || !source) {
+    // Run Cars.com scraper
+    console.log('='.repeat(50));
+    console.log('5. Scraping Cars.com...');
+    console.log('='.repeat(50));
+    try {
+      const carsScraper = new CarsScraper();
+      const carsResults = await carsScraper.scrapeListings({
+        maxPages: 5,
+        onlySold: true
+      });
+      results.cars = carsResults.length;
+      console.log(`✅ Cars.com: ${carsResults.length} sold listings\n`);
+    } catch (error) {
+      console.error('❌ Cars.com failed:', error);
+    }
   }
 
   // Summary

@@ -1,5 +1,12 @@
 # PorscheTrends Development Rules
 
+## IMPORTANT: Conversation Notes
+**Check the `/notes` folder for detailed conversation history**
+- Files are named `YYYYMMDD_task.md` (e.g., `20250907_scraping.md`)
+- Contains what we tried, what worked, what failed, and lessons learned
+- Update these notes periodically during long conversations
+- Essential for resuming conversations and understanding context
+
 ## CRITICAL: Multi-Source Scraping
 **THE SITE RELIES ON SCRAPING FROM ALL SOURCES, NOT JUST BAT**
 - We need data from: Bring a Trailer, Classic.com, Cars.com, Edmunds, Cars and Bids, Autotrader, CarGurus

@@ -127,6 +127,22 @@ export default function TrimAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedGeneration, setSelectedGeneration] = useState<string>('all');
   const [timeRange, setTimeRange] = useState('90d');
+  const [chartWidth, setChartWidth] = useState(800);
+  
+  useEffect(() => {
+    // Set chart width to 90% of available container width
+    const handleResize = () => {
+      // Get actual container width, accounting for padding and margins
+      const containerWidth = window.innerWidth > 1536 ? 1536 : window.innerWidth; // max-w-7xl is 1536px
+      const padding = 96; // Account for container and card padding
+      const availableWidth = containerWidth - padding;
+      // Set to 90% of available width
+      setChartWidth(Math.max(600, Math.floor(availableWidth * 0.9)));
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const modelDisplay = model.replace('-', ' ').toUpperCase();
   const trimDisplay = trim.replace(/-/g, ' ').toUpperCase();
@@ -258,8 +274,15 @@ export default function TrimAnalyticsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height="400">
-              <ScatterChart margin={{ top: 20, right: 20, bottom: 60, left: 20 }}>
+            {/* Chart container centered within card */}
+            <div style={{ width: '100%', height: 350, display: 'flex', justifyContent: 'center' }}>
+              {analytics.priceVsMileage && analytics.priceVsMileage.length > 0 ? (
+                <ScatterChart 
+                  width={chartWidth}
+                  height={350}
+                  margin={{ top: 20, right: 20, bottom: 60, left: 20 }}
+                  data={analytics.priceVsMileage}
+                >
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis 
                   dataKey="mileage" 
@@ -269,22 +292,19 @@ export default function TrimAnalyticsPage() {
                   type="number"
                   domain={['dataMin', 'dataMax']}
                   tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                  tick={{ fontSize: 11 }}
                 />
                 <YAxis 
                   dataKey="price" 
                   stroke="#6b7280"
                   name="Price"
                   tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                  tick={{ fontSize: 11 }}
                 />
                 <Tooltip 
                   cursor={{ strokeDasharray: '3 3' }}
-                  formatter={(value: any, name: string) => {
-                    if (name === 'price') return formatPrice(value);
-                    if (name === 'mileage') return formatMileage(value);
-                    return value;
-                  }}
                   content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
+                    if (active && payload && payload.length > 0) {
                       const data = payload[0].payload;
                       return (
                         <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-sm">
@@ -299,8 +319,6 @@ export default function TrimAnalyticsPage() {
                   }}
                 />
                 <Scatter 
-                  name="Listings" 
-                  data={analytics.priceVsMileage || []} 
                   fill="#3b82f6"
                 >
                   {(analytics.priceVsMileage || []).map((entry, index) => (
@@ -316,25 +334,58 @@ export default function TrimAnalyticsPage() {
                   ))}
                 </Scatter>
               </ScatterChart>
-            </ResponsiveContainer>
-            <div className="mt-4 flex gap-4 justify-center text-sm">
-              <span className="flex items-center gap-1">
-                <div className="w-3 h-3 bg-green-500 rounded-full" />
-                2024+
-              </span>
-              <span className="flex items-center gap-1">
-                <div className="w-3 h-3 bg-blue-500 rounded-full" />
-                2022-2023
-              </span>
-              <span className="flex items-center gap-1">
-                <div className="w-3 h-3 bg-purple-500 rounded-full" />
-                2020-2021
-              </span>
-              <span className="flex items-center gap-1">
-                <div className="w-3 h-3 bg-gray-500 rounded-full" />
-                Pre-2020
-              </span>
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  No data to display
+                </div>
+              )}
             </div>
+            {/* Year color legend */}
+            {analytics.priceVsMileage && analytics.priceVsMileage.length > 0 && (
+              <div className="mt-4 flex gap-4 justify-center text-sm">
+                {(() => {
+                  const years = analytics.priceVsMileage.map(d => d.year);
+                  const minYear = Math.min(...years);
+                  const maxYear = Math.max(...years);
+                  const showLegend = [];
+                  
+                  if (maxYear >= 2024) {
+                    showLegend.push(
+                      <span key="2024" className="flex items-center gap-1">
+                        <div className="w-3 h-3 bg-green-500 rounded-full" />
+                        2024+
+                      </span>
+                    );
+                  }
+                  if (years.some(y => y >= 2022 && y < 2024)) {
+                    showLegend.push(
+                      <span key="2022" className="flex items-center gap-1">
+                        <div className="w-3 h-3 bg-blue-500 rounded-full" />
+                        2022-2023
+                      </span>
+                    );
+                  }
+                  if (years.some(y => y >= 2020 && y < 2022)) {
+                    showLegend.push(
+                      <span key="2020" className="flex items-center gap-1">
+                        <div className="w-3 h-3 bg-purple-500 rounded-full" />
+                        2020-2021
+                      </span>
+                    );
+                  }
+                  if (minYear < 2020) {
+                    showLegend.push(
+                      <span key="pre2020" className="flex items-center gap-1">
+                        <div className="w-3 h-3 bg-gray-500 rounded-full" />
+                        Pre-2020
+                      </span>
+                    );
+                  }
+                  
+                  return showLegend;
+                })()}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -347,12 +398,13 @@ export default function TrimAnalyticsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height="400">
-              <LineChart data={analytics.marketTrends}>
+            {analytics.marketTrends && analytics.marketTrends.length > 0 ? (
+              <div style={{ width: '100%', height: 350, display: 'flex', justifyContent: 'center' }}>
+                <LineChart width={chartWidth} height={350} data={analytics.marketTrends}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="date" stroke="#6b7280" />
-                <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" />
-                <YAxis yAxisId="right" orientation="right" stroke="#10b981" />
+                <XAxis dataKey="date" stroke="#6b7280" tick={{ fontSize: 11 }} />
+                <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" tick={{ fontSize: 11 }} />
+                <YAxis yAxisId="right" orientation="right" stroke="#10b981" tick={{ fontSize: 11 }} />
                 <Tooltip 
                   formatter={(value: any, name: string) => {
                     if (name === 'Average Price') return formatPrice(value);
@@ -360,11 +412,16 @@ export default function TrimAnalyticsPage() {
                   }}
                   contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
                 />
-                <Legend />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Line yAxisId="left" type="monotone" dataKey="averagePrice" stroke="#3b82f6" name="Average Price" strokeWidth={2} dot={false} />
                 <Line yAxisId="right" type="monotone" dataKey="listingCount" stroke="#10b981" name="Listings" strokeWidth={2} dot={false} />
               </LineChart>
-            </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-[350px] text-gray-500">
+                No market trend data
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -377,12 +434,12 @@ export default function TrimAnalyticsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height="400">
-              <BarChart data={analytics.depreciationByYear}>
+            <div style={{ width: '100%', height: 350, display: 'flex', justifyContent: 'center' }}>
+              <BarChart width={chartWidth} height={350} data={analytics.depreciationByYear}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="year" stroke="#6b7280" />
-                <YAxis yAxisId="left" orientation="left" stroke="#8b5cf6" />
-                <YAxis yAxisId="right" orientation="right" stroke="#f59e0b" />
+                <XAxis dataKey="year" stroke="#6b7280" tick={{ fontSize: 11 }} />
+                <YAxis yAxisId="left" orientation="left" stroke="#8b5cf6" tick={{ fontSize: 11 }} />
+                <YAxis yAxisId="right" orientation="right" stroke="#f59e0b" tick={{ fontSize: 11 }} />
                 <Tooltip 
                   formatter={(value: any, name: string) => {
                     if (name === 'Average Price') return formatPrice(value);
@@ -391,16 +448,16 @@ export default function TrimAnalyticsPage() {
                   }}
                   contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
                 />
-                <Legend />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar yAxisId="left" dataKey="avgPrice" fill="#8b5cf6" name="Average Price" />
                 <Bar yAxisId="right" dataKey="costPer1000Mi" fill="#f59e0b" name="Cost/1000mi" />
               </BarChart>
-            </ResponsiveContainer>
+            </div>
             
             {selectedGeneration === 'all' && analytics.generationComparison && (
               <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                {analytics.generationComparison.map((gen) => (
-                  <div key={gen.generation} className="p-4 bg-gray-50 rounded-lg">
+                {analytics.generationComparison.map((gen, index) => (
+                  <div key={`gen-compare-${index}`} className="p-4 bg-gray-50 rounded-lg">
                     <h4 className="font-semibold text-gray-900">{gen.generation}</h4>
                     <div className="mt-2 space-y-1 text-sm">
                       <div className="flex justify-between">
@@ -434,11 +491,11 @@ export default function TrimAnalyticsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height="300">
-              <BarChart data={analytics.colorAnalysis}>
+            <div style={{ width: '100%', height: 260, display: 'flex', justifyContent: 'center' }}>
+              <BarChart width={chartWidth} height={260} data={analytics.colorAnalysis}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="color" stroke="#6b7280" />
-                <YAxis stroke="#6b7280" />
+                <XAxis dataKey="color" stroke="#6b7280" tick={{ fontSize: 11 }} angle={-45} textAnchor="end" height={80} />
+                <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} />
                 <Tooltip 
                   formatter={(value: any, name: string) => {
                     if (name === 'Premium') return `${value}%`;
@@ -446,14 +503,14 @@ export default function TrimAnalyticsPage() {
                   }}
                   contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
                 />
-                <Legend />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar dataKey="premiumPercent" fill="#fbbf24" name="Premium %" />
               </BarChart>
-            </ResponsiveContainer>
+            </div>
             
             <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3">
-              {analytics.colorAnalysis.slice(0, 6).map((color) => (
-                <div key={color.color} className={`p-3 rounded-lg border ${
+              {analytics.colorAnalysis.slice(0, 6).map((color, index) => (
+                <div key={`color-${index}`} className={`p-3 rounded-lg border ${
                   color.premiumPercent > 5 ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
                 }`}>
                   <div className="flex justify-between items-center">
@@ -611,15 +668,15 @@ export default function TrimAnalyticsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height="300">
-              <AreaChart data={analytics.mileageDistribution}>
+            <div style={{ width: '100%', height: 260, display: 'flex', justifyContent: 'center' }}>
+              <AreaChart width={chartWidth} height={260} data={analytics.mileageDistribution}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="range" stroke="#6b7280" />
-                <YAxis stroke="#6b7280" />
+                <XAxis dataKey="range" stroke="#6b7280" tick={{ fontSize: 11 }} />
+                <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} />
                 <Tooltip formatter={(value: any) => formatPrice(value)} contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }} />
                 <Area type="monotone" dataKey="avgPrice" stroke="#3b82f6" fill="#93c5fd" name="Average Price" />
               </AreaChart>
-            </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
 
@@ -634,7 +691,7 @@ export default function TrimAnalyticsPage() {
           <CardContent>
             <div className="space-y-3">
               {analytics.topListings.slice(0, 5).map((listing, index) => (
-                <div key={listing.vin} className={`flex items-center justify-between p-4 rounded-lg border ${
+                <div key={`top-listing-${index}`} className={`flex items-center justify-between p-4 rounded-lg border ${
                   index === 0 ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50 border-gray-200'
                 }`}>
                   <div className="flex items-center space-x-4">

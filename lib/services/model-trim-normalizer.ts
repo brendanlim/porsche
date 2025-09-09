@@ -40,14 +40,45 @@ export async function normalizeModelTrim(title: string): Promise<ModelTrimResult
     try {
       model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
       const prompt = `${SYSTEM_PROMPT}\n\nExtract model and trim from this title:\n"${title}"`;
-      result = await model.generateContent(prompt);
-    } catch (error: any) {
-      if (error.status === 429) {
-        // Quota exceeded, use fallback parsing
-        console.warn('Gemini quota exceeded, using fallback parsing for:', title);
-        return fallbackParsing(title);
+      
+      // Retry logic for overload errors
+      let retries = 3;
+      let lastError;
+      
+      while (retries > 0) {
+        try {
+          result = await model.generateContent(prompt);
+          break; // Success, exit loop
+        } catch (error: any) {
+          lastError = error;
+          
+          if (error.status === 429) {
+            // Quota exceeded, use fallback parsing immediately
+            console.warn('Gemini quota exceeded, using fallback parsing for:', title);
+            return fallbackParsing(title);
+          } else if (error.status === 503 || error.message?.includes('overloaded')) {
+            // Model overloaded, retry with exponential backoff
+            retries--;
+            if (retries > 0) {
+              const delay = (3 - retries) * 2000; // 2s, 4s, 6s
+              console.log(`Gemini overloaded, retrying in ${delay/1000}s... (${retries} retries left)`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+              console.warn('Gemini overloaded after retries, using fallback parsing for:', title);
+              return fallbackParsing(title);
+            }
+          } else {
+            throw error;
+          }
+        }
       }
-      throw error;
+      
+      if (!result && lastError) {
+        throw lastError;
+      }
+    } catch (error: any) {
+      console.warn('Gemini error, using fallback parsing:', error.message);
+      return fallbackParsing(title);
     }
     
     const response = await result.response;

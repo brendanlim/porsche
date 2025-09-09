@@ -114,6 +114,25 @@ export async function GET(
     // Use the listings directly
     let filteredListings = allListings || [];
 
+    // Filter out parts and race cars based on unrealistic prices
+    // GT3 minimum should be around $100k for street cars
+    // GT3 RS minimum should be around $220k
+    // GT4 RS minimum should be around $220k
+    const minPrices: Record<string, number> = {
+      'GT3': 100000,
+      'GT3 RS': 220000,
+      'GT4 RS': 220000,
+      'GT2': 150000,
+      'GT2 RS': 250000,
+      'Turbo': 80000,
+      'Turbo S': 100000,
+    };
+    
+    const minPrice = minPrices[trimName] || 0;
+    if (minPrice > 0) {
+      filteredListings = filteredListings.filter(l => l.price >= minPrice);
+    }
+
     // Apply generation filter if specified
     if (generationFilter && generationFilter !== 'all') {
       filteredListings = filteredListings.filter(l => {

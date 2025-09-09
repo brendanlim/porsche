@@ -66,8 +66,14 @@ export async function GET(
   const range = searchParams.get('range') || '30d';
   const generationFilter = searchParams.get('generation');
   
-  // Convert from URL format
-  const modelName = model.replace('-', ' ');
+  // Convert from URL format and match database casing
+  const modelParts = model.split('-');
+  const modelName = modelParts.map((part, i) => {
+    // Special case for 718, 911 etc - keep as numbers
+    if (/^\d+/.test(part)) return part;
+    // Capitalize first letter of each word
+    return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+  }).join(' ');
   const trimName = trim.replace(/-/g, ' ').toUpperCase();
   
   try {
@@ -117,11 +123,7 @@ export async function GET(
       });
     }
 
-    // If no data, return mock data for GT4 RS and other high-performance trims
-    if (filteredListings.length === 0 && (trimName.includes('GT') || trimName.includes('TURBO'))) {
-      // Generate realistic mock data for high-performance trims
-      filteredListings = generateMockListings(modelName, trimName);
-    }
+    // Never use fake data - just return empty if no real data
 
     if (filteredListings.length === 0) {
       return NextResponse.json({
@@ -235,17 +237,7 @@ export async function GET(
       group.count++;
     });
 
-    // Add some default colors if not enough variety
-    if (colorGroups.size < 3) {
-      defaultColors.forEach(color => {
-        if (!colorGroups.has(color)) {
-          colorGroups.set(color, {
-            prices: [averagePrice * (0.95 + Math.random() * 0.1)],
-            count: 1
-          });
-        }
-      });
-    }
+    // Only use real color data, no fake additions
 
     const colorAnalysis = Array.from(colorGroups.entries())
       .map(([color, data]) => {
@@ -283,8 +275,8 @@ export async function GET(
       
       return {
         range: range.range,
-        count: inRange.length || Math.floor(Math.random() * 5) + 1,
-        avgPrice
+        count: inRange.length,
+        avgPrice: inRange.length > 0 ? avgPrice : 0
       };
     });
 
@@ -365,13 +357,13 @@ export async function GET(
       const optionPrices = withOption.map(l => l.price).filter(p => p > 0);
       const optionAvg = optionPrices.length > 0
         ? optionPrices.reduce((a, b) => a + b, 0) / optionPrices.length
-        : averagePrice * (1 + (Math.random() * 0.1 - 0.02)); // Random premium between -2% to +8%
+        : 0;
       
       return {
         option,
-        frequency: withOption.length || Math.floor(Math.random() * 5) + 1,
+        frequency: withOption.length,
         avgPrice: optionAvg,
-        pricePremium: optionAvg - averagePrice
+        pricePremium: optionPrices.length > 0 ? optionAvg - averagePrice : 0
       };
     })
     .filter(opt => opt.frequency > 0)
@@ -418,38 +410,7 @@ export async function GET(
         };
       });
 
-    // If not enough data points, add some synthetic ones based on the distribution
-    if (priceVsMileage.length < 10) {
-      const syntheticPoints = [];
-      for (let i = 0; i < 15; i++) {
-        // Adjust year range based on model
-        let yearStart = 2020;
-        let yearRange = 5;
-        
-        if (trimName.toLowerCase().includes('gt4 rs')) {
-          yearStart = 2022; // GT4 RS production started in 2022
-          yearRange = 3;    // 2022-2024
-        } else if (trimName.toLowerCase().includes('gt3 rs')) {
-          yearStart = 2022; // Latest GT3 RS gen
-          yearRange = 3;
-        }
-        
-        const year = yearStart + Math.floor(Math.random() * yearRange);
-        const mileage = Math.floor(Math.random() * 30000) + 1000;
-        const basePrice = getMSRP(trimName, year);
-        const depreciationFactor = 1 - (mileage / 100000) * 0.3; // 30% depreciation per 100k miles
-        const price = basePrice * depreciationFactor * (0.9 + Math.random() * 0.2); // ±10% variation
-        
-        syntheticPoints.push({
-          mileage,
-          price,
-          year,
-          color: defaultColors[Math.floor(Math.random() * defaultColors.length)],
-          generation: getGeneration(year, modelName)
-        });
-      }
-      priceVsMileage.push(...syntheticPoints);
-    }
+    // Only use real data points, no synthetic data
 
     return NextResponse.json({
       model: modelName,
@@ -527,34 +488,3 @@ function getAppreciationByGeneration(gen: string, trim: string): number {
   return base * 0.7;
 }
 
-function generateMockListings(model: string, trim: string): any[] {
-  const listings = [];
-  const colors = ['Guards Red', 'GT Silver', 'Shark Blue', 'Racing Yellow', 'Black', 'White'];
-  const dealers = ['Porsche Center', 'Premier Auto', 'Elite Motors', 'Private Seller'];
-  
-  for (let i = 0; i < 20; i++) {
-    const year = 2020 + Math.floor(Math.random() * 5);
-    const mileage = Math.floor(Math.random() * 20000) + 500;
-    const msrp = getMSRP(trim, year);
-    const depreciation = 1 - (mileage / 100000) * 0.25;
-    const price = msrp * depreciation * (0.9 + Math.random() * 0.2);
-    
-    listings.push({
-      vin: `WPMOCK${year}${i.toString().padStart(10, '0')}`,
-      price: Math.round(price),
-      mileage,
-      exterior_color: colors[Math.floor(Math.random() * colors.length)],
-      dealer_name: dealers[Math.floor(Math.random() * dealers.length)],
-      created_at: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-      status: Math.random() > 0.3 ? 'active' : 'sold',
-      options_text: 'Sport Chrono, PCCB, Front Axle Lift',
-      model_years: {
-        year,
-        models: { name: model },
-        trims: { name: trim }
-      }
-    });
-  }
-  
-  return listings;
-}

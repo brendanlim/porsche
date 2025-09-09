@@ -21,7 +21,7 @@
    - Type is either `search` or `detail`
    - Date comes AFTER source for better organization
 4. **Never store auction prices** - Only SOLD prices from completed sales
-5. **No fake data** - Only real scraped data
+5. **NEVER USE FAKE/SEED DATA** - ABSOLUTELY NO random numbers, synthetic data points, or mock listings. If there's no real data, show nothing. NO generateMockListings, NO Math.random() for data, NO synthetic points!
 6. **SPORTS CARS ONLY** - ABSOLUTELY NO SUVs (Cayenne, Macan), NO sedans (Panamera, Taycan) - EVER!
 7. **FIX BUGS IMMEDIATELY** - If you notice you created a bug, FIX IT RIGHT AWAY. Don't wait for the user to tell you to fix it!
 

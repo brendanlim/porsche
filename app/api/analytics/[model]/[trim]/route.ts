@@ -184,61 +184,38 @@ export async function GET(
       yearOverYearAppreciation = getAppreciationByTrim(trimName);
     }
 
-    // Market trends - create daily aggregates
+    // Market trends - use REAL data grouped by scraped date
     const trendsByDay = new Map();
     
-    // Generate trend data for the date range
-    const days = Math.min(90, Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
-    for (let i = 0; i <= days; i += Math.max(1, Math.floor(days / 10))) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-      
-      // Find listings around this date
-      const nearbyListings = filteredListings.filter(l => {
-        const listingDate = new Date(l.created_at);
-        const dayDiff = Math.abs((date.getTime() - listingDate.getTime()) / (1000 * 60 * 60 * 24));
-        return dayDiff <= 7; // Within a week
-      });
-      
-      if (nearbyListings.length > 0) {
-        const dayPrices = nearbyListings.map(l => l.price).filter(p => p > 0);
-        trendsByDay.set(dateStr, {
-          date: dateStr,
-          averagePrice: dayPrices.reduce((a, b) => a + b, 0) / dayPrices.length,
-          listingCount: nearbyListings.length
-        });
+    // Group listings by their scraped date
+    filteredListings.forEach(listing => {
+      if (listing.price > 0) {
+        // Use scraped_at or created_at date
+        const dateStr = (listing.scraped_at || listing.created_at).split('T')[0];
+        
+        if (!trendsByDay.has(dateStr)) {
+          trendsByDay.set(dateStr, {
+            prices: [],
+            count: 0
+          });
+        }
+        
+        const dayData = trendsByDay.get(dateStr);
+        dayData.prices.push(listing.price);
+        dayData.count++;
       }
-    }
-
-    const marketTrends = Array.from(trendsByDay.values())
+    });
+    
+    // Convert to trend format
+    const marketTrends = Array.from(trendsByDay.entries())
+      .map(([date, data]) => ({
+        date,
+        averagePrice: data.prices.reduce((a, b) => a + b, 0) / data.prices.length,
+        listingCount: data.count
+      }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    // If no trends, create consistent data based on current listings
-    if (marketTrends.length === 0 && filteredListings.length > 0) {
-      // Use a seed based on model/trim to generate consistent "random" values
-      const seed = (modelName + trimName).split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-      const seededRandom = (index: number) => {
-        const x = Math.sin(seed + index) * 10000;
-        return x - Math.floor(x);
-      };
-      
-      for (let i = 0; i <= 30; i += 5) {
-        const date = new Date(now);
-        date.setDate(date.getDate() - i);
-        
-        // Create consistent variations based on seed
-        const priceVariation = (seededRandom(i) - 0.5) * 0.03; // ±1.5% variation
-        const countVariation = Math.floor((seededRandom(i + 100) - 0.5) * 4);
-        
-        marketTrends.push({
-          date: date.toISOString().split('T')[0],
-          averagePrice: averagePrice * (1 + priceVariation),
-          listingCount: Math.max(1, filteredListings.length + countVariation)
-        });
-      }
-      marketTrends.sort((a, b) => a.date.localeCompare(b.date));
-    }
+    // Only use real data - no fake trends!
 
     // Color analysis
     const colorGroups = new Map();

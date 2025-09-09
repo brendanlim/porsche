@@ -265,6 +265,42 @@ export default function TrimAnalyticsPage() {
           />
         </div>
 
+        {/* Historical Price & Volume Trends - MOVED TO TOP */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Historical Price & Volume Trends</CardTitle>
+            <CardDescription>
+              {trimDisplay} market dynamics over time
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {analytics.marketTrends && analytics.marketTrends.length > 0 ? (
+              <div style={{ width: '100%', height: 350, display: 'flex', justifyContent: 'center' }}>
+                <LineChart width={chartWidth} height={350} data={analytics.marketTrends}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="date" stroke="#6b7280" tick={{ fontSize: 11 }} />
+                <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" tick={{ fontSize: 11 }} />
+                <YAxis yAxisId="right" orientation="right" stroke="#10b981" tick={{ fontSize: 11 }} />
+                <Tooltip 
+                  formatter={(value: any, name: string) => {
+                    if (name === 'Average Price') return formatPrice(value);
+                    return value;
+                  }}
+                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
+                />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Line yAxisId="left" type="monotone" dataKey="averagePrice" stroke="#3b82f6" name="Average Price" strokeWidth={2} dot={false} />
+                <Line yAxisId="right" type="monotone" dataKey="listingCount" stroke="#10b981" name="Listings" strokeWidth={2} dot={false} />
+              </LineChart>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-[350px] text-gray-500">
+                No market trend data
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Price vs Mileage Scatter Chart */}
         <Card>
           <CardHeader>
@@ -389,41 +425,6 @@ export default function TrimAnalyticsPage() {
           </CardContent>
         </Card>
 
-        {/* Price Trends */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Historical Price & Volume Trends</CardTitle>
-            <CardDescription>
-              {trimDisplay} market dynamics over time
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {analytics.marketTrends && analytics.marketTrends.length > 0 ? (
-              <div style={{ width: '100%', height: 350, display: 'flex', justifyContent: 'center' }}>
-                <LineChart width={chartWidth} height={350} data={analytics.marketTrends}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="date" stroke="#6b7280" tick={{ fontSize: 11 }} />
-                <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" tick={{ fontSize: 11 }} />
-                <YAxis yAxisId="right" orientation="right" stroke="#10b981" tick={{ fontSize: 11 }} />
-                <Tooltip 
-                  formatter={(value: any, name: string) => {
-                    if (name === 'Average Price') return formatPrice(value);
-                    return value;
-                  }}
-                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
-                />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line yAxisId="left" type="monotone" dataKey="averagePrice" stroke="#3b82f6" name="Average Price" strokeWidth={2} dot={false} />
-                <Line yAxisId="right" type="monotone" dataKey="listingCount" stroke="#10b981" name="Listings" strokeWidth={2} dot={false} />
-              </LineChart>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-[350px] text-gray-500">
-                No market trend data
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         {/* Cost Per 1000 Miles Analysis */}
         <Card>

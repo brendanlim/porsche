@@ -160,6 +160,20 @@ export class BaTScraperPuppeteer extends BaseScraper {
                 for (const auction of auctionData) {
                   if (!auction.url || !auction.title) continue;
                   
+                  // Filter by trim if specified (e.g., GT4 RS vs GT4)
+                  if (trim && modelConfig.trim) {
+                    const titleLower = auction.title.toLowerCase();
+                    const trimLower = modelConfig.trim.toLowerCase();
+                    
+                    // Special handling for GT4 RS vs GT4
+                    if (trimLower === 'gt4 rs') {
+                      if (!titleLower.includes('gt4 rs') && !titleLower.includes('gt4rs')) continue;
+                    } else if (trimLower === 'gt4') {
+                      // Skip GT4 RS when looking for regular GT4
+                      if (titleLower.includes('gt4 rs') || titleLower.includes('gt4rs')) continue;
+                    }
+                  }
+                  
                   const listingUrl = auction.url.startsWith('http') 
                     ? auction.url 
                     : `https://bringatrailer.com${auction.url}`;
@@ -205,6 +219,20 @@ export class BaTScraperPuppeteer extends BaseScraper {
           for (const domListing of result.listings) {
             // Check if we already have this listing from JSON
             if (!allListings.find(l => l.url === domListing.url)) {
+              // Filter by trim if specified (e.g., GT4 RS vs GT4)
+              if (trim && modelConfig.trim) {
+                const titleLower = (domListing.title || '').toLowerCase();
+                const trimLower = modelConfig.trim.toLowerCase();
+                
+                // Special handling for GT4 RS vs GT4
+                if (trimLower === 'gt4 rs') {
+                  if (!titleLower.includes('gt4 rs') && !titleLower.includes('gt4rs')) continue;
+                } else if (trimLower === 'gt4') {
+                  // Skip GT4 RS when looking for regular GT4
+                  if (titleLower.includes('gt4 rs') || titleLower.includes('gt4rs')) continue;
+                }
+              }
+              
               const listing: ScrapedListing = {
                 url: domListing.url,
                 title: domListing.title || 'Unknown',
@@ -320,9 +348,11 @@ export class BaTScraperPuppeteer extends BaseScraper {
       }
     }
     
+    // Get body text for searching (used for price and mileage)
+    const bodyText = $('body').text();
+    
     // If no specific element, search the body text
     if (!priceText) {
-      const bodyText = $('body').text();
       const soldMatch = bodyText.match(/Sold for (?:USD\s*)?\$([0-9,]+)/i);
       if (soldMatch) {
         priceText = soldMatch[0];

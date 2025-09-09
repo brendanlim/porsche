@@ -63,16 +63,42 @@ export class BaTScraperPuppeteer extends BaseScraper {
   }
   
   async scrapeListings(options: {
+    model?: string;
+    trim?: string;
     maxPages?: number;
     onlySold?: boolean;
   } = {}): Promise<ScrapedListing[]> {
-    const { maxPages = 5, onlySold = true } = options;
+    const { model, trim, maxPages = 5, onlySold = true } = options;
     const allListings: ScrapedListing[] = [];
+    
+    // Filter models based on provided parameters
+    let modelsToScrape = BAT_MODELS;
+    
+    if (model || trim) {
+      modelsToScrape = BAT_MODELS.filter(m => {
+        // Check model match if provided
+        if (model) {
+          const modelMatch = m.slug.toLowerCase() === model.toLowerCase() || 
+                           m.name.toLowerCase().replace(' ', '-') === model.toLowerCase();
+          if (!modelMatch) return false;
+        }
+        
+        // Check trim match if provided
+        if (trim) {
+          const trimMatch = m.trim.toLowerCase().replace(' ', '-') === trim.toLowerCase();
+          if (!trimMatch) return false;
+        }
+        
+        return true;
+      });
+    }
     
     console.log('='.repeat(50));
     console.log('BRING A TRAILER SCRAPER - PUPPETEER VERSION');
     console.log('='.repeat(50));
-    console.log(`Models to scrape: ${BAT_MODELS.length}`);
+    console.log(`Models to scrape: ${modelsToScrape.length} (filtered from ${BAT_MODELS.length})`);
+    if (model) console.log(`Model filter: ${model}`);
+    if (trim) console.log(`Trim filter: ${trim}`);
     console.log(`Using Bright Data Scraping Browser to handle dynamic content`);
     console.log('='.repeat(50) + '\n');
     
@@ -87,7 +113,7 @@ export class BaTScraperPuppeteer extends BaseScraper {
     console.log(`Found ${existingUrls.size} existing BaT listings in database`);
     
     // Process each model/trim combination
-    for (const modelConfig of BAT_MODELS) {
+    for (const modelConfig of modelsToScrape) {
       console.log(`\n📊 Processing ${modelConfig.name} ${modelConfig.trim || ''}`);
       console.log(`URL: ${modelConfig.searchUrl}`);
       

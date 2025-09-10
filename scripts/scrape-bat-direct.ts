@@ -160,10 +160,10 @@ async function main() {
 // Add type declaration for the scraper methods we're using
 declare module '../lib/scrapers/bat' {
   interface BaTScraper {
-    startIngestion(): Promise<void>;
+    startIngestion(): Promise<string>;
     scrapeDetail(url: string): Promise<any>;
-    saveListing(listing: any): Promise<void>;
-    completeIngestion(): Promise<void>;
+    saveListing(listing: any): Promise<string | null>;
+    completeIngestion(status?: 'completed' | 'failed'): Promise<void>;
   }
 }
 

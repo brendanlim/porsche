@@ -30,7 +30,7 @@ async function fetchKnownSoldListings() {
       const html = await client.fetch(url);
       
       // Parse it using our existing scraper
-      const listing = await scraper.parseListingPage(html, url);
+      const listing = await scraper.scrapeDetail(url);
       
       if (listing) {
         console.log(`  ✓ Title: ${listing.title}`);

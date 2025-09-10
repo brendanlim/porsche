@@ -74,7 +74,7 @@ async function scrapeBaTWithPuppeteer() {
           console.log(`  ✓ ${listingData.title}: $${listingData.price?.toLocaleString()}`);
           
           // Parse with BaT scraper for full data extraction
-          const parsedListing = await batParser.parseListing(listingData.html, listing.url);
+          const parsedListing = await batParser.scrapeDetail(listing.url);
           
           if (parsedListing) {
             // Save to database

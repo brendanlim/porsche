@@ -73,7 +73,6 @@ async function main() {
       const batScraper = new BaTScraperPuppeteer();
       const batResults = await batScraper.scrapeListings({
         model: model || undefined,
-        trim: trim || undefined,
         maxPages: model && trim ? 1 : 5,  // Just 1 page for specific model/trim
         onlySold: true
       });
@@ -93,7 +92,6 @@ async function main() {
       const classicScraper = new ClassicScraper();
       const classicResults = await classicScraper.scrapeListings({
         model: model || undefined,
-        trim: trim || undefined,
         maxPages: model && trim ? 2 : 5,
         onlySold: true
       });
@@ -113,7 +111,6 @@ async function main() {
       const cabScraper = new CarsAndBidsScraper();
       const cabResults = await cabScraper.scrapeListings({
         model: model || undefined,
-        trim: trim || undefined,
         maxPages: model && trim ? 2 : 5,
         onlySold: true
       });
@@ -133,7 +130,6 @@ async function main() {
       const edmundsScraper = new EdmundsScraper();
       const edmundsResults = await edmundsScraper.scrapeListings({
         model: model || undefined,
-        trim: trim || undefined,
         maxPages: model && trim ? 2 : 5,
         onlySold: true
       });
@@ -153,7 +149,6 @@ async function main() {
       const carsScraper = new CarsScraper();
       const carsResults = await carsScraper.scrapeListings({
         model: model || undefined,
-        trim: trim || undefined,
         maxPages: model && trim ? 2 : 5,
         onlySold: true
       });

@@ -236,7 +236,10 @@ export class HTMLStorageService {
     let totalBytes = 0;
     
     for (const item of htmlData) {
-      const result = await this.storeHTML(item);
+      const result = await this.storeScrapedHTML({
+        ...item,
+        type: 'detail' as const // Default to 'detail' type for batch storage
+      });
       if (result) {
         storedCount++;
         totalBytes += result.size;

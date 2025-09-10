@@ -334,15 +334,15 @@ export class DataNormalizer {
         optionId = newOption.id;
       }
 
-      // Link option to listing
+      // Link option to listing (upsert to handle duplicates)
       await supabaseAdmin
         .from('listing_options')
-        .insert({
+        .upsert({
           listing_id: listingId,
           option_id: optionId
-        })
-        .onConflict('listing_id,option_id')
-        .ignore();
+        }, {
+          onConflict: 'listing_id,option_id'
+        });
     }
   }
 }

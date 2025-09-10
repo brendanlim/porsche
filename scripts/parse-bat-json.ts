@@ -107,7 +107,7 @@ async function parseBaTWithJSON() {
       
       try {
         const html = await client.fetch(listing.url);
-        const parsedListing = await batScraper.parseListing(html, listing.url);
+        const parsedListing = await batScraper.scrapeDetail(listing.url);
         
         if (parsedListing) {
           // Save to database

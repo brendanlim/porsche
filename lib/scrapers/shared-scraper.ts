@@ -290,6 +290,7 @@ export class SharedScraper extends BaseScraper {
       
       return {
         url,
+        source_url: url, // Add required source_url field
         title,
         price,
         vin,

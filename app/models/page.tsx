@@ -20,6 +20,8 @@ interface ModelTrimData {
   volume_trend: number; // percentage change
   last_30_days_listings: number;
   median_days_on_market: number;
+  min_year?: number;
+  max_year?: number;
 }
 
 export default function ModelsPage() {
@@ -44,7 +46,7 @@ export default function ModelsPage() {
         // Fallback to basic query if RPC doesn't exist
         const { data: listings, error: listingsError } = await supabase
           .from('listings')
-          .select('model, trim, price, mileage, created_at')
+          .select('model, trim, price, mileage, year, created_at')
           .not('model', 'is', null)
           .order('model', { ascending: true });
 
@@ -97,6 +99,7 @@ export default function ModelsPage() {
     modelTrimMap.forEach(data => {
       const prices = data.listings.map((l: any) => l.price).filter((p: any) => p > 0);
       const mileages = data.listings.map((l: any) => l.mileage).filter((m: any) => m > 0);
+      const years = data.listings.map((l: any) => l.year).filter((y: any) => y > 1990 && y <= new Date().getFullYear());
       
       result.push({
         model: data.model,
@@ -108,6 +111,8 @@ export default function ModelsPage() {
         avg_mileage: mileages.length > 0 ? Math.round(mileages.reduce((a: number, b: number) => a + b, 0) / mileages.length) : 0,
         min_price: prices.length > 0 ? Math.min(...prices) : 0,
         max_price: prices.length > 0 ? Math.max(...prices) : 0,
+        min_year: years.length > 0 ? Math.min(...years) : undefined,
+        max_year: years.length > 0 ? Math.max(...years) : undefined,
         price_trend: 0, // Would need historical data to calculate
         volume_trend: 0, // Would need historical data to calculate
         last_30_days_listings: data.recentListings.length,
@@ -289,6 +294,13 @@ export default function ModelsPage() {
                       <CardTitle className="flex items-center justify-between">
                         <div>
                           <span className="text-lg">{trim.display_trim}</span>
+                          {trim.min_year && trim.max_year && (
+                            <span className="text-sm font-normal text-gray-500 ml-2">
+                              {trim.min_year === trim.max_year 
+                                ? trim.min_year 
+                                : `${trim.min_year}-${trim.max_year}`}
+                            </span>
+                          )}
                         </div>
                         <ArrowRight className="h-5 w-5 text-gray-400" />
                       </CardTitle>

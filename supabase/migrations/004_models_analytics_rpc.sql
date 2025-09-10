@@ -10,6 +10,8 @@ RETURNS TABLE (
   avg_mileage NUMERIC,
   min_price NUMERIC,
   max_price NUMERIC,
+  min_year INTEGER,
+  max_year INTEGER,
   price_trend NUMERIC,
   volume_trend NUMERIC,
   last_30_days_listings BIGINT,
@@ -28,6 +30,8 @@ BEGIN
       AVG(l.mileage) as average_mileage,
       MIN(l.price) as minimum_price,
       MAX(l.price) as maximum_price,
+      MIN(l.year) as minimum_year,
+      MAX(l.year) as maximum_year,
       COUNT(CASE WHEN l.created_at > NOW() - INTERVAL '30 days' THEN 1 END) as recent_listings
     FROM listings l
     WHERE l.model IS NOT NULL
@@ -87,6 +91,8 @@ BEGIN
     ROUND(cs.average_mileage) as avg_mileage,
     cs.minimum_price as min_price,
     cs.maximum_price as max_price,
+    cs.minimum_year as min_year,
+    cs.maximum_year as max_year,
     -- Calculate price trend percentage
     CASE 
       WHEN hs.previous_avg_price > 0 THEN 

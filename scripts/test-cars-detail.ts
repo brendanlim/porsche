@@ -68,7 +68,7 @@ async function main() {
       const text = $(el).clone().children().remove().end().text().trim();
       const priceMatch = text.match(/^\$[\d,]+$/);
       if (priceMatch) {
-        const tagName = el.tagName;
+        const tagName = (el as any).tagName || el.type || 'unknown';
         const className = $(el).attr('class') || 'no-class';
         if (!className.includes('history')) {
           console.log(`Found price: ${text} in <${tagName} class="${className.substring(0, 50)}">`);
@@ -111,7 +111,7 @@ async function main() {
     if (contactElements.length > 0) {
       console.log('Sample elements:');
       contactElements.slice(0, 3).each((i, el) => {
-        console.log(`- ${el.tagName} class="${$(el).attr('class') || 'no-class'}"`);
+        console.log(`- ${(el as any).tagName || el.type || 'unknown'} class="${$(el).attr('class') || 'no-class'}"`);
       });
     }
     

@@ -247,7 +247,7 @@ class HTMLTester {
       pricePatterns.forEach(el => {
         const $el = $(el);
         const classes = $el.attr('class');
-        const tag = el.tagName;
+        const tag = (el as any).tagName || el.type || 'unknown';
         console.log(`  ${tag}${classes ? `.${classes.split(' ').join('.')}` : ''} -> "${$el.text().trim()}"`);
       });
     }

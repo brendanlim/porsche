@@ -52,7 +52,7 @@ async function main() {
       const text = $(el).clone().children().remove().end().text().trim();
       const priceMatch = text.match(/^\$[\d,]+$/);
       if (priceMatch) {
-        const tagName = el.tagName;
+        const tagName = (el as any).tagName || el.type || 'unknown';
         const className = $(el).attr('class') || 'no-class';
         console.log(`Found price: ${text} in <${tagName} class="${className.substring(0, 50)}">`);
       }

@@ -32,6 +32,9 @@ export function Header() {
               </span>
             </Link>
             <div className="ml-10 hidden space-x-8 lg:block">
+              <Link href="/models" className="text-base font-medium text-gray-700 hover:text-blue-600">
+                Models
+              </Link>
               <Link href="/browse" className="text-base font-medium text-gray-700 hover:text-blue-600">
                 Browse
               </Link>
@@ -143,6 +146,13 @@ export function Header() {
         {mobileMenuOpen && (
           <div className="lg:hidden border-t border-gray-200 py-4">
             <div className="space-y-4">
+              <Link
+                href="/models"
+                className="block text-base font-medium text-gray-700 hover:text-blue-600"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Models
+              </Link>
               <Link
                 href="/browse"
                 className="block text-base font-medium text-gray-700 hover:text-blue-600"

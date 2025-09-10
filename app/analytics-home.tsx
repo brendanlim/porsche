@@ -87,7 +87,7 @@ export default function AnalyticsHome() {
 
         {/* Features Section */}
         <div className="mt-16">
-          <h2 className="text-2xl font-bold mb-8">What You'll Get</h2>
+          <h2 className="text-2xl font-bold mb-8">What You&apos;ll Get</h2>
           
           <div className="grid md:grid-cols-4 gap-6">
             <div className="bg-white p-6 rounded-lg shadow-md">

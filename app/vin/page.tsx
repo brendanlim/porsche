@@ -80,7 +80,7 @@ export default function VINPage() {
             VIN History Lookup
           </h1>
           <p className="text-lg text-gray-600">
-            Track any Porsche's complete price history and market journey
+            Track any Porsche&apos;s complete price history and market journey
           </p>
         </div>
 
@@ -276,7 +276,7 @@ export default function VINPage() {
         {/* Example VINs */}
         <div className="mt-12 text-center">
           <p className="text-sm text-gray-600 mb-2">
-            Don't have a VIN? Try these examples:
+            Don&apos;t have a VIN? Try these examples:
           </p>
           <div className="flex justify-center gap-4 flex-wrap">
             <button

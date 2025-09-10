@@ -211,7 +211,7 @@ export class ClassicScraper extends SharedScraper {
     return null;
   }
 
-  private extractMileage(text: string): number | null {
+  protected extractMileage(text: string): number | null {
     // Look for patterns like "12,345 miles", "12k miles"
     const patterns = [
       /(\\d{1,3}(?:,\\d{3})*)\\s*(?:miles?|mi\\b)/i,

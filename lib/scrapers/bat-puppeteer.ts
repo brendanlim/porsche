@@ -1,5 +1,4 @@
-import { BaseScraper } from './base';
-import { ScrapedListing } from '@/lib/types/scraper';
+import { BaseScraper, ScrapedListing } from './base';
 import { BrightDataPuppeteer } from './bright-data-puppeteer';
 import * as cheerio from 'cheerio';
 import { HTMLStorageService } from '../services/html-storage';
@@ -57,9 +56,19 @@ export class BaTScraperPuppeteer extends BaseScraper {
   private htmlStorage: HTMLStorageService;
   
   constructor() {
-    super('bring-a-trailer');
+    super('bat');
     this.puppeteerScraper = new BrightDataPuppeteer();
     this.htmlStorage = new HTMLStorageService();
+  }
+
+  // Add required abstract method
+  async scrapeDetail(url: string): Promise<ScrapedListing> {
+    const html = await this.puppeteerScraper.fetchWithPuppeteer(url);
+    const result = await this.parseDetailPage(html, url);
+    if (!result) {
+      throw new Error(`Failed to parse detail page: ${url}`);
+    }
+    return result;
   }
   
   async scrapeListings(options: {

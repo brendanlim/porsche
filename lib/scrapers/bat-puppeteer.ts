@@ -408,16 +408,15 @@ export class BaTScraperPuppeteer extends BaseScraper {
     }
     
     return {
+      source_url: url,
       url,
       title,
       price,
       status,
-      source: 'bring-a-trailer',
       model,
       trim,
       year,
       mileage,
-      scraped_at: new Date().toISOString(),
     };
   }
 }

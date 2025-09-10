@@ -825,7 +825,7 @@ export class BaTScraper extends BaseScraper {
     const options: string[] = [];
     
     // Find the BaT Essentials list that contains the VIN (to ensure we're in the right section)
-    let essentialsList: cheerio.Cheerio<cheerio.Element> | null = null;
+    let essentialsList: cheerio.Cheerio<any> | null = null;
     
     $('ul').each((i, ul) => {
       const items = $(ul).find('li');

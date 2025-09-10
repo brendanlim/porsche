@@ -77,7 +77,7 @@ export class BrightDataPuppeteer {
               // Check the last N * 20 items (items from last N "Show More" clicks)
               const startIndex = Math.max(0, items.length - itemsToCheck);
               for (let i = startIndex; i < items.length; i++) {
-                const linkEl = items[i].querySelector('h3 a');
+                const linkEl = items[i].querySelector('h3 a') as HTMLAnchorElement;
                 if (linkEl) {
                   totalChecked++;
                   if (existingUrlsArray.includes(linkEl.href)) {

@@ -125,7 +125,7 @@ export interface Listing {
   validation_errors?: any;
 }
 
-export interface ListingWithDetails extends Omit<Listing, 'model' | 'trim' | 'generation'> {
+export interface ListingWithDetails extends Omit<Listing, 'model' | 'trim' | 'generation' | 'exterior_color'> {
   model?: Model;
   trim?: Trim;
   generation?: Generation;

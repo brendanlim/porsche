@@ -151,7 +151,13 @@ export class ClassicScraper extends SharedScraper {
       const status = isSold ? 'sold' : (isAuction ? 'auction' : 'available');
       
       // Extract location if available
-      const location = $(this.config.selectors.location).first().text().trim() || '';
+      const locationText = $(this.config.selectors.location).first().text().trim() || '';
+      const locationParts = locationText.split(',').map(s => s.trim());
+      const location = locationText ? {
+        city: locationParts[0],
+        state: locationParts[1],
+        zip: undefined
+      } : undefined;
       
       // Get images
       const images: string[] = [];
@@ -183,7 +189,7 @@ export class ClassicScraper extends SharedScraper {
     }
   }
 
-  private extractPrice(text: string): number | null {
+  protected extractPrice(text: string): number | null {
     // Remove non-numeric characters except decimal point
     const cleaned = text.replace(/[^0-9.]/g, '');
     const price = parseFloat(cleaned);

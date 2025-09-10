@@ -72,7 +72,14 @@ export class CarsAndBidsScraper extends SharedScraper {
       const mileage = this.extractMileage(mileageText);
       
       // Location from seller info
-      const location = $('.seller-location, *:contains("Location:")').parent().text().trim();
+      const locationText = $('.seller-location, *:contains("Location:")').parent().text().trim();
+      // Parse location into city/state
+      const locationParts = locationText.split(',').map(s => s.trim());
+      const location = locationText ? {
+        city: locationParts[0],
+        state: locationParts[1],
+        zip: undefined
+      } : undefined;
       
       // All Cars and Bids past auctions are sold
       const status = 'Sold';
@@ -95,7 +102,7 @@ export class CarsAndBidsScraper extends SharedScraper {
         vin,
         year,
         mileage,
-        location,
+        location: location as any,
         status,
         images: images.slice(0, 10),
         source: this.source,

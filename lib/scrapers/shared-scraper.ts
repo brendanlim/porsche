@@ -253,7 +253,13 @@ export class SharedScraper extends BaseScraper {
       const mileageText = selectors.mileage ? $(selectors.mileage).first().text().trim() : '';
       const mileage = this.extractMileage(mileageText);
       
-      const location = selectors.location ? $(selectors.location).first().text().trim() : '';
+      const locationText = selectors.location ? $(selectors.location).first().text().trim() : '';
+      const locationParts = locationText.split(',').map(s => s.trim());
+      const location = locationText ? {
+        city: locationParts[0],
+        state: locationParts[1],
+        zip: undefined
+      } : undefined;
       
       // Check for auction vs sold status
       const statusText = selectors.status ? $(selectors.status).text() : '';

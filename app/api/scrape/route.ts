@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       case 'classic':
         const classicScraper = new ClassicScraper();
         results = await classicScraper.scrapeListings({
-          models: model ? [model] : undefined,
+          model,
           maxPages,
           onlySold: onlySold !== false
         });
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       case 'edmunds':
         const edmundsScraper = new EdmundsScraper();
         results = await edmundsScraper.scrapeListings({
-          models: model ? [model] : undefined,
+          model,
           maxPages,
           onlySold: false // Edmunds shows available inventory
         });
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       case 'cargurus':
         const cargurusScraper = new CarGurusScraper();
         results = await cargurusScraper.scrapeListings({
-          models: model ? [model] : undefined,
+          model,
           maxPages,
           onlySold: false // CarGurus shows available inventory
         });
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       case 'autotrader':
         const autotraderScraper = new AutotraderScraper();
         results = await autotraderScraper.scrapeListings({
-          models: model ? [model] : undefined,
+          model,
           maxPages,
           onlySold: false // Autotrader shows available inventory
         });
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       case 'carsandbids':
         const carsandbidsScraper = new CarsAndBidsScraper();
         results = await carsandbidsScraper.scrapeListings({
-          models: model ? [model] : undefined,
+          model,
           maxPages,
           onlySold: true // Cars and Bids past auctions are sold
         });
@@ -91,7 +91,6 @@ export async function POST(request: NextRequest) {
         const allResults = await Promise.allSettled(
           scrapers.map(({ instance, sold }) => 
             instance.scrapeListings({ 
-              models: model ? [model] : undefined, 
               maxPages: Math.min(maxPages, 2), // Limit pages when running all
               onlySold: sold
             })

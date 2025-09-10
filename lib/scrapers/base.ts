@@ -75,7 +75,7 @@ export abstract class BaseScraper {
 
     await this.updateIngestion({
       status,
-      completed_at: new Date().toISOString()
+      completed_at: new Date()
     });
   }
 

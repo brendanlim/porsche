@@ -28,13 +28,15 @@ export interface ScraperConfig {
 }
 
 export class SharedScraper extends BaseScraper {
+  protected name: string;
+  protected baseUrl: string;
   protected brightData: BrightDataClient | null = null;
   protected htmlStorage: HTMLStorageService;
   protected config: ScraperConfig;
   protected htmlCache: Map<string, string> = new Map(); // Cache HTML during scraping session
 
   constructor(config: ScraperConfig) {
-    super();
+    super(config.source);
     this.config = config;
     this.name = config.name;
     this.source = config.source;
@@ -301,7 +303,7 @@ export class SharedScraper extends BaseScraper {
     }
   }
 
-  private extractPrice(text: string): number | null {
+  protected extractPrice(text: string): number | null {
     // Remove non-numeric characters except decimal point
     const cleaned = text.replace(/[^0-9.]/g, '');
     const price = parseFloat(cleaned);
@@ -318,7 +320,7 @@ export class SharedScraper extends BaseScraper {
     return Math.round(price);
   }
 
-  private extractYear(text: string): number | null {
+  protected extractYear(text: string): number | null {
     // Look for 4-digit year (1900-2099)
     const yearMatch = text.match(/\b(19|20)\d{2}\b/);
     if (yearMatch) {
@@ -327,7 +329,7 @@ export class SharedScraper extends BaseScraper {
     return null;
   }
 
-  private extractMileage(text: string): number | null {
+  protected extractMileage(text: string): number | null {
     // Look for patterns like "12,345 miles", "12k miles", "12,345-Mile"
     const patterns = [
       /(\d{1,3}(?:,\d{3})*)\s*(?:-?[Mm]ile|[Mm]iles)/,

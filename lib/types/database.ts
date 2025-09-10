@@ -125,7 +125,7 @@ export interface Listing {
   validation_errors?: any;
 }
 
-export interface ListingWithDetails extends Listing {
+export interface ListingWithDetails extends Omit<Listing, 'model' | 'trim' | 'generation'> {
   model?: Model;
   trim?: Trim;
   generation?: Generation;
@@ -152,7 +152,9 @@ export interface IngestionRun {
   status: 'running' | 'completed' | 'failed';
   total_fetched: number;
   total_processed: number;
+  total_saved?: number;
   total_errors: number;
+  error_message?: string;
   error_details?: any;
   created_at: Date;
 }

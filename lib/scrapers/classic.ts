@@ -6,7 +6,7 @@ import { HTMLStorageService } from '@/lib/services/html-storage';
 
 export class ClassicScraper extends SharedScraper {
   private curlFetcher: CurlFetcher;
-  private htmlStorage: HTMLStorageService;
+  protected htmlStorage: HTMLStorageService;
 
   constructor() {
     super({

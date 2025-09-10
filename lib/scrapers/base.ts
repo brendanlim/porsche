@@ -29,7 +29,11 @@ export interface ScraperResult {
   raw_data?: any;
   html?: string;
   options_text?: string;
+  url?: string;  // Add this for backward compatibility
 }
+
+// Export ScrapedListing as alias for backward compatibility
+export type ScrapedListing = ScraperResult;
 
 export abstract class BaseScraper {
   protected source: string;

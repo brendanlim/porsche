@@ -51,7 +51,7 @@ export abstract class BaseScraper {
   abstract scrapeListings(params?: any): Promise<ScraperResult[]>;
   abstract scrapeDetail(url: string): Promise<ScraperResult>;
 
-  protected async startIngestion(): Promise<string> {
+  public async startIngestion(): Promise<string> {
     const { data, error } = await supabaseAdmin
       .from('ingestion_runs')
       .insert({
@@ -69,7 +69,7 @@ export abstract class BaseScraper {
     return data.id;
   }
 
-  protected async updateIngestion(updates: Partial<IngestionRun>) {
+  public async updateIngestion(updates: Partial<IngestionRun>) {
     if (!this.ingestionRun) return;
 
     const { error } = await supabaseAdmin
@@ -80,7 +80,7 @@ export abstract class BaseScraper {
     if (error) console.error('Failed to update ingestion run:', error);
   }
 
-  protected async completeIngestion(status: 'completed' | 'failed' = 'completed') {
+  public async completeIngestion(status: 'completed' | 'failed' = 'completed') {
     if (!this.ingestionRun) return;
 
     await this.updateIngestion({
@@ -89,7 +89,7 @@ export abstract class BaseScraper {
     });
   }
 
-  protected async saveListing(result: ScraperResult): Promise<string | null> {
+  public async saveListing(result: ScraperResult): Promise<string | null> {
     try {
       // Archive HTML if provided - DISABLED: Already stored via HTMLStorageService
       let htmlArchivePath: string | undefined;

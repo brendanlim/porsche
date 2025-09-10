@@ -5,23 +5,7 @@
   "crons": [
     {
       "path": "/api/scrape",
-      "schedule": "0 5 * * *",
-      "env": {
-        "SCRAPER_API_KEY": "@scraper-api-key"
-      }
+      "schedule": "0 5 * * *"
     }
-  ],
-  "env": {
-    "NEXT_PUBLIC_SUPABASE_URL": "@supabase-url",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase-anon-key",
-    "SUPABASE_SERVICE_ROLE_KEY": "@supabase-service-role-key",
-    "BRIGHT_DATA_CUSTOMER_ID": "@bright-data-customer-id",
-    "BRIGHT_DATA_PASSWORD": "@bright-data-password",
-    "BRIGHT_DATA_ZONE": "@bright-data-zone",
-    "GEMINI_API_KEY": "@gemini-api-key",
-    "STRIPE_SECRET_KEY": "@stripe-secret-key",
-    "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY": "@stripe-publishable-key",
-    "STRIPE_WEBHOOK_SECRET": "@stripe-webhook-secret",
-    "SCRAPER_API_KEY": "@scraper-api-key"
-  }
+  ]
 }

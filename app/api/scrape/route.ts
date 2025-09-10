@@ -177,25 +177,118 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET endpoint to check scraping status
-export async function GET() {
+// GET endpoint for Vercel cron job
+export async function GET(request: NextRequest) {
   try {
-    // Get recent ingestion runs
-    const { data, error } = await supabaseAdmin
-      .from('ingestion_runs')
-      .select('*')
-      .order('started_at', { ascending: false })
-      .limit(10);
+    // Check if this is a Vercel cron request
+    const authHeader = request.headers.get('authorization');
+    const isVercelCron = authHeader === `Bearer ${process.env.CRON_SECRET}` || 
+                        request.headers.get('x-vercel-cron') === '1';
+    
+    if (!isVercelCron) {
+      // Return recent ingestion runs for status checks
+      const { data, error } = await supabaseAdmin
+        .from('ingestion_runs')
+        .select('*')
+        .order('started_at', { ascending: false })
+        .limit(10);
 
-    if (error) throw error;
+      if (error) throw error;
+
+      return NextResponse.json({
+        success: true,
+        runs: data
+      });
+    }
+
+    // Execute daily scraping for all sources
+    console.log('Starting daily scraping job from Vercel cron...');
+    
+    const scrapers = [
+      { instance: new BaTScraper(), sold: true },
+      { instance: new ClassicScraper(), sold: true },
+      { instance: new CarsAndBidsScraper(), sold: true },
+      { instance: new EdmundsScraper(), sold: false },
+      { instance: new CarGurusScraper(), sold: false },
+      { instance: new AutotraderScraper(), sold: false }
+    ];
+    
+    const allResults = await Promise.allSettled(
+      scrapers.map(({ instance, sold }) => 
+        instance.scrapeListings({ 
+          maxPages: 5, // Run more pages for cron job
+          onlySold: sold
+        })
+      )
+    );
+    
+    const results = allResults
+      .filter(r => r.status === 'fulfilled')
+      .flatMap(r => (r as PromiseFulfilledResult<any>).value);
+    
+    console.log(`Daily scraping completed: ${results.length} total listings`);
+
+    // Normalize data
+    const normalizer = new DataNormalizer();
+    let normalizedCount = 0;
+    
+    for (const result of results) {
+      try {
+        const { data: listing } = await supabaseAdmin
+          .from('listings')
+          .select('id')
+          .eq('source_url', result.source_url)
+          .single();
+
+        if (listing) {
+          const normalized = await normalizer.normalizeListing({
+            title: result.title,
+            year: result.year,
+            price: result.price,
+            mileage: result.mileage,
+            vin: result.vin,
+            exterior_color: result.exterior_color,
+            options_text: result.options_text,
+            raw_data: result.raw_data
+          });
+
+          await supabaseAdmin
+            .from('listings')
+            .update({
+              model_year_id: normalized.model_year_id,
+              trim_id: normalized.trim_id,
+              generation_id: normalized.generation_id,
+              exterior_color_id: normalized.exterior_color_id,
+              is_normalized: true,
+              normalized_at: new Date().toISOString(),
+              validation_errors: normalized.validation_errors.length > 0 
+                ? normalized.validation_errors 
+                : null,
+              is_valid: normalized.validation_errors.length === 0
+            })
+            .eq('id', listing.id);
+
+          if (normalized.options.length > 0) {
+            await normalizer.saveOptions(listing.id, normalized.options);
+          }
+          
+          normalizedCount++;
+        }
+      } catch (error) {
+        console.error('Failed to normalize listing:', error);
+      }
+    }
 
     return NextResponse.json({
       success: true,
-      runs: data
+      message: 'Daily scraping completed',
+      totalListings: results.length,
+      normalizedCount
     });
   } catch (error) {
+    console.error('Cron scraping error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch ingestion runs' },
+      { error: 'Failed to run daily scraping', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

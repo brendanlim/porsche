@@ -243,14 +243,13 @@ export class BaTScraperPuppeteer extends BaseScraper {
               }
               
               const listing: ScrapedListing = {
+                source_url: domListing.url,
                 url: domListing.url,
                 title: domListing.title || 'Unknown',
                 price: domListing.price || 0,
                 status: 'sold',
-                source: 'bring-a-trailer',
                 model: modelConfig.name,
                 trim: modelConfig.trim,
-                scraped_at: new Date().toISOString(),
               };
               
               if (listing.price >= 15000) {

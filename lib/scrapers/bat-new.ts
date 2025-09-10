@@ -484,7 +484,7 @@ export class BaTScraperNew extends BaseScraper {
     return undefined;
   }
 
-  private delay(ms: number): Promise<void> {
+  protected delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 }

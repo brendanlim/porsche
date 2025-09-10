@@ -67,6 +67,10 @@ export interface Option {
 export interface Listing {
   id: string;
   vin?: string;
+  year?: number;
+  model?: string;
+  trim?: string;
+  generation?: string;
   model_year_id?: string;
   trim_id?: string;
   generation_id?: string;
@@ -75,9 +79,13 @@ export interface Listing {
   title?: string;
   price: number;
   mileage?: number;
+  exterior_color?: string;
   exterior_color_id?: string;
   interior_color?: string;
   transmission?: string;
+  options_text?: string;
+  location?: string;
+  dealer?: string;
   
   // Source information
   source: 'bat' | 'cars' | 'cargurus' | 'edmunds' | 'autotrader';
@@ -100,6 +108,7 @@ export interface Listing {
   first_seen_at: Date;
   last_seen_at: Date;
   removed_at?: Date;
+  scraped_at?: Date;
   created_at: Date;
   updated_at: Date;
   

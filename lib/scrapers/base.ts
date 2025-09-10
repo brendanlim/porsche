@@ -15,6 +15,7 @@ export interface ScraperResult {
   exterior_color?: string;
   interior_color?: string;
   transmission?: string;
+  status?: string;
   location?: {
     city?: string;
     state?: string;

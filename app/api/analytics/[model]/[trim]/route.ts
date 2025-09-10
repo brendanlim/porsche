@@ -231,7 +231,7 @@ export async function GET(
     const marketTrends = Array.from(trendsByDay.entries())
       .map(([date, data]) => ({
         date,
-        averagePrice: data.prices.reduce((a, b) => a + b, 0) / data.prices.length,
+        averagePrice: data.prices.reduce((a: number, b: number) => a + b, 0) / data.prices.length,
         listingCount: data.count
       }))
       .sort((a, b) => a.date.localeCompare(b.date));

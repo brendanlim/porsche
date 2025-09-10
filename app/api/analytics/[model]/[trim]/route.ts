@@ -183,16 +183,16 @@ export async function GET(
 
     // Get unique generations
     const generations = Array.from(new Set(
-      filteredListings.map(l => getGeneration(l.model_years?.year || 0, modelName))
+      filteredListings.map(l => getGeneration(l.year || 0, modelName)).filter(g => g !== null && g !== undefined)
     )).sort();
 
     // Calculate YoY appreciation
     const currentYear = new Date().getFullYear();
     const lastYearListings = filteredListings.filter(l => 
-      l.model_years?.year === currentYear - 1
+      l.year === currentYear - 1
     );
     const thisYearListings = filteredListings.filter(l => 
-      l.model_years?.year === currentYear
+      l.year === currentYear
     );
     
     let yearOverYearAppreciation = 0;

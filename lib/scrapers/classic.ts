@@ -201,7 +201,7 @@ export class ClassicScraper extends SharedScraper {
     return Math.round(price);
   }
 
-  private extractYear(text: string): number | null {
+  protected extractYear(text: string): number | null {
     // Look for 4-digit year (1900-2099)
     const yearMatch = text.match(/\b(19|20)\d{2}\b/);
     if (yearMatch) {

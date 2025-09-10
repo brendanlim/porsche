@@ -30,6 +30,11 @@ export interface ScraperResult {
   html?: string;
   options_text?: string;
   url?: string;  // Add this for backward compatibility
+  images?: string[];
+  source?: string;
+  seller_type?: string;
+  description?: string;
+  scraped_at?: Date;
 }
 
 // Export ScrapedListing as alias for backward compatibility

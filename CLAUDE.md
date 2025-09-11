@@ -11,7 +11,18 @@
 **THE SITE RELIES ON SCRAPING FROM ALL SOURCES, NOT JUST BAT**
 - We need data from: Bring a Trailer, Classic.com, Cars.com, Edmunds, Cars and Bids, Autotrader, CarGurus
 - DO NOT create one-off scripts for individual sources
-- Use the comprehensive `scrape-all.ts` script that runs ALL scrapers
+- **⚠️ CRITICAL: Use `scrape-and-save.ts` NOT `scrape-all.ts`** - The original scrape-all.ts doesn't save to database!
+
+## ⚠️ CRITICAL DATABASE LESSON (September 11, 2025)
+**SCRAPERS MUST ACTUALLY SAVE TO THE DATABASE**
+- Just returning parsed data is NOT enough - data must be INSERTed into database
+- Every scraper run must save to database, not just count results
+- ALWAYS verify with `SELECT COUNT(*) FROM listings` after scraping
+- The original scrapers were storing HTML but NEVER saving parsed data to DB
+- This caused "5957 listings scraped" but only 111 in database
+- **For new scraping: Use `scrape-and-save.ts`**
+- **For existing HTML: Use `parse-all-stored-html.ts`**
+- **For cron jobs: Must use `scrape-and-save.ts`**
 
 ## Golden Rules
 1. **Storage is cheap, scraping is not** - Store everything (HTML, search pages, detail pages)

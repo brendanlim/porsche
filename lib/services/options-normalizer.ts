@@ -33,7 +33,7 @@ Return ONLY a JSON array of normalized option names. Example format:
 ["Porsche Ceramic Composite Brakes (PCCB)", "Sport Chrono Package", "Paint to Sample - Shark Blue"]`;
 
     const result = await genAI.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       contents: prompt
     });
     const text = result.text;

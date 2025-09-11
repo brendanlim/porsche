@@ -47,7 +47,7 @@ export async function normalizeModelTrim(title: string): Promise<ModelTrimResult
       while (retries > 0) {
         try {
           result = await genAI.models.generateContent({
-            model: 'gemini-1.5-flash',
+            model: 'gemini-2.5-flash',
             contents: prompt
           });
           break; // Success, exit loop

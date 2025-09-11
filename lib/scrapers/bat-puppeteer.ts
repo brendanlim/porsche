@@ -1,5 +1,6 @@
 import { BaseScraper, ScrapedListing } from './base';
 import { BrightDataPuppeteer } from './bright-data-puppeteer';
+import { BaTScraper } from './bat';
 import * as cheerio from 'cheerio';
 import { HTMLStorageService } from '../services/html-storage';
 import { supabaseAdmin } from '@/lib/supabase/admin';
@@ -347,7 +348,66 @@ export class BaTScraperPuppeteer extends BaseScraper {
   }
   
   async parseListing(html: string, url: string): Promise<ScrapedListing | null> {
-    // Use the existing BaTScraper parsing logic
+    // Use the comprehensive BaTScraper parsing logic for sold_date, mileage, etc.
+    const batScraper = new BaTScraper();
+    
+    // Create a temporary method to parse HTML directly without fetching
+    // This reuses all the extraction methods from BaTScraper
+    const parseWithBaTScraper = async (): Promise<ScrapedListing | null> => {
+      const $ = cheerio.load(html);
+      const pageText = $('body').text();
+      
+      // Extract listing ID from URL
+      const sourceId = url.split('/').pop()?.replace(/[^a-zA-Z0-9-]/g, '') || '';
+      
+      // Get title
+      const title = $('h1.listing-title').first().text().trim() || 
+                   $('h1').first().text().trim() || 
+                   $('.auction-title').text().trim();
+      
+      if (!title) return null;
+      
+      // Extract year from title
+      const yearMatch = title.match(/\b(19\d{2}|20\d{2})\b/);
+      const year = yearMatch ? parseInt(yearMatch[1]) : undefined;
+      
+      // Check if sold
+      const isSold = (batScraper as any).checkIfSold($, pageText);
+      if (!isSold) return null;
+      
+      // Extract all the details using BaTScraper's methods
+      const price = (batScraper as any).extractSoldPrice($, pageText);
+      if (!price || price < 15000) return null;
+      
+      const soldDate = (batScraper as any).extractSoldDate($, pageText);
+      const mileage = (batScraper as any).extractMileage($);
+      const vin = (batScraper as any).extractVIN($);
+      const location = (batScraper as any).extractLocation($);
+      const exteriorColor = (batScraper as any).extractExteriorColor($);
+      const interiorColor = (batScraper as any).extractInteriorColor($);
+      const transmission = (batScraper as any).extractTransmission($, title);
+      
+      return {
+        source_url: url,
+        url,
+        title,
+        price,
+        mileage,
+        year,
+        status: 'sold',
+        sold_date: soldDate,
+        vin,
+        exterior_color: exteriorColor,
+        interior_color: interiorColor,
+        transmission,
+        location: location ? `${location.city || ''}, ${location.state || ''}`.trim() : undefined
+      } as ScrapedListing;
+    };
+    
+    const parsed = await parseWithBaTScraper();
+    if (parsed) return parsed;
+    
+    // Fallback to basic parsing if BaTScraper methods fail
     const $ = cheerio.load(html);
     
     // Extract basic info

@@ -147,6 +147,7 @@ export default function ModelsPage() {
   };
 
   const formatPrice = (price: number): string => {
+    if (!price || price === 0) return '—';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -156,6 +157,7 @@ export default function ModelsPage() {
   };
 
   const formatMileage = (mileage: number): string => {
+    if (!mileage || mileage === 0) return '—';
     return new Intl.NumberFormat('en-US').format(mileage);
   };
 

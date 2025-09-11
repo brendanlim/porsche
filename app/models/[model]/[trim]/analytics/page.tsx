@@ -217,7 +217,7 @@ export default function TrimAnalyticsPage() {
           </div>
           
           {/* Generation Filter Buttons */}
-          {analytics.generations && analytics.generations.length > 0 && (
+          {analytics?.generations && analytics.generations.length > 0 && (
             <div className="mt-4 pt-4 border-t border-gray-200">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-gray-700">Generation:</span>

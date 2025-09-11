@@ -97,6 +97,7 @@ Examples:
 function getScraperForSource(source: string): any {
   switch (source) {
     case 'bat':
+    case 'bring-a-trailer':  // Both use the same BaT scraper
       return new BaTScraper();
     case 'classic':
       return new ClassicScraper();
@@ -195,6 +196,11 @@ async function findHtmlFiles(pattern: {
           
           // If we have a source filter and this is the root level, check it
           if (pattern.source && prefix === '' && item.name !== pattern.source) {
+            shouldRecurse = false;
+          }
+          
+          // Skip date folders that don't match our date filter
+          if (pattern.date && /^\d{8}$/.test(item.name) && item.name !== pattern.date) {
             shouldRecurse = false;
           }
           

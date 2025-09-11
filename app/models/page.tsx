@@ -38,26 +38,19 @@ export default function ModelsPage() {
     try {
       setLoading(true);
       
-      // Fetch aggregated data for all models and trims
-      const { data, error } = await supabase.rpc('get_all_models_analytics');
-      
-      if (error) {
-        console.error('Error fetching model data:', error);
-        // Fallback to basic query if RPC doesn't exist
-        const { data: listings, error: listingsError } = await supabase
-          .from('listings')
-          .select('model, trim, price, mileage, year, created_at')
-          .not('model', 'is', null)
-          .order('model', { ascending: true });
+      // Fetch listings directly and aggregate in the frontend
+      const { data: listings, error: listingsError } = await supabase
+        .from('listings')
+        .select('model, trim, price, mileage, year, created_at, generation')
+        .not('model', 'is', null)
+        .gt('price', 15000) // Filter out bad data
+        .order('model', { ascending: true });
 
-        if (listingsError) throw listingsError;
+      if (listingsError) throw listingsError;
 
-        // Aggregate the data manually
-        const aggregated = aggregateListings(listings || []);
-        setModelData(aggregated);
-      } else {
-        setModelData(data || []);
-      }
+      // Aggregate the data manually
+      const aggregated = aggregateListings(listings || []);
+      setModelData(aggregated);
     } catch (err) {
       console.error('Error:', err);
       setError('Failed to load models data');

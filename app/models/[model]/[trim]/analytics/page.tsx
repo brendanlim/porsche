@@ -128,6 +128,7 @@ export default function TrimAnalyticsPage() {
   const [selectedGeneration, setSelectedGeneration] = useState<string>('all');
   const [timeRange, setTimeRange] = useState('90d');
   const [chartWidth, setChartWidth] = useState(800);
+  const [allGenerations, setAllGenerations] = useState<string[]>([]);
   
   useEffect(() => {
     // Set chart width to 90% of available container width
@@ -162,6 +163,11 @@ export default function TrimAnalyticsPage() {
       }
       const data = await response.json();
       setAnalytics(data);
+      
+      // Store all generations when fetching without filter
+      if (selectedGeneration === 'all' && data.generations && data.generations.length > 0) {
+        setAllGenerations(data.generations);
+      }
       
       // If there's only one generation and we haven't selected it yet, select it automatically
       if (data.generations && data.generations.length === 1 && selectedGeneration === 'all') {
@@ -217,7 +223,7 @@ export default function TrimAnalyticsPage() {
           </div>
           
           {/* Generation Filter Buttons */}
-          {analytics?.generations && analytics.generations.length > 0 && (
+          {allGenerations.length > 0 && (
             <div className="mt-4 pt-4 border-t border-gray-200">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-gray-700">Generation:</span>
@@ -228,20 +234,20 @@ export default function TrimAnalyticsPage() {
                       selectedGeneration === 'all'
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    } ${analytics.generations.length === 1 ? 'hidden' : ''}`}
+                    } ${allGenerations.length === 1 ? 'hidden' : ''}`}
                   >
                     All
                   </button>
-                  {analytics.generations.map(gen => (
+                  {allGenerations.map(gen => (
                     <button
                       key={gen}
-                      onClick={() => analytics.generations.length > 1 ? setSelectedGeneration(gen) : null}
-                      disabled={analytics.generations.length === 1}
+                      onClick={() => allGenerations.length > 1 ? setSelectedGeneration(gen) : null}
+                      disabled={allGenerations.length === 1}
                       className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                        selectedGeneration === gen || (analytics.generations.length === 1)
+                        selectedGeneration === gen || (allGenerations.length === 1)
                           ? 'bg-blue-600 text-white'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      } ${analytics.generations.length === 1 ? 'cursor-default' : 'cursor-pointer'}`}
+                      } ${allGenerations.length === 1 ? 'cursor-default' : 'cursor-pointer'}`}
                     >
                       {gen}
                     </button>

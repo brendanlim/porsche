@@ -277,90 +277,113 @@ export default function ModelsPage() {
         </Card>
       </div>
 
-      {/* Models Grid */}
+      {/* Models Table List */}
       <div className="space-y-8">
         {Object.entries(groupedModels).map(([modelName, trims]) => (
           <div key={modelName}>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">{modelName}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {trims.map((trim) => (
-                <Link
-                  key={`${trim.model}_${trim.trim}`}
-                  href={getModelUrl(trim.model, trim.trim)}
-                  className="block hover:no-underline"
-                >
-                  <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
-                    <CardHeader>
-                      <CardTitle className="flex items-center justify-between">
+            <div className="bg-white rounded-lg shadow-sm overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Trim / Years
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Price Range
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Avg Price
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Listings
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Avg Mileage
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Trends
+                    </th>
+                    <th className="relative px-6 py-3">
+                      <span className="sr-only">View</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {trims.map((trim) => (
+                    <tr 
+                      key={`${trim.model}_${trim.trim}`}
+                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      onClick={() => window.location.href = getModelUrl(trim.model, trim.trim)}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div>
-                          <span className="text-lg">{trim.display_trim}</span>
+                          <div className="text-sm font-medium text-gray-900">
+                            {trim.display_trim}
+                          </div>
                           {trim.min_year && trim.max_year && (
-                            <span className="text-sm font-normal text-gray-500 ml-2">
+                            <div className="text-sm text-gray-500">
                               {trim.min_year === trim.max_year 
                                 ? trim.min_year 
                                 : `${trim.min_year}-${trim.max_year}`}
-                            </span>
+                            </div>
                           )}
                         </div>
-                        <ArrowRight className="h-5 w-5 text-gray-400" />
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {/* Price Range */}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {formatPrice(trim.min_price)} - {formatPrice(trim.max_price)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-semibold text-gray-900">
+                          {formatPrice(trim.avg_price)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div>
-                          <p className="text-sm text-gray-600 mb-1">Price Range</p>
-                          <p className="font-semibold">
-                            {formatPrice(trim.min_price)} - {formatPrice(trim.max_price)}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            Avg: {formatPrice(trim.avg_price)}
-                          </p>
+                          <div className="text-sm text-gray-900">
+                            {trim.total_listings}
+                          </div>
+                          {trim.last_30_days_listings > 0 && (
+                            <div className="text-xs text-gray-500">
+                              +{trim.last_30_days_listings} new
+                            </div>
+                          )}
                         </div>
-
-                        {/* Stats Grid */}
-                        <div className="grid grid-cols-2 gap-3 pt-2">
-                          <div>
-                            <p className="text-xs text-gray-600">Listings</p>
-                            <p className="font-semibold">{trim.total_listings}</p>
-                            {trim.last_30_days_listings > 0 && (
-                              <p className="text-xs text-gray-500">
-                                {trim.last_30_days_listings} new
-                              </p>
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-600">Avg Mileage</p>
-                            <p className="font-semibold">{formatMileage(trim.avg_mileage)}</p>
-                          </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {formatMileage(trim.avg_mileage)}
                         </div>
-
-                        {/* Trends */}
-                        {(trim.price_trend !== 0 || trim.volume_trend !== 0) && (
-                          <div className="flex items-center gap-4 pt-2 border-t">
-                            {trim.price_trend !== 0 && (
-                              <div className="flex items-center gap-1">
-                                {getTrendIcon(trim.price_trend)}
-                                <span className={`text-sm ${getTrendColor(trim.price_trend)}`}>
-                                  {Math.abs(trim.price_trend)}% price
-                                </span>
-                              </div>
-                            )}
-                            {trim.volume_trend !== 0 && (
-                              <div className="flex items-center gap-1">
-                                {getTrendIcon(trim.volume_trend)}
-                                <span className={`text-sm ${getTrendColor(trim.volume_trend)}`}>
-                                  {Math.abs(trim.volume_trend)}% volume
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          {trim.price_trend !== 0 && (
+                            <div className="flex items-center gap-1">
+                              {getTrendIcon(trim.price_trend)}
+                              <span className={`text-xs ${getTrendColor(trim.price_trend)}`}>
+                                {Math.abs(trim.price_trend)}%
+                              </span>
+                            </div>
+                          )}
+                          {trim.volume_trend !== 0 && (
+                            <div className="flex items-center gap-1">
+                              {getTrendIcon(trim.volume_trend)}
+                              <span className={`text-xs ${getTrendColor(trim.volume_trend)}`}>
+                                {Math.abs(trim.volume_trend)}% vol
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <ArrowRight className="h-5 w-5 text-gray-400" />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         ))}

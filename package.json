@@ -11,7 +11,7 @@
     "predeploy": "npm run typecheck && npm run build",
     "deploy": "./scripts/deploy.sh",
     "deploy:prod": "./scripts/deploy.sh --prod",
-    "scrape:daily": "tsx scripts/daily-collection.ts",
+    "scrape:daily": "tsx scripts/scrape-and-save.ts",
     "scrape:parallel": "tsx scripts/daily-collection.ts --parallel",
     "scrape:test": "tsx scripts/test-scrapers.ts",
     "test:html": "tsx scripts/test-with-stored-html.ts"

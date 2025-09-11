@@ -92,9 +92,14 @@ async function parseAndSaveFiles(basePath: string) {
             mileage = parseInt(mileageMatch[1].replace(/,/g, ''));
           }
           
-          // Normalize model/trim
+          // Normalize model/trim using Gemini (has built-in retry logic for overload)
           const { normalizeModelTrim } = await import('../lib/services/model-trim-normalizer');
           const normalized = await normalizeModelTrim(title);
+          
+          // Add small delay to avoid overwhelming Gemini API
+          if (savedCount % 5 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay every 5 listings
+          }
           
           // Extract color
           const colorMatch = $.html().match(/(?:finished in|painted in|exterior:?)\s*([^,\.<]+)/i);

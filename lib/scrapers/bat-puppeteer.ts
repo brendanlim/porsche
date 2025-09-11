@@ -8,28 +8,46 @@ interface BaTModel {
   name: string;
   slug: string;
   trim?: string;
+  generation?: string;
   searchUrl: string;
 }
 
 const BAT_MODELS: BaTModel[] = [
-  // 911 Models
-  { name: '911', slug: '911', trim: 'GT3 RS', searchUrl: 'https://bringatrailer.com/porsche/991-gt3-rs/' },
-  { name: '911', slug: '911', trim: 'GT3 RS', searchUrl: 'https://bringatrailer.com/porsche/992-gt3-rs/' },
-  { name: '911', slug: '911', trim: 'GT3', searchUrl: 'https://bringatrailer.com/porsche/991-gt3/' },
-  { name: '911', slug: '911', trim: 'GT3', searchUrl: 'https://bringatrailer.com/porsche/992-gt3/' },
-  { name: '911', slug: '911', trim: 'GT3', searchUrl: 'https://bringatrailer.com/porsche/997-gt3/' },
-  { name: '911', slug: '911', trim: 'GT3', searchUrl: 'https://bringatrailer.com/porsche/996-gt3/' },
-  { name: '911', slug: '911', trim: 'Turbo', searchUrl: 'https://bringatrailer.com/porsche/991-turbo/' },
-  { name: '911', slug: '911', trim: 'Turbo', searchUrl: 'https://bringatrailer.com/porsche/992-turbo/' },
-  { name: '911', slug: '911', trim: 'Turbo S', searchUrl: 'https://bringatrailer.com/porsche/991-turbo-s/' },
-  { name: '911', slug: '911', trim: 'Turbo S', searchUrl: 'https://bringatrailer.com/porsche/992-turbo-s/' },
-  { name: '911', slug: '911', trim: 'Carrera', searchUrl: 'https://bringatrailer.com/porsche/991-911/' },
-  { name: '911', slug: '911', trim: 'Carrera', searchUrl: 'https://bringatrailer.com/porsche/992-911/' },
-  { name: '911', slug: '911', trim: 'Carrera S', searchUrl: 'https://bringatrailer.com/porsche/991-carrera-s/' },
-  { name: '911', slug: '911', trim: 'Carrera 4S', searchUrl: 'https://bringatrailer.com/porsche/991-carrera-4s/' },
-  { name: '911', slug: '911', trim: 'Carrera GTS', searchUrl: 'https://bringatrailer.com/porsche/991-carrera-gts/' },
-  { name: '911', slug: '911', trim: 'Targa', searchUrl: 'https://bringatrailer.com/porsche/991-targa/' },
-  { name: '911', slug: '911', trim: 'Targa', searchUrl: 'https://bringatrailer.com/porsche/992-targa/' },
+  // 911 GT3 Models (includes GT3 RS on same pages)
+  { name: '911', slug: '911', trim: 'GT3', generation: '996', searchUrl: 'https://bringatrailer.com/porsche/996-gt3/' },
+  { name: '911', slug: '911', trim: 'GT3', generation: '997', searchUrl: 'https://bringatrailer.com/porsche/997-gt3/' },
+  { name: '911', slug: '911', trim: 'GT3', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-gt3/' },
+  { name: '911', slug: '911', trim: 'GT3', generation: '992', searchUrl: 'https://bringatrailer.com/porsche/992-gt3/' },
+  { name: '911', slug: '911', trim: 'GT3 RS', generation: '996', searchUrl: 'https://bringatrailer.com/porsche/996-gt3/' },
+  { name: '911', slug: '911', trim: 'GT3 RS', generation: '997', searchUrl: 'https://bringatrailer.com/porsche/997-gt3/' },
+  { name: '911', slug: '911', trim: 'GT3 RS', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-gt3/' },
+  { name: '911', slug: '911', trim: 'GT3 RS', generation: '992', searchUrl: 'https://bringatrailer.com/porsche/992-gt3/' },
+  // 911 Base/Carrera Models
+  { name: '911', slug: '911', trim: 'Carrera', generation: '996', searchUrl: 'https://bringatrailer.com/porsche/996-911/' },
+  { name: '911', slug: '911', trim: 'Carrera', generation: '997', searchUrl: 'https://bringatrailer.com/porsche/997-911/' },
+  { name: '911', slug: '911', trim: 'Carrera', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-911/' },
+  { name: '911', slug: '911', trim: 'Carrera', generation: '992', searchUrl: 'https://bringatrailer.com/porsche/992-911/' },
+  { name: '911', slug: '911', trim: 'Carrera S', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-carrera-s/' },
+  { name: '911', slug: '911', trim: 'Carrera 4S', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-carrera-4s/' },
+  { name: '911', slug: '911', trim: 'Carrera GTS', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-carrera-gts/' },
+  
+  // 911 Turbo Models (all generations)
+  { name: '911', slug: '911', trim: 'Turbo', generation: '930', searchUrl: 'https://bringatrailer.com/porsche/930-turbo/' },
+  { name: '911', slug: '911', trim: 'Turbo', generation: '964', searchUrl: 'https://bringatrailer.com/porsche/964-turbo/' },
+  { name: '911', slug: '911', trim: 'Turbo', generation: '993', searchUrl: 'https://bringatrailer.com/porsche/993-turbo/' },
+  { name: '911', slug: '911', trim: 'Turbo', generation: '996', searchUrl: 'https://bringatrailer.com/porsche/996-turbo/' },
+  { name: '911', slug: '911', trim: 'Turbo', generation: '997', searchUrl: 'https://bringatrailer.com/porsche/997-turbo/' },
+  { name: '911', slug: '911', trim: 'Turbo', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-turbo/' },
+  { name: '911', slug: '911', trim: 'Turbo', generation: '992', searchUrl: 'https://bringatrailer.com/porsche/992-turbo/' },
+  { name: '911', slug: '911', trim: 'Turbo S', generation: '993', searchUrl: 'https://bringatrailer.com/porsche/993-turbo/' }, // Turbo S shares page with Turbo
+  { name: '911', slug: '911', trim: 'Turbo S', generation: '996', searchUrl: 'https://bringatrailer.com/porsche/996-turbo/' }, // Turbo S shares page with Turbo
+  { name: '911', slug: '911', trim: 'Turbo S', generation: '997', searchUrl: 'https://bringatrailer.com/porsche/997-turbo/' }, // Turbo S shares page with Turbo
+  { name: '911', slug: '911', trim: 'Turbo S', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-turbo-s/' },
+  { name: '911', slug: '911', trim: 'Turbo S', generation: '992', searchUrl: 'https://bringatrailer.com/porsche/992-turbo-s/' },
+  
+  // 911 Targa Models
+  { name: '911', slug: '911', trim: 'Targa', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-targa/' },
+  { name: '911', slug: '911', trim: 'Targa', generation: '992', searchUrl: 'https://bringatrailer.com/porsche/992-targa/' },
   
   // 718/Cayman/Boxster Models
   { name: '718 Cayman', slug: '718-cayman', trim: 'GT4', searchUrl: 'https://bringatrailer.com/porsche/cayman-gt4/' },
@@ -136,7 +154,7 @@ export class BaTScraperPuppeteer extends BaseScraper {
           continue;
         }
         
-        // Store the search page HTML
+        // Store the search page HTML with generation to prevent overwrites
         const storageResult = await this.htmlStorage.storeScrapedHTML({
           source: 'bring-a-trailer',
           url: modelConfig.searchUrl,
@@ -144,6 +162,7 @@ export class BaTScraperPuppeteer extends BaseScraper {
           type: 'search',
           model: modelConfig.name,
           trim: modelConfig.trim,
+          metadata: { generation: modelConfig.generation }
         });
         if (storageResult) {
           console.log(`✓ Stored search page: ${storageResult.path}`);

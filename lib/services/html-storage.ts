@@ -40,9 +40,10 @@ export class HTMLStorageService {
     type: 'listing' | 'search' | 'detail';
     model?: string;
     trim?: string;
+    generation?: string;
     timestamp?: Date;
   }): string {
-    const { source, url, type, model, trim, timestamp = new Date() } = params;
+    const { source, url, type, model, trim, generation, timestamp = new Date() } = params;
     
     // Format date as yyyymmdd
     const year = timestamp.getFullYear();
@@ -70,7 +71,9 @@ export class HTMLStorageService {
       
       if (trim) {
         const trimSlug = trim.toLowerCase().replace(/[^a-z0-9]/g, '-');
-        pathSegments.push(trimSlug);
+        // Include generation in trim slug if provided (e.g., "gt3-991" instead of just "gt3")
+        const fullTrimSlug = generation ? `${trimSlug}-${generation.toLowerCase()}` : trimSlug;
+        pathSegments.push(fullTrimSlug);
       }
     } else {
       pathSegments.push('unknown');
@@ -115,6 +118,7 @@ export class HTMLStorageService {
         type,
         model,
         trim,
+        generation: metadata?.generation,
         timestamp
       });
       

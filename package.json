@@ -17,7 +17,7 @@
     "test:html": "tsx scripts/test-with-stored-html.ts"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
+    "@google/genai": "^1.19.0",
     "@radix-ui/react-tabs": "^1.1.13",
     "@stripe/stripe-js": "^7.9.0",
     "@supabase/auth-helpers-nextjs": "^0.10.0",

@@ -1,9 +1,9 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
 // Initialize Gemini with Google Cloud API key
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 // Load prompt from file
 let SYSTEM_PROMPT: string;
@@ -38,7 +38,6 @@ export async function normalizeModelTrim(title: string): Promise<ModelTrimResult
     let result;
     
     try {
-      model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
       const prompt = `${SYSTEM_PROMPT}\n\nExtract model and trim from this title:\n"${title}"`;
       
       // Retry logic for overload errors
@@ -47,7 +46,10 @@ export async function normalizeModelTrim(title: string): Promise<ModelTrimResult
       
       while (retries > 0) {
         try {
-          result = await model.generateContent(prompt);
+          result = await genAI.models.generateContent({
+            model: 'gemini-1.5-flash',
+            contents: prompt
+          });
           break; // Success, exit loop
         } catch (error: any) {
           lastError = error;
@@ -81,8 +83,7 @@ export async function normalizeModelTrim(title: string): Promise<ModelTrimResult
       return fallbackParsing(title);
     }
     
-    const response = await result.response;
-    const text = response.text();
+    const text = result.text;
     
     // Parse JSON response
     try {

@@ -1,8 +1,8 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { validateVIN, validateModelYear, validatePrice, detectPaintToSample } from '@/lib/utils';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
 export interface NormalizationResult {
   model_id?: string;
@@ -15,7 +15,6 @@ export interface NormalizationResult {
 }
 
 export class DataNormalizer {
-  private model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
   /**
    * Normalize listing data using Gemini AI

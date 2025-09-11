@@ -1,6 +1,6 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
 const SYSTEM_PROMPT = `You are a Porsche vehicle expert and a data normalization specialist. Your task is to extract key vehicle options from raw text and return them as a clean, structured JSON array. 
 
@@ -24,8 +24,6 @@ export async function normalizeOptions(rawOptionsText: string): Promise<string[]
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    
     const prompt = `${SYSTEM_PROMPT}
 
 Raw options text:
@@ -34,9 +32,11 @@ ${rawOptionsText}
 Return ONLY a JSON array of normalized option names. Example format:
 ["Porsche Ceramic Composite Brakes (PCCB)", "Sport Chrono Package", "Paint to Sample - Shark Blue"]`;
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    const result = await genAI.models.generateContent({
+      model: 'gemini-1.5-flash',
+      contents: prompt
+    });
+    const text = result.text;
     
     // Extract JSON array from response
     const jsonMatch = text.match(/\[.*\]/s);

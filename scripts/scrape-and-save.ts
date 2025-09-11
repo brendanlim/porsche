@@ -114,11 +114,13 @@ async function main() {
   const sourceArg = args.find(arg => arg.startsWith('--source='));
   const modelArg = args.find(arg => arg.startsWith('--model='));
   const trimArg = args.find(arg => arg.startsWith('--trim='));
+  const maxPagesArg = args.find(arg => arg.startsWith('--max-pages='));
   const saveOnly = args.includes('--save-only');
   
   const source = sourceArg ? sourceArg.split('=')[1].toLowerCase() : null;
   const model = modelArg ? modelArg.split('=')[1].toLowerCase() : null;
   const trim = trimArg ? trimArg.split('=')[1].toLowerCase() : null;
+  const maxPagesOverride = maxPagesArg ? parseInt(maxPagesArg.split('=')[1]) : null;
   
   // Available sources
   const availableSources = ['bat', 'classic', 'carsandbids', 'edmunds', 'cars'];
@@ -143,6 +145,9 @@ async function main() {
   }
   if (trim) {
     console.log(`Trim filter: ${trim}`);
+  }
+  if (maxPagesOverride) {
+    console.log(`Max pages override: ${maxPagesOverride} (for all scrapers)`);
   }
   console.log('='.repeat(80));
   console.log('Golden Rule: Storage is cheap, scraping is not');
@@ -178,7 +183,7 @@ async function main() {
       const batScraper = new BaTScraperPuppeteer();
       const batResults = await batScraper.scrapeListings({
         model: model || undefined,
-        maxPages: model && trim ? 1 : 5,  // Just 1 page for specific model/trim
+        maxPages: maxPagesOverride || (model && trim ? 1 : 5),  // Use override or default
         onlySold: true
       });
       results.bat = batResults.length;
@@ -204,7 +209,7 @@ async function main() {
       const classicScraper = new ClassicScraper();
       const classicResults = await classicScraper.scrapeListings({
         model: model || undefined,
-        maxPages: model && trim ? 2 : 5,
+        maxPages: maxPagesOverride || (model && trim ? 2 : 5),
         onlySold: true
       });
       results.classic = classicResults.length;
@@ -230,7 +235,7 @@ async function main() {
       const carsAndBidsScraper = new CarsAndBidsScraper();
       const carsAndBidsResults = await carsAndBidsScraper.scrapeListings({
         model: model || undefined,
-        maxPages: model && trim ? 2 : 5,
+        maxPages: maxPagesOverride || (model && trim ? 2 : 5),
         onlySold: true
       });
       results.carsAndBids = carsAndBidsResults.length;
@@ -256,7 +261,7 @@ async function main() {
       const edmundsScraper = new EdmundsScraper();
       const edmundsResults = await edmundsScraper.scrapeListings({
         model: model || undefined,
-        maxPages: model && trim ? 2 : 5,
+        maxPages: maxPagesOverride || (model && trim ? 2 : 5),
         onlySold: true
       });
       results.edmunds = edmundsResults.length;
@@ -282,7 +287,7 @@ async function main() {
       const carsScraper = new CarsScraper();
       const carsResults = await carsScraper.scrapeListings({
         model: model || undefined,
-        maxPages: model && trim ? 2 : 5,
+        maxPages: maxPagesOverride || (model && trim ? 2 : 5),
         onlySold: true
       });
       results.cars = carsResults.length;

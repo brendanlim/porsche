@@ -2,8 +2,6 @@ import { GoogleGenAI } from '@google/genai';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { validateVIN, validateModelYear, validatePrice, detectPaintToSample } from '@/lib/utils';
 
-const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-
 export interface NormalizationResult {
   model_id?: string;
   trim_id?: string;
@@ -15,6 +13,11 @@ export interface NormalizationResult {
 }
 
 export class DataNormalizer {
+  private genAI: GoogleGenAI;
+
+  constructor() {
+    this.genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+  }
 
   /**
    * Normalize listing data using Gemini AI
@@ -126,8 +129,11 @@ export class DataNormalizer {
     `;
 
     try {
-      const result = await this.model.generateContent(prompt);
-      const response = result.response.text();
+      const result = await this.genAI.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt
+      });
+      const response = result.text;
       
       // Extract JSON from response
       const jsonMatch = response.match(/\{[\s\S]*\}/);

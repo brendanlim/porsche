@@ -55,6 +55,23 @@ interface TrimAnalytics {
     frequency: number;
     pricePremium: number;
     avgPrice: number;
+    premiumPercent?: number;
+    marketAvailability?: 'high' | 'medium' | 'low' | 'rare';
+    priceImpact?: 'rising' | 'falling' | 'stable';
+  }>;
+  premiumExamples?: Array<{
+    vin: string;
+    year: number;
+    price: number;
+    mileage: number;
+    color: string;
+    dealer: string;
+    source: string;
+    sourceUrl?: string;
+    highValueOptions: string[];
+    daysOnMarket: number;
+    generation: string;
+    premiumPercent: number;
   }>;
   topListings: Array<{
     vin: string;
@@ -563,7 +580,7 @@ export default function TrimAnalyticsPage() {
           </CardContent>
         </Card>
 
-        {/* Consolidated Options Analysis */}
+        {/* Enhanced Options Analysis with Premium Examples */}
         {analytics.optionsAnalysis && analytics.optionsAnalysis.length > 0 && (
           <Card>
             <CardHeader>
@@ -573,31 +590,137 @@ export default function TrimAnalyticsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* High-Value Options (2 columns) */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">High-Value Options</h3>
-                <div className="grid md:grid-cols-2 gap-3">
-                  {analytics.optionsAnalysis.slice(0, 10).map((option, index) => (
-                    <div key={option.option} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="text-lg font-semibold text-gray-400">#{index + 1}</div>
-                        <div>
-                          <div className="font-medium text-gray-900">{option.option}</div>
-                          <div className="text-sm text-gray-600">Found in {option.frequency} listings</div>
+              {/* High-Value Options vs Less Impact (2 columns) */}
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Options That Add Value */}
+                <div>
+                  <h3 className="text-lg font-semibold text-green-700 mb-4">Options That Add Value</h3>
+                  <div className="space-y-3">
+                    {analytics.optionsAnalysis
+                      .filter(opt => (opt.premiumPercent || 0) >= 2)
+                      .slice(0, 5)
+                      .map((option) => (
+                        <div key={option.option} className="bg-green-50 rounded-lg p-4 border border-green-100">
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <h4 className="font-semibold text-gray-900">{option.option}</h4>
+                              <div className="flex items-center gap-3 mt-1">
+                                <span className="text-sm text-gray-600">{option.frequency} listings</span>
+                                {option.marketAvailability && (
+                                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                                    option.marketAvailability === 'high' ? 'bg-green-100 text-green-800' :
+                                    option.marketAvailability === 'medium' ? 'bg-blue-100 text-blue-800' :
+                                    option.marketAvailability === 'low' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-purple-100 text-purple-800'
+                                  }`}>
+                                    {option.marketAvailability}
+                                  </span>
+                                )}
+                                {option.priceImpact === 'rising' && (
+                                  <TrendingUp className="h-3 w-3 text-green-600" />
+                                )}
+                                {option.priceImpact === 'falling' && (
+                                  <TrendingDown className="h-3 w-3 text-red-600" />
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-2xl font-bold text-green-600">
+                                +{(option.premiumPercent || 0).toFixed(1)}%
+                              </div>
+                              <div className="text-sm text-gray-600">premium</div>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <div className={`font-bold ${option.pricePremium > 0 ? 'text-green-600' : 'text-gray-600'}`}>
-                          {option.pricePremium > 0 ? '+' : ''}{formatPrice(option.pricePremium)}
+                      ))}
+                  </div>
+                </div>
+
+                {/* Options With Less Impact */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-700 mb-4">Options With Less Impact</h3>
+                  <div className="space-y-3">
+                    {analytics.optionsAnalysis
+                      .filter(opt => (opt.premiumPercent || 0) > 0 && (opt.premiumPercent || 0) < 2)
+                      .slice(0, 5)
+                      .map((option) => (
+                        <div key={option.option} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <h4 className="font-semibold text-gray-900">{option.option}</h4>
+                              <div className="flex items-center gap-3 mt-1">
+                                <span className="text-sm text-gray-600">{option.frequency} listings</span>
+                                {option.marketAvailability && (
+                                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                                    option.marketAvailability === 'high' ? 'bg-green-100 text-green-800' :
+                                    option.marketAvailability === 'medium' ? 'bg-blue-100 text-blue-800' :
+                                    option.marketAvailability === 'low' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-purple-100 text-purple-800'
+                                  }`}>
+                                    {option.marketAvailability}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-2xl font-bold text-gray-600">
+                                +{(option.premiumPercent || 0).toFixed(1)}%
+                              </div>
+                              <div className="text-sm text-gray-500">neutral</div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-xs text-gray-500">
-                          {((option.pricePremium / analytics.averagePrice) * 100).toFixed(1)}% premium
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                      ))}
+                  </div>
                 </div>
               </div>
+
+              {/* Premium Examples Currently Available */}
+              {analytics.premiumExamples && analytics.premiumExamples.length > 0 && (
+                <div className="pt-6 border-t border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Premium Examples Currently Available</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    These listings command premium prices due to their high-value options
+                  </p>
+                  <div className="space-y-3">
+                    {analytics.premiumExamples.map((listing, idx) => (
+                      <div key={idx} className="bg-white border border-gray-200 rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h4 className="font-semibold text-gray-900">
+                              {listing.year} {listing.generation} - {formatPrice(listing.price)}
+                            </h4>
+                            <div className="text-sm text-gray-600 mt-1">
+                              {listing.mileage.toLocaleString()} miles • {listing.color}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-bold text-blue-600">
+                              +{listing.premiumPercent.toFixed(1)}%
+                            </div>
+                            <div className="text-xs text-gray-500">above avg</div>
+                          </div>
+                        </div>
+                        <div className="mt-3">
+                          <div className="text-xs font-medium text-gray-700 mb-1">High-Value Options:</div>
+                          <div className="flex flex-wrap gap-1">
+                            {listing.highValueOptions.map((opt, i) => (
+                              <span key={i} className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium">
+                                {opt}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        {listing.sourceUrl && (
+                          <div className="mt-2 text-xs text-gray-500">
+                            Source: {listing.source} • {listing.daysOnMarket} days on market
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Option Value Retention by Mileage */}
               <div className="pt-6 border-t border-gray-200">

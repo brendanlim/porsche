@@ -361,33 +361,152 @@ export async function GET(
 
     const generationComparison = Array.from(genData.values());
 
-    // Options analysis
+    // Enhanced Options Analysis - compare with/without to find true value
     const optionKeywords = [
-      'Sport Chrono', 'PCCB', 'Sport Exhaust', 'PASM', 'PDCC',
-      'Front Axle Lift', 'Burmester', 'Carbon Fiber', 'Weissach',
-      'Paint to Sample', 'Extended Leather', 'Bucket Seats'
+      { name: 'Paint to Sample', keywords: ['Paint to Sample', 'PTS', 'Paint-to-Sample'] },
+      { name: 'Weissach Package', keywords: ['Weissach', 'Weissach Package'] },
+      { name: 'PCCB', keywords: ['PCCB', 'Porsche Ceramic Composite Brakes', 'Ceramic Brakes'] },
+      { name: 'Sport Chrono', keywords: ['Sport Chrono', 'Sport Chrono Package'] },
+      { name: 'Front Axle Lift', keywords: ['Front Axle Lift', 'Front Lift', 'HGAS', 'Hydraulic Front Axle'] },
+      { name: 'Carbon Fiber Roof', keywords: ['Carbon Fiber Roof', 'Carbon Roof', 'CF Roof'] },
+      { name: 'Sport Exhaust', keywords: ['Sport Exhaust', 'PSE', 'Porsche Sport Exhaust'] },
+      { name: 'Bucket Seats', keywords: ['Bucket Seats', 'LWBS', 'Lightweight Bucket'] },
+      { name: 'Extended Leather', keywords: ['Extended Leather', 'Full Leather'] },
+      { name: 'Burmester', keywords: ['Burmester', 'Burmester Audio'] },
+      { name: 'PASM', keywords: ['PASM', 'Porsche Active Suspension'] },
+      { name: 'PDCC', keywords: ['PDCC', 'Porsche Dynamic Chassis Control'] },
+      { name: 'PDK', keywords: ['PDK', 'Porsche Doppelkupplung'] },
+      { name: 'Manual', keywords: ['Manual', '6-Speed Manual', '7-Speed Manual', 'MT'] },
+      { name: 'Carbon Interior', keywords: ['Carbon Interior', 'Carbon Fiber Interior', 'Interior Carbon'] },
+      { name: 'Deviated Stitching', keywords: ['Deviated Stitching', 'Contrast Stitching'] }
     ];
 
     const optionsAnalysis = optionKeywords.map(option => {
-      const withOption = filteredListings.filter(l => 
-        l.options_text?.toLowerCase().includes(option.toLowerCase())
-      );
+      // Find listings with this option
+      const withOption = filteredListings.filter(l => {
+        const optionsLower = l.options_text?.toLowerCase() || '';
+        const normOptionsLower = (l.normalized_options?.join(' ') || '').toLowerCase();
+        const combined = `${optionsLower} ${normOptionsLower}`;
+        return option.keywords.some(kw => combined.includes(kw.toLowerCase()));
+      });
       
-      const optionPrices = withOption.map(l => l.price).filter(p => p > 0);
-      const optionAvg = optionPrices.length > 0
-        ? optionPrices.reduce((a, b) => a + b, 0) / optionPrices.length
+      // Find listings without this option (same year range for fair comparison)
+      const yearsWithOption = [...new Set(withOption.map(l => l.year).filter(y => y))];
+      const withoutOption = filteredListings.filter(l => {
+        if (!yearsWithOption.includes(l.year)) return false;
+        const optionsLower = l.options_text?.toLowerCase() || '';
+        const normOptionsLower = (l.normalized_options?.join(' ') || '').toLowerCase();
+        const combined = `${optionsLower} ${normOptionsLower}`;
+        return !option.keywords.some(kw => combined.includes(kw.toLowerCase()));
+      });
+      
+      // Calculate average prices
+      const withPrices = withOption.map(l => l.price).filter(p => p > 0);
+      const withoutPrices = withoutOption.map(l => l.price).filter(p => p > 0);
+      
+      const avgWithOption = withPrices.length > 0
+        ? withPrices.reduce((a, b) => a + b, 0) / withPrices.length
         : 0;
       
+      const avgWithoutOption = withoutPrices.length > 0
+        ? withoutPrices.reduce((a, b) => a + b, 0) / withoutPrices.length
+        : averagePrice;
+      
+      // Calculate premium percentage
+      const pricePremium = avgWithOption - avgWithoutOption;
+      const premiumPercent = avgWithoutOption > 0 
+        ? ((avgWithOption - avgWithoutOption) / avgWithoutOption) * 100
+        : 0;
+      
+      // Determine market availability
+      const listingPercent = (withOption.length / filteredListings.length) * 100;
+      let marketAvailability: 'high' | 'medium' | 'low' | 'rare' = 'low';
+      if (listingPercent > 50) marketAvailability = 'high';
+      else if (listingPercent > 25) marketAvailability = 'medium';
+      else if (listingPercent > 10) marketAvailability = 'low';
+      else marketAvailability = 'rare';
+      
+      // Analyze price trend (simplified)
+      const recentListings = withOption.filter(l => {
+        const listingDate = new Date(l.scraped_at || l.created_at);
+        const daysAgo = (now.getTime() - listingDate.getTime()) / (1000 * 60 * 60 * 24);
+        return daysAgo <= 90;
+      });
+      
+      const olderListings = withOption.filter(l => {
+        const listingDate = new Date(l.scraped_at || l.created_at);
+        const daysAgo = (now.getTime() - listingDate.getTime()) / (1000 * 60 * 60 * 24);
+        return daysAgo > 90;
+      });
+      
+      const recentAvg = recentListings.map(l => l.price).filter(p => p > 0);
+      const olderAvg = olderListings.map(l => l.price).filter(p => p > 0);
+      
+      let priceImpact: 'rising' | 'falling' | 'stable' = 'stable';
+      if (recentAvg.length > 0 && olderAvg.length > 0) {
+        const recent = recentAvg.reduce((a, b) => a + b, 0) / recentAvg.length;
+        const older = olderAvg.reduce((a, b) => a + b, 0) / olderAvg.length;
+        if (recent > older * 1.05) priceImpact = 'rising';
+        else if (recent < older * 0.95) priceImpact = 'falling';
+      }
+      
       return {
-        option,
+        option: option.name,
         frequency: withOption.length,
-        avgPrice: optionAvg,
-        pricePremium: optionPrices.length > 0 ? optionAvg - averagePrice : 0
+        avgPrice: avgWithOption,
+        pricePremium,
+        premiumPercent,
+        marketAvailability,
+        priceImpact,
+        withOptionCount: withOption.length,
+        withoutOptionCount: withoutOption.length
       };
     })
     .filter(opt => opt.frequency > 0)
-    .sort((a, b) => b.pricePremium - a.pricePremium)
-    .slice(0, 10);
+    .sort((a, b) => b.premiumPercent - a.premiumPercent);
+
+    // Find premium examples with high-value options
+    const premiumExamples = filteredListings
+      .filter(l => l.price > averagePrice * 1.1) // Premium priced
+      .map(listing => {
+        // Count high-value options
+        const optionsLower = listing.options_text?.toLowerCase() || '';
+        const normOptionsLower = (listing.normalized_options?.join(' ') || '').toLowerCase();
+        const combined = `${optionsLower} ${normOptionsLower}`;
+        
+        const highValueOptions = optionsAnalysis
+          .filter(opt => opt.premiumPercent >= 2)
+          .filter(opt => {
+            const optionDef = optionKeywords.find(ok => ok.name === opt.option);
+            return optionDef?.keywords.some(kw => combined.includes(kw.toLowerCase()));
+          })
+          .map(opt => opt.option);
+        
+        return {
+          ...listing,
+          highValueOptions,
+          optionsValue: highValueOptions.length
+        };
+      })
+      .filter(l => l.highValueOptions.length > 0)
+      .sort((a, b) => b.optionsValue - a.optionsValue)
+      .slice(0, 5)
+      .map(l => ({
+        vin: l.vin || `${l.year}-${l.model}-${l.trim}`,
+        year: l.year || 0,
+        price: l.price,
+        mileage: l.mileage || 0,
+        color: l.exterior_color || 'Unknown',
+        dealer: l.dealer_name || 'Private Party',
+        source: l.source || 'Unknown',
+        sourceUrl: l.source_url,
+        highValueOptions: l.highValueOptions,
+        daysOnMarket: Math.floor(
+          (now.getTime() - new Date(l.scraped_at || l.created_at).getTime()) / (1000 * 60 * 60 * 24)
+        ),
+        generation: getGeneration(l.year || 0, modelName),
+        premiumPercent: ((l.price - averagePrice) / averagePrice) * 100
+      }));
 
     // Top listings
     const topListings = filteredListings
@@ -447,6 +566,7 @@ export async function GET(
       depreciationByYear,
       generationComparison,
       optionsAnalysis,
+      premiumExamples,
       topListings,
       priceVsMileage
     }, {

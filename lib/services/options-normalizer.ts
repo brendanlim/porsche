@@ -57,8 +57,12 @@ Return ONLY a JSON array of normalized option names. Example format:
       .map(opt => opt.trim())
       .filter(opt => opt.length > 0 && !opt.includes('{') && !opt.includes('}'));
       
-  } catch (error) {
-    console.error('Gemini options normalization failed:', error);
+  } catch (error: any) {
+    if (error.status === 429) {
+      console.warn('Gemini rate limit (429) for options. Using fallback parsing.');
+    } else {
+      console.error('Gemini options normalization failed:', error.message || error);
+    }
     // Fallback to basic parsing
     return rawOptionsText
       .split(/[,;]/)

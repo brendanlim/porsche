@@ -130,6 +130,11 @@ export abstract class BaseScraper {
           console.log(`Normalized ${normalizedOptions.length} options for ${result.title}`);
         } catch (error) {
           console.error('Options normalization failed:', error);
+          // Fallback to basic parsing
+          normalizedOptions = result.options_text
+            .split(/[,;]/)
+            .map(opt => opt.trim())
+            .filter(opt => opt.length > 0);
         }
       }
 

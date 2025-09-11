@@ -53,8 +53,8 @@ export async function normalizeModelTrim(title: string): Promise<ModelTrimResult
           lastError = error;
           
           if (error.status === 429) {
-            // Quota exceeded, use fallback parsing immediately
-            console.warn('Gemini quota exceeded, using fallback parsing for:', title);
+            // Rate limit, not quota - show the actual error
+            console.warn(`Gemini rate limit (429) for "${title}". Error:`, error.message);
             return fallbackParsing(title);
           } else if (error.status === 503 || error.message?.includes('overloaded')) {
             // Model overloaded, retry with exponential backoff

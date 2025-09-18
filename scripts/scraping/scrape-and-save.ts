@@ -287,15 +287,17 @@ async function main() {
   const modelArg = args.find(arg => arg.startsWith('--model='));
   const trimArg = args.find(arg => arg.startsWith('--trim='));
   const maxPagesArg = args.find(arg => arg.startsWith('--max-pages='));
+  const typeArg = args.find(arg => arg.startsWith('--type='));
   const saveOnly = args.includes('--save-only');
   
   const source = sourceArg ? sourceArg.split('=')[1].toLowerCase() : null;
   const model = modelArg ? modelArg.split('=')[1].toLowerCase() : null;
   const trim = trimArg ? trimArg.split('=')[1].toLowerCase() : null;
   const maxPagesOverride = maxPagesArg ? parseInt(maxPagesArg.split('=')[1]) : null;
+  const type = typeArg ? typeArg.split('=')[1].toLowerCase() : 'both'; // 'sold', 'active', or 'both'
   
   // Available sources
-  const availableSources = ['bat', 'classic', 'carsandbids', 'edmunds', 'cars'];
+  const availableSources = ['bat', 'classic', 'carsandbids', 'edmunds', 'cars', 'autotrader'];
   
   if (source && !availableSources.includes(source)) {
     console.error(`Invalid source: ${source}`);
@@ -310,8 +312,14 @@ async function main() {
   if (source) {
     console.log(`Source filter: ${source}`);
   } else {
-    console.log('Sources: All (BaT, Classic, Cars&Bids, Edmunds, Cars.com)');
+    const sources = type === 'active' 
+      ? 'Cars.com, AutoTrader'
+      : type === 'sold'
+      ? 'BaT, Classic, Cars&Bids'
+      : 'All (BaT, Classic, Cars&Bids, Cars.com, AutoTrader)';
+    console.log(`Sources: ${sources}`);
   }
+  console.log(`Listing type: ${type.toUpperCase()} (sold/active/both)`);
   if (model) {
     console.log(`Model filter: ${model}`);
   }
@@ -332,6 +340,7 @@ async function main() {
   const { CarsAndBidsScraper } = await import('../../lib/scrapers/carsandbids');
   const { EdmundsScraper } = await import('../../lib/scrapers/edmunds');
   const { CarsScraper } = await import('../../lib/scrapers/cars');
+  const { AutoTraderScraper } = await import('../../lib/scrapers/autotrader');
   
   const results = {
     bat: 0,
@@ -339,17 +348,22 @@ async function main() {
     carsAndBids: 0,
     edmunds: 0,
     cars: 0,
+    autotrader: 0,
     total: 0,
     saved: 0
   };
 
-  // Run only specific source if specified
-  if (source === 'bat' || !source) {
-    // Run Bring a Trailer scraper (PRIORITY - best data)
-    console.log('='.repeat(50));
-    console.log('1. Scraping Bring a Trailer (Priority Source)...');
-    console.log('   Using Puppeteer to click "Show More" button');
-    console.log('='.repeat(50));
+  // SOLD LISTINGS SCRAPERS
+  if (type === 'sold' || type === 'both') {
+    console.log('\n📋 SCRAPING SOLD LISTINGS\n');
+    
+    // Run only specific source if specified
+    if (source === 'bat' || (!source && type !== 'active')) {
+      // Run Bring a Trailer scraper (PRIORITY - best data)
+      console.log('='.repeat(50));
+      console.log('1. Scraping Bring a Trailer (Priority Source)...');
+      console.log('   Using Puppeteer to click "Show More" button');
+      console.log('='.repeat(50));
     try {
       // Use Puppeteer version for BaT to handle dynamic loading
       const batScraper = new BaTScraperPuppeteer();
@@ -370,9 +384,9 @@ async function main() {
     } catch (error) {
       console.error('❌ Bring a Trailer failed:', error);
     }
-  }
+    }
 
-  if (source === 'classic' || !source) {
+    if (source === 'classic' || (!source && type !== 'active')) {
     // Run Classic.com scraper
     console.log('='.repeat(50));
     console.log('2. Scraping Classic.com...');
@@ -475,19 +489,84 @@ async function main() {
       console.error('❌ Cars.com failed:', error);
     }
   }
+  } // End sold listings section
+  
+  // ACTIVE LISTINGS SCRAPERS
+  if (type === 'active' || type === 'both') {
+    console.log('\n📋 SCRAPING ACTIVE LISTINGS\n');
+    
+    // Cars.com (Active listings)
+    if (source === 'cars' || (!source && type !== 'sold')) {
+      console.log('='.repeat(50));
+      console.log('Cars.com - Active Listings...');
+      console.log('='.repeat(50));
+      try {
+        const carsScraper = new CarsScraper();
+        const carsResults = await carsScraper.scrapeListings(
+          model || '911',
+          trim,
+          false // onlySold = false for active listings
+        );
+        results.cars = carsResults.length;
+        console.log(`✅ Cars.com: ${carsResults.length} active listings`);
+        
+        // Save to database
+        if (carsResults.length > 0) {
+          const saved = await saveListings(carsResults, 'cars');
+          results.saved += saved;
+        }
+        console.log();
+      } catch (error) {
+        console.error('❌ Cars.com failed:', error);
+      }
+    }
+    
+    // AutoTrader (Active listings only)
+    if (source === 'autotrader' || (!source && type !== 'sold')) {
+      console.log('='.repeat(50));
+      console.log('AutoTrader - Active Listings...');
+      console.log('='.repeat(50));
+      try {
+        const autotraderScraper = new AutoTraderScraper();
+        const autotraderResults = await autotraderScraper.scrapeListings(
+          model || '911',
+          trim,
+          false // onlySold = false (AutoTrader only has active)
+        );
+        results.autotrader = autotraderResults.length;
+        console.log(`✅ AutoTrader: ${autotraderResults.length} active listings`);
+        
+        // Save to database
+        if (autotraderResults.length > 0) {
+          const saved = await saveListings(autotraderResults, 'autotrader');
+          results.saved += saved;
+        }
+        console.log();
+      } catch (error) {
+        console.error('❌ AutoTrader failed:', error);
+      }
+    }
+  } // End active listings section
 
   // Summary
-  results.total = results.bat + results.classic + results.carsAndBids + results.edmunds + results.cars;
+  results.total = results.bat + results.classic + results.carsAndBids + results.edmunds + results.cars + results.autotrader;
   
   console.log('='.repeat(50));
   console.log('SCRAPING COMPLETE');
   console.log('='.repeat(50));
   console.log(`Total listings scraped: ${results.total}`);
-  console.log(`  - Bring a Trailer: ${results.bat}`);
-  console.log(`  - Classic.com: ${results.classic}`);
-  console.log(`  - Cars and Bids: ${results.carsAndBids}`);
-  console.log(`  - Edmunds: ${results.edmunds}`);
-  console.log(`  - Cars.com: ${results.cars}`);
+  if (type === 'sold' || type === 'both') {
+    console.log('\nSold Listings:');
+    console.log(`  - Bring a Trailer: ${results.bat}`);
+    console.log(`  - Classic.com: ${results.classic}`);
+    console.log(`  - Cars and Bids: ${results.carsAndBids}`);
+    console.log(`  - Edmunds: ${results.edmunds}`);
+  }
+  if (type === 'active' || type === 'both') {
+    console.log('\nActive Listings:');
+    console.log(`  - Cars.com: ${results.cars}`);
+    console.log(`  - AutoTrader: ${results.autotrader}`);
+  }
   console.log('\nDatabase Summary:');
   console.log(`  ✅ Total saved/updated: ${results.saved}`);
   

@@ -1,11 +1,9 @@
 import * as cheerio from 'cheerio';
-import { BaseScraper, ScraperOptions, ScraperResult } from './base';
-import { BrightDataFetcher } from './bright-data';
+import { BaseScraper, ScraperResult } from './base';
 
 export class AutoTraderScraper extends BaseScraper {
-  constructor(options: ScraperOptions = {}) {
-    super('autotrader', { ...options });
-    this.fetcher = new BrightDataFetcher();
+  constructor() {
+    super('autotrader');
   }
 
   async scrapeListings(model: string, trim?: string, onlySold: boolean = false): Promise<ScraperResult[]> {
@@ -25,7 +23,7 @@ export class AutoTraderScraper extends BaseScraper {
 
       console.log(`🔍 Scraping AutoTrader for ${model} ${trim || ''}`);
       
-      const html = await this.fetchWithRetry(searchUrl, 'search');
+      const html = await this.fetchUrl(searchUrl, 'search');
       const $ = cheerio.load(html);
 
       // Find all listing cards
@@ -103,7 +101,7 @@ export class AutoTraderScraper extends BaseScraper {
             mileage,
             vin,
             dealer_name: dealer,
-            location,
+            location: location ? { city: location } : undefined,
             is_dealer: true, // AutoTrader is primarily dealers
             status: 'active', // All AutoTrader listings are active
             listing_date: new Date().toISOString(),
@@ -137,9 +135,75 @@ export class AutoTraderScraper extends BaseScraper {
     return results;
   }
 
+  async scrapeDetail(url: string): Promise<ScraperResult | null> {
+    try {
+      const html = await this.fetchUrl(url, 'detail');
+      const $ = cheerio.load(html);
+      
+      // Extract basic info
+      const title = $('h1').first().text().trim();
+      const priceText = $('[data-testid="price"], .price-value').first().text().trim();
+      const price = this.extractPrice(priceText);
+      const year = this.extractYear(title);
+      
+      // Extract VIN
+      const vinElement = $('[data-testid="vin"], .vin-value, dt:contains("VIN") + dd');
+      const vin = vinElement.text().trim();
+      
+      // Extract mileage
+      const mileageText = $('[data-testid="mileage"], dt:contains("Mileage") + dd').text().trim();
+      const mileage = this.extractMileage(mileageText);
+      
+      // Extract colors
+      const exteriorColor = $('dt:contains("Exterior") + dd, [data-testid="exterior-color"]').text().trim();
+      const interiorColor = $('dt:contains("Interior") + dd, [data-testid="interior-color"]').text().trim();
+      
+      // Extract dealer
+      const dealer = $('[data-testid="dealer-name"], .dealer-name').text().trim();
+      
+      // Extract model and trim from title
+      let model = '911';  // Default
+      let trim: string | undefined;
+      
+      if (title.includes('718')) {
+        model = title.includes('Cayman') ? '718 Cayman' : '718 Boxster';
+      }
+      
+      const trimPatterns = ['GT4 RS', 'GT4', 'GT3 RS', 'GT3', 'GT2 RS', 'Turbo S', 'Turbo', 'GTS', 'Carrera'];
+      for (const pattern of trimPatterns) {
+        if (title.includes(pattern)) {
+          trim = pattern;
+          break;
+        }
+      }
+      
+      return {
+        source_url: url,
+        source_id: `autotrader_${vin || url.split('/').pop()}`,
+        title,
+        price: price || 0,
+        year,
+        model,
+        trim,
+        mileage,
+        vin: vin.length === 17 ? vin : undefined,
+        exterior_color: exteriorColor,
+        interior_color: interiorColor,
+        dealer_name: dealer,
+        is_dealer: true,
+        status: 'active',
+        raw_data: { title, price: priceText, mileage: mileageText }
+      };
+      
+    } catch (error) {
+      console.error('Error scraping AutoTrader detail page:', error);
+      return null;
+    }
+  }
+
   private async scrapeDetailPage(url: string): Promise<Partial<ScraperResult> | null> {
     try {
-      const html = await this.fetchWithRetry(url, 'detail');
+      const html = await this.fetchUrl(url, 'detail');
       const $ = cheerio.load(html);
       
       // Extract VIN from detail page

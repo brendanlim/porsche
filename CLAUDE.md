@@ -131,8 +131,24 @@
   - 002_raw_html_storage.sql - Storage bucket configuration
   - 003_add_generation_column.sql - Added generation column to listings
 
+## Script Organization Rules
+**ALWAYS organize scripts into proper subfolders:**
+- `/scripts/setup/` - Initial setup and configuration scripts
+- `/scripts/scraping/` - Data collection scripts (scrape-and-save.ts, etc.)
+- `/scripts/data-processing/` - Data transformation and normalization
+- `/scripts/maintenance/` - Cleanup and maintenance scripts  
+- `/scripts/utilities/` - Utility scripts for checking data
+- `/scripts/temp/` - **ONE-OFF SCRIPTS AND CHECKS** (e.g., check-specific-listing.ts)
+
+**IMPORTANT:** 
+- Never put scripts directly in `/scripts/` root - always use subfolders
+- One-off debugging or checking scripts go in `/scripts/temp/`
+- The temp folder should be periodically cleaned
+- Always create scripts in the appropriate subfolder based on their purpose
+- Main scraper path: `/scripts/scraping/scrape-and-save.ts`
+
 ## Remember
-- The comprehensive scraper (`scrape-all.ts`) already exists and includes all sources
+- The comprehensive scraper (`scrape-and-save.ts`) includes all sources - it's in `/scripts/scraping/`
 - Don't create individual scraper scripts - enhance the existing comprehensive one
 - All scrapers extend BaseScraper and follow the same pattern
 - **NEVER DUPLICATE CORE PARSING LOGIC** - Each scraper class is the single source of truth for parsing its HTML

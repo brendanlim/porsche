@@ -4,8 +4,8 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { createClient } from '@supabase/supabase-js';
-import { ScrapedListing } from '../lib/types/scraper';
-import { processListingOptions } from '../lib/services/options-manager';
+import { ScrapedListing } from '../../lib/types/scraper';
+import { processListingOptions } from '../../lib/services/options-manager';
 
 // Only load .env.local if it exists (for local development)
 const envPath = path.resolve(process.cwd(), '.env.local');
@@ -327,11 +327,11 @@ async function main() {
   console.log('='.repeat(80) + '\n');
   
   // Import scrapers after dotenv is loaded
-  const { BaTScraperPuppeteer } = await import('../lib/scrapers/bat-puppeteer');
-  const { ClassicScraper } = await import('../lib/scrapers/classic');
-  const { CarsAndBidsScraper } = await import('../lib/scrapers/carsandbids');
-  const { EdmundsScraper } = await import('../lib/scrapers/edmunds');
-  const { CarsScraper } = await import('../lib/scrapers/cars');
+  const { BaTScraperPuppeteer } = await import('../../lib/scrapers/bat-puppeteer');
+  const { ClassicScraper } = await import('../../lib/scrapers/classic');
+  const { CarsAndBidsScraper } = await import('../../lib/scrapers/carsandbids');
+  const { EdmundsScraper } = await import('../../lib/scrapers/edmunds');
+  const { CarsScraper } = await import('../../lib/scrapers/cars');
   
   const results = {
     bat: 0,

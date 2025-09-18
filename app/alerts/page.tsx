@@ -12,12 +12,7 @@ import {
   Crown,
   AlertTriangle,
   CheckCircle,
-  Car,
-  DollarSign,
-  Gauge,
-  Calendar,
-  MapPin,
-  Settings
+  Calendar
 } from 'lucide-react';
 import { MarketAlert } from '@/lib/types/database';
 import { formatPrice } from '@/lib/utils';

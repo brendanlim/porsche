@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     // Basic valuation algorithm
     let estimatedValue = 0;
     let confidenceScore = 0;
-    let comparableCount = similarListings.length;
+    const comparableCount = similarListings.length;
 
     if (isPremium) {
       // Advanced valuation for premium users
@@ -177,7 +177,7 @@ function calculateConfidenceScore(listings: any[], targetMileage: number): numbe
   if (listings.length === 0) return 0;
 
   // Base confidence on number of comparables
-  let confidence = Math.min(0.9, listings.length / 25);
+  const confidence = Math.min(0.9, listings.length / 25);
 
   // Adjust for mileage spread
   const mileages = listings.map((l: any) => l.mileage);

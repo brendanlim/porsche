@@ -1,151 +1,194 @@
-import dotenv from 'dotenv';
-import path from 'path';
-dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+#!/usr/bin/env npx tsx
+import * as dotenv from 'dotenv';
+import { createClient } from '@supabase/supabase-js';
 
-import { supabaseAdmin } from '../lib/supabase/admin';
-import * as cheerio from 'cheerio';
-import * as fs from 'fs';
+dotenv.config({ path: '.env.local' });
 
-async function extractMileageFromLocalFiles() {
-  console.log('🔍 Extracting mileage from local HTML files...\n');
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+);
+
+function extractMileageFromTitle(title: string): number | null {
+  if (!title) return null;
   
-  // Find local HTML files
-  const files = [
-    '/Users/brendan/Code/python/porschetrends/bat-search-Porsche-991-911.html',
-    '/Users/brendan/Code/python/porschetrends/bat-search-Porsche-Cayman-GT4.html',
-    '/Users/brendan/Code/python/porschetrends/bat-search-Porsche-911-GT2.html'
+  // Patterns to match mileage in various formats
+  const patterns = [
+    // Matches: "13k-Mile", "13K-Mile", "13k-mile"
+    /([\d,]+)[kK]-[Mm]ile/,
+    // Matches: "3,100-Mile", "3100-Mile"
+    /([\d,]+)-[Mm]ile/,
+    // Matches: "13,000 Miles", "3100 miles"
+    /([\d,]+)\s+[Mm]iles?\b/,
+    // Matches: "13k Miles", "13K miles"
+    /([\d,]+)[kK]\s+[Mm]iles?\b/,
+    // Matches: "One-Owner 13,000-Kilometer" (convert km to miles)
+    /([\d,]+)-[Kk]ilometer/,
+    /([\d,]+)\s+[Kk]ilometers?\b/,
+    /([\d,]+)[kK]\s+[Kk]ilometers?\b/,
   ];
   
-  const updates: Array<{url: string, mileage: number}> = [];
-  
-  for (const file of files) {
-    if (!fs.existsSync(file)) continue;
-    
-    console.log(`Processing: ${path.basename(file)}`);
-    const html = fs.readFileSync(file, 'utf-8');
-    const $ = cheerio.load(html);
-    
-    // Extract from embedded JSON
-    const scriptTags = $('script').toArray();
-    
-    for (const script of scriptTags) {
-      const scriptContent = $(script).html() || '';
+  for (const pattern of patterns) {
+    const match = title.match(pattern);
+    if (match) {
+      let mileageStr = match[1].replace(/,/g, '');
+      let mileage = parseInt(mileageStr);
       
-      if (scriptContent.includes('auctionsCompletedInitialData')) {
-        const jsonMatch = scriptContent.match(/auctionsCompletedInitialData\s*:\s*(\[[\s\S]*?\])\s*[,}]/);
-        
-        if (jsonMatch) {
-          try {
-            const auctionData = JSON.parse(jsonMatch[1]);
-            console.log(`  Found ${auctionData.length} completed auctions in embedded JSON`);
-            
-            for (const auction of auctionData) {
-              if (!auction.url) continue;
-              
-              const listingUrl = auction.url.startsWith('http') 
-                ? auction.url 
-                : `https://bringatrailer.com${auction.url}`;
-              
-              // Extract mileage from subtitle or description
-              let mileage = 0;
-              
-              // Try to find mileage in various formats
-              const possibleText = [
-                auction.subtitle,
-                auction.description,
-                auction.titlesub,
-                auction.title
-              ].filter(Boolean).join(' ');
-              
-              // Look for patterns like "12,345 miles", "12k miles", "12,345-Mile"
-              const mileagePatterns = [
-                /(\d{1,3}(?:,\d{3})*)\s*(?:-?[Mm]ile|[Mm]iles)/,
-                /(\d+)[Kk]\s*(?:-?[Mm]ile|[Mm]iles)/,
-                /(\d+)[Kk]-[Mm]ile/
-              ];
-              
-              for (const pattern of mileagePatterns) {
-                const match = possibleText.match(pattern);
-                if (match) {
-                  if (match[1].includes('k') || match[1].includes('K')) {
-                    mileage = parseInt(match[1]) * 1000;
-                  } else {
-                    mileage = parseInt(match[1].replace(/,/g, ''));
-                  }
-                  break;
-                }
-              }
-              
-              if (mileage > 0) {
-                updates.push({ url: listingUrl, mileage });
-                console.log(`    Found mileage: ${mileage.toLocaleString()} for ${auction.title?.substring(0, 50)}`);
-              }
-            }
-          } catch (e) {
-            console.error('  Error parsing embedded JSON:', e);
-          }
-        }
+      // Handle 'k' notation (13k = 13000)
+      if (match[0].toLowerCase().includes('k-mile') || 
+          match[0].toLowerCase().includes('k mile')) {
+        mileage = mileage * 1000;
+      }
+      
+      // Handle 'k' notation for kilometers
+      if (match[0].toLowerCase().includes('k-kilometer') || 
+          match[0].toLowerCase().includes('k kilometer')) {
+        mileage = mileage * 1000;
+      }
+      
+      // Convert kilometers to miles
+      if (match[0].toLowerCase().includes('kilometer')) {
+        mileage = Math.round(mileage * 0.621371);
+      }
+      
+      // Sanity check - must be between 0 and 500,000 miles
+      if (mileage > 0 && mileage < 500000) {
+        return mileage;
       }
     }
-    
-    // Also look in the HTML content directly
-    $('.content').each((i, elem) => {
-      const text = $(elem).text();
-      const link = $(elem).find('h3 a').attr('href');
-      
-      if (link && text.includes('Sold for')) {
-        // Look for mileage
-        const mileageMatch = text.match(/(\d{1,3}(?:,\d{3})*)\s*miles/i) || 
-                            text.match(/(\d+)[Kk]-[Mm]ile/);
-        
-        if (mileageMatch) {
-          let mileage = 0;
-          if (mileageMatch[1].includes('k') || mileageMatch[1].includes('K')) {
-            mileage = parseInt(mileageMatch[1]) * 1000;
-          } else {
-            mileage = parseInt(mileageMatch[1].replace(/,/g, ''));
-          }
-          
-          if (mileage > 0 && !updates.find(u => u.url === link)) {
-            updates.push({ url: link, mileage });
-            console.log(`    Found mileage in HTML: ${mileage.toLocaleString()}`);
-          }
-        }
-      }
-    });
   }
   
-  console.log(`\n📊 Found mileage for ${updates.length} listings`);
-  
-  // Update database
-  if (updates.length > 0) {
-    console.log('\n🔄 Updating database...');
-    
-    for (const update of updates) {
-      const { error } = await supabaseAdmin
-        .from('listings')
-        .update({ mileage: update.mileage })
-        .eq('url', update.url);
-      
-      if (error) {
-        console.error(`  Error updating ${update.url}:`, error.message);
-      }
-    }
-    
-    console.log('✅ Database updated!');
-  }
-  
-  // Check how many listings now have mileage
-  const { data: withMileage } = await supabaseAdmin
-    .from('listings')
-    .select('id')
-    .gt('mileage', 0);
-  
-  const { count: totalCount } = await supabaseAdmin
-    .from('listings')
-    .select('*', { count: 'exact', head: true });
-  
-  console.log(`\n📈 Status: ${withMileage?.length || 0} of ${totalCount} listings now have mileage data`);
+  return null;
 }
 
-extractMileageFromLocalFiles().catch(console.error);
+async function extractAllMileage() {
+  console.log('='.repeat(60));
+  console.log('EXTRACTING MILEAGE FROM TITLES');
+  console.log('='.repeat(60));
+  
+  // Get all listings without mileage
+  console.log('Fetching listings without mileage...');
+  
+  let allListings: any[] = [];
+  let offset = 0;
+  const limit = 1000;
+  
+  while (true) {
+    const { data: batch, error } = await supabase
+      .from('listings')
+      .select('id, title, mileage, model, trim')
+      .is('mileage', null)
+      .range(offset, offset + limit - 1);
+    
+    if (error) {
+      console.error('Error fetching listings:', error);
+      break;
+    }
+    
+    if (!batch || batch.length === 0) break;
+    
+    allListings = allListings.concat(batch);
+    console.log(\`Fetched \${allListings.length} listings so far...\`);
+    
+    if (batch.length < limit) break;
+    offset += limit;
+  }
+  
+  console.log(\`\nFound \${allListings.length} listings without mileage\n\`);
+  
+  // Extract mileage from titles
+  const updates: Array<{ id: string; mileage: number; title: string }> = [];
+  const modelStats: Record<string, { total: number; extracted: number }> = {};
+  
+  for (const listing of allListings) {
+    const modelKey = \`\${listing.model} \${listing.trim || ''}\`.trim();
+    if (!modelStats[modelKey]) {
+      modelStats[modelKey] = { total: 0, extracted: 0 };
+    }
+    modelStats[modelKey].total++;
+    
+    const mileage = extractMileageFromTitle(listing.title);
+    if (mileage !== null) {
+      updates.push({ 
+        id: listing.id, 
+        mileage,
+        title: listing.title 
+      });
+      modelStats[modelKey].extracted++;
+    }
+  }
+  
+  console.log(\`Extracted mileage from \${updates.length} listings (\${(updates.length/allListings.length*100).toFixed(1)}%)\n\`);
+  
+  // Show extraction stats by model
+  console.log('Extraction success by model/trim:');
+  Object.entries(modelStats)
+    .sort(([,a], [,b]) => b.total - a.total)
+    .slice(0, 15)
+    .forEach(([model, stats]) => {
+      const percent = ((stats.extracted/stats.total)*100).toFixed(1);
+      console.log(\`  \${model}: \${stats.extracted}/\${stats.total} (\${percent}%)\`);
+    });
+  
+  // Show sample extractions
+  console.log('\nSample extractions:');
+  updates.slice(0, 10).forEach(update => {
+    console.log(\`  "\${update.title.substring(0, 50)}..." → \${update.mileage.toLocaleString()} miles\`);
+  });
+  
+  // Apply updates
+  if (updates.length > 0) {
+    console.log(\`\nUpdating database with \${updates.length} mileage values...\`);
+    
+    let successCount = 0;
+    let errorCount = 0;
+    
+    for (let i = 0; i < updates.length; i++) {
+      const update = updates[i];
+      const { error } = await supabase
+        .from('listings')
+        .update({ mileage: update.mileage })
+        .eq('id', update.id);
+      
+      if (error) {
+        errorCount++;
+        console.error(\`Error updating \${update.id}:\`, error.message);
+      } else {
+        successCount++;
+        if (successCount % 100 === 0) {
+          console.log(\`  Updated \${successCount}/\${updates.length}...\`);
+        }
+      }
+    }
+    
+    console.log(\`\n✅ Successfully updated \${successCount} listings with mileage\`);
+    if (errorCount > 0) {
+      console.log(\`❌ Failed to update \${errorCount} listings\`);
+    }
+  }
+  
+  // Final stats
+  const { count: totalCount } = await supabase
+    .from('listings')
+    .select('*', { count: 'exact', head: true });
+    
+  const { count: hasMileage } = await supabase
+    .from('listings')
+    .select('*', { count: 'exact', head: true })
+    .not('mileage', 'is', null);
+    
+  console.log('\n' + '='.repeat(60));
+  console.log('FINAL MILEAGE STATISTICS');
+  console.log('='.repeat(60));
+  console.log(\`Total listings: \${totalCount}\`);
+  console.log(\`With mileage: \${hasMileage} (\${((hasMileage/totalCount)*100).toFixed(1)}%)\`);
+  console.log(\`Without mileage: \${totalCount - hasMileage} (\${(((totalCount - hasMileage)/totalCount)*100).toFixed(1)}%)\`);
+}
+
+extractAllMileage().catch(console.error);

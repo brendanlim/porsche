@@ -6,7 +6,7 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
-            <h3 className="text-lg font-semibold mb-4">PorscheTrends</h3>
+            <h3 className="text-lg font-semibold mb-4">PorscheStats</h3>
             <p className="text-sm text-gray-400">
               Data-driven insights for the Porsche enthusiast market.
             </p>
@@ -73,7 +73,7 @@ export function Footer() {
         
         <div className="mt-8 pt-8 border-t border-gray-800">
           <p className="text-center text-sm text-gray-400">
-            © 2024 PorscheTrends. All rights reserved.
+            © 2024 PorscheStats. All rights reserved.
           </p>
         </div>
       </div>

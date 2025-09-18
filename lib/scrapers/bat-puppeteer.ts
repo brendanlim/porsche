@@ -70,6 +70,23 @@ const BAT_MODELS: BaTModel[] = [
   { name: 'Boxster', slug: 'boxster', trim: 'Spyder', searchUrl: 'https://bringatrailer.com/porsche/981-spyder/' },
 ];
 
+/**
+ * Calculate BaT buyer fee: 5% of price, capped at $7,500
+ */
+function calculateBaTFeeAmount(price: number): number {
+  const feePercent = 0.05;
+  const maxFee = 7500;
+  const calculatedFee = price * feePercent;
+  return Math.min(calculatedFee, maxFee);
+}
+
+/**
+ * Apply BaT buyer fee to get the true sale price
+ */
+function applyBaTFee(price: number): number {
+  return price + calculateBaTFeeAmount(price);
+}
+
 export class BaTScraperPuppeteer extends BaseScraper {
   private puppeteerScraper: BrightDataPuppeteer;
   private htmlStorage: HTMLStorageService;
@@ -209,22 +226,30 @@ export class BaTScraperPuppeteer extends BaseScraper {
                     : `https://bringatrailer.com${auction.url}`;
                   
                   // Extract price
-                  let price = 0;
+                  let hammmerPrice = 0;
                   if (auction.current_bid) {
-                    price = parseInt(auction.current_bid.toString().replace(/[^0-9]/g, ''));
+                    hammmerPrice = parseInt(auction.current_bid.toString().replace(/[^0-9]/g, ''));
                   }
                   
                   // Skip if price too low (not a real car)
-                  if (price < 15000) continue;
+                  if (hammmerPrice < 15000) continue;
+                  
+                  // Apply BaT buyer fee (5% capped at $7,500)
+                  const buyerFee = calculateBaTFeeAmount(hammmerPrice);
+                  const finalPrice = applyBaTFee(hammmerPrice);
                   
                   const listing: ScrapedListing = {
                     source_url: listingUrl,
                     url: listingUrl,
                     title: auction.title,
-                    price: price,
+                    price: finalPrice,  // Use price with buyer fee included
                     status: 'sold',
                     model: modelConfig.name,
                     trim: modelConfig.trim,
+                    // Store fee metadata
+                    buyer_fee_amount: buyerFee,
+                    buyer_fee_applied: true,
+                    price_before_fee: hammmerPrice,
                   };
                   
                   allListings.push(listing);
@@ -262,14 +287,23 @@ export class BaTScraperPuppeteer extends BaseScraper {
                 }
               }
               
+              // Apply BaT buyer fee to DOM-parsed listings too
+              const hammerPrice = domListing.price || 0;
+              const buyerFee = calculateBaTFeeAmount(hammerPrice);
+              const finalPrice = applyBaTFee(hammerPrice);
+              
               const listing: ScrapedListing = {
                 source_url: domListing.url,
                 url: domListing.url,
                 title: domListing.title || 'Unknown',
-                price: domListing.price || 0,
+                price: finalPrice,  // Use price with buyer fee included
                 status: 'sold',
                 model: modelConfig.name,
                 trim: modelConfig.trim,
+                // Store fee metadata
+                buyer_fee_amount: buyerFee,
+                buyer_fee_applied: true,
+                price_before_fee: hammerPrice,
               };
               
               if (listing.price >= 15000) {
@@ -295,11 +329,18 @@ export class BaTScraperPuppeteer extends BaseScraper {
     if (allListings.length > 0) {
       console.log('\n📥 Fetching individual listing pages...\n');
       
-      const detailsToFetch = allListings.slice(0, Math.min(allListings.length, maxPages * 10));
+      // Limit detail fetching based on maxPages to avoid timeouts
+      // With maxPages=2, fetch up to 100 detail pages (50 per page)
+      const maxDetailsToFetch = (options.maxPages || 5) * 50;
+      const detailsToFetch = allListings.slice(0, maxDetailsToFetch);
       
-      for (const listing of detailsToFetch) {
+      console.log(`  Will fetch ${detailsToFetch.length} of ${allListings.length} detail pages`);
+      console.log(`  (Limited by maxPages=${options.maxPages} * 50 to avoid timeouts)`);
+      
+      for (let i = 0; i < detailsToFetch.length; i++) {
+        const listing = detailsToFetch[i];
         try {
-          console.log(`Fetching: ${listing.url}`);
+          console.log(`[${i + 1}/${detailsToFetch.length}] Fetching: ${listing.url}`);
           
           // Fetch the listing page with Puppeteer
           const listingData = await this.puppeteerScraper.scrapeListingPage(listing.url);
@@ -386,6 +427,7 @@ export class BaTScraperPuppeteer extends BaseScraper {
       const exteriorColor = (batScraper as any).extractExteriorColor($);
       const interiorColor = (batScraper as any).extractInteriorColor($);
       const transmission = (batScraper as any).extractTransmission($, title);
+      const options_text = (batScraper as any).extractOptions($);
       
       return {
         source_url: url,
@@ -400,6 +442,7 @@ export class BaTScraperPuppeteer extends BaseScraper {
         exterior_color: exteriorColor,
         interior_color: interiorColor,
         transmission,
+        options_text,
         location: location ? `${location.city || ''}, ${location.state || ''}`.trim() : undefined
       } as ScrapedListing;
     };

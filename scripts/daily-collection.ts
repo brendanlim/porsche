@@ -61,7 +61,7 @@ async function runScraper(job: ScraperJob) {
 
 async function runAllScrapers() {
   console.log('========================================');
-  console.log('    PorscheTrends Daily Collection');
+  console.log('    PorscheStats Daily Collection');
   console.log('========================================');
   console.log(`Started at: ${new Date().toISOString()}`);
   
@@ -133,7 +133,7 @@ async function runAllScrapers() {
 // Alternative: Use the 'all' endpoint for parallel execution
 async function runAllScrapersParallel() {
   console.log('========================================');
-  console.log('    PorscheTrends Daily Collection');
+  console.log('    PorscheStats Daily Collection');
   console.log('========================================');
   console.log(`Started at: ${new Date().toISOString()}`);
   

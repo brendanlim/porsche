@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter, AreaChart, Area, Cell } from 'recharts';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter, AreaChart, Area, Cell, PieChart, Pie, ComposedChart } from 'recharts';
 import { TrendingUp, TrendingDown, Minus, DollarSign, Calendar, Car, Activity, Trophy, Zap, Filter } from 'lucide-react';
 import { DepreciationTable } from '@/components/DepreciationTable';
 import { OptionsAnalysis } from '@/components/OptionsAnalysis';
@@ -18,12 +18,38 @@ interface TrimAnalytics {
   priceRange: { min: number; max: number };
   averageMileage: number;
   yearOverYearAppreciation: number;
+  priceChangePercent: number | null;
+  listingsChangePercent: number | null;
+  mileageChangePercent: number | null;
   generations: string[];
   marketTrends: Array<{
     date: string;
     averagePrice: number;
     listingCount: number;
     generation?: string;
+  }>;
+  salesData?: Array<{
+    date: string;
+    price: number;
+    generation: string;
+    mileage?: number;
+    year?: number;
+  }>;
+  generationTrends?: Record<string, Array<{
+    date: string;
+    avgPrice: number;
+  }>>;
+  seasonalityAnalysis?: Array<{
+    season: string;
+    salesVolume: number;
+    avgPrice: number;
+    medianPrice: number;
+    priceImpact: number;
+    volumePercent: number;
+    priceRange: {
+      min: number;
+      max: number;
+    };
   }>;
   colorAnalysis: Array<{
     color: string;
@@ -43,6 +69,15 @@ interface TrimAnalytics {
     costPer1000Mi: number;
     generation: string;
   }>;
+  multiAxisDepreciation?: {
+    useGeneration: boolean;
+    mileageRanges: string[];
+    data: Array<{
+      key: string | number;
+      [key: string]: any;
+    }>;
+    baselinePrice: number;
+  };
   generationComparison: Array<{
     generation: string;
     avgPrice: number;
@@ -58,6 +93,9 @@ interface TrimAnalytics {
     premiumPercent?: number;
     marketAvailability?: 'high' | 'medium' | 'low' | 'rare';
     priceImpact?: 'rising' | 'falling' | 'stable';
+    avgDaysOnMarket?: number | null;
+    avgDaysWithoutOption?: number | null;
+    daysOnMarketDiff?: number | null;
   }>;
   premiumExamples?: Array<{
     vin: string;
@@ -106,8 +144,9 @@ function formatMileage(mileage: number): string {
 }
 
 function StatCard({ title, value, change, icon: Icon, subtitle }: any) {
-  const isPositive = change > 0;
-  const isNeutral = Math.abs(change) < 0.5;
+  const hasChange = change !== null && change !== undefined;
+  const isPositive = hasChange && change > 0;
+  const isNeutral = hasChange && Math.abs(change) < 0.5;
 
   return (
     <Card>
@@ -118,16 +157,21 @@ function StatCard({ title, value, change, icon: Icon, subtitle }: any) {
       <CardContent>
         <div className="text-2xl font-bold text-gray-900">{value}</div>
         {subtitle && <p className="text-xs text-gray-600 mt-1">{subtitle}</p>}
-        {!isNeutral && (
+        {hasChange && !isNeutral && (
           <p className={`text-xs flex items-center mt-2 ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
             {isPositive ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
             {Math.abs(change).toFixed(1)}% from last month
           </p>
         )}
-        {isNeutral && (
+        {hasChange && isNeutral && (
           <p className="text-xs flex items-center text-gray-500 mt-2">
             <Minus className="h-3 w-3 mr-1" />
             Stable
+          </p>
+        )}
+        {!hasChange && (
+          <p className="text-xs text-gray-400 mt-2">
+            Insufficient data
           </p>
         )}
       </CardContent>
@@ -143,7 +187,7 @@ export default function TrimAnalyticsPage() {
   const [analytics, setAnalytics] = useState<TrimAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedGeneration, setSelectedGeneration] = useState<string>('all');
-  const [timeRange, setTimeRange] = useState('90d');
+  const [timeRange, setTimeRange] = useState('2y');
   const [chartWidth, setChartWidth] = useState(800);
   const [allGenerations, setAllGenerations] = useState<string[]>([]);
   
@@ -230,11 +274,12 @@ export default function TrimAnalyticsPage() {
                 onChange={(e) => setTimeRange(e.target.value)}
                 className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 text-sm"
               >
-                <option value="7d">Last 7 days</option>
-                <option value="30d">Last 30 days</option>
-                <option value="90d">Last 90 days</option>
-                <option value="1y">Last year</option>
-                <option value="all">All time</option>
+                <option value="3m">3 months</option>
+                <option value="6m">6 months</option>
+                <option value="1y">1 year</option>
+                <option value="2y">2 years</option>
+                <option value="3y">3 years</option>
+                <option value="all">All Time</option>
               </select>
             </div>
           </div>
@@ -280,20 +325,20 @@ export default function TrimAnalyticsPage() {
           <StatCard
             title="Average Price"
             value={formatPrice(analytics.averagePrice)}
-            change={analytics.yearOverYearAppreciation}
+            change={analytics.priceChangePercent}
             icon={DollarSign}
             subtitle={selectedGeneration !== 'all' ? selectedGeneration : null}
           />
           <StatCard
-            title="Total Listings"
+            title="Total Sales"
             value={analytics.totalListings}
-            change={2.3}
+            change={analytics.listingsChangePercent}
             icon={Car}
           />
           <StatCard
             title="Average Mileage"
-            value={formatMileage(analytics.averageMileage)}
-            change={-1.2}
+            value={formatMileage(Math.round(analytics.averageMileage))}
+            change={analytics.mileageChangePercent}
             icon={Activity}
           />
           <StatCard
@@ -313,39 +358,249 @@ export default function TrimAnalyticsPage() {
           />
         </div>
 
-        {/* Historical Price & Volume Trends - MOVED TO TOP */}
+        {/* Historical Price Trends */}
         <Card>
           <CardHeader>
-            <CardTitle>Historical Price & Volume Trends</CardTitle>
+            <CardTitle>Historical Price Trends</CardTitle>
             <CardDescription>
-              {trimDisplay} market dynamics over time
+              {trimDisplay} price trends showing 30-day moving median with interquartile range
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {analytics.marketTrends && analytics.marketTrends.length > 0 ? (
-              <div style={{ width: '100%', height: 350, display: 'flex', justifyContent: 'center' }}>
-                <LineChart width={chartWidth} height={350} data={analytics.marketTrends}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="date" stroke="#6b7280" tick={{ fontSize: 11 }} />
-                <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" tick={{ fontSize: 11 }} />
-                <YAxis yAxisId="right" orientation="right" stroke="#10b981" tick={{ fontSize: 11 }} />
-                <Tooltip 
-                  formatter={(value: any, name: string) => {
-                    if (name === 'Average Price') return formatPrice(value);
-                    return value;
-                  }}
-                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
-                />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line yAxisId="left" type="monotone" dataKey="averagePrice" stroke="#3b82f6" name="Average Price" strokeWidth={2} dot={false} />
-                <Line yAxisId="right" type="monotone" dataKey="listingCount" stroke="#10b981" name="Listings" strokeWidth={2} dot={false} />
-              </LineChart>
+            {analytics.salesData && analytics.salesData.length > 0 ? (
+              <div style={{ width: '100%', height: 400, display: 'flex', justifyContent: 'center' }}>
+                <ResponsiveContainer width={chartWidth} height={400}>
+                  <ComposedChart 
+                    margin={{ top: 20, right: 20, bottom: 60, left: 20 }}
+                    data={(() => {
+                      // Sort sales by date
+                      const sortedSales = [...analytics.salesData].sort((a, b) => 
+                        new Date(a.date).getTime() - new Date(b.date).getTime()
+                      );
+                      
+                      // Create data with both individual sales and moving statistics
+                      const dataWithStats = sortedSales.map((sale, index) => {
+                        const windowSize = 30;
+                        const saleTime = new Date(sale.date).getTime();
+                        const windowStart = saleTime - (windowSize * 24 * 60 * 60 * 1000);
+                        
+                        // Find sales within window
+                        const windowSales = sortedSales.filter(s => {
+                          const time = new Date(s.date).getTime();
+                          return time >= windowStart && time <= saleTime;
+                        });
+                        
+                        // Calculate statistics for window
+                        let movingAvg = sale.price;
+                        let lowerBound = sale.price;
+                        let upperBound = sale.price;
+                        
+                        if (windowSales.length >= 3) {
+                          const prices = windowSales.map(s => s.price).sort((a, b) => a - b);
+                          
+                          // Calculate average
+                          movingAvg = windowSales.reduce((sum, s) => sum + s.price, 0) / windowSales.length;
+                          
+                          // Calculate percentiles for bounds (25th and 75th)
+                          const p25Index = Math.floor(prices.length * 0.25);
+                          const p75Index = Math.floor(prices.length * 0.75);
+                          lowerBound = prices[p25Index];
+                          upperBound = prices[p75Index];
+                        }
+                        
+                        return {
+                          ...sale,
+                          date: saleTime,
+                          price: sale.price,
+                          movingAvg: Math.round(movingAvg),
+                          lowerBound: Math.round(lowerBound),
+                          upperBound: Math.round(upperBound),
+                          generation: sale.generation
+                        };
+                      });
+                      
+                      return dataWithStats;
+                    })()}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis 
+                      dataKey="date"
+                      type="number"
+                      domain={['dataMin', 'dataMax']}
+                      stroke="#6b7280" 
+                      tick={{ fontSize: 11 }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                      tickFormatter={(value) => {
+                        const date = new Date(value);
+                        return `${date.getMonth() + 1}/${date.getFullYear().toString().slice(-2)}`;
+                      }}
+                    />
+                    <YAxis 
+                      type="number"
+                      stroke="#6b7280" 
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                    />
+                    <Tooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length > 0) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-sm">
+                              <p className="font-semibold text-gray-900">
+                                {new Date(data.date).toLocaleDateString()}
+                              </p>
+                              {data.median && (
+                                <p className="text-sm text-blue-600">
+                                  Median: {formatPrice(data.median)}
+                                </p>
+                              )}
+                              {data.lowerBound && data.upperBound && (
+                                <p className="text-sm text-gray-600">
+                                  Range: {formatPrice(data.lowerBound)} - {formatPrice(data.upperBound)}
+                                </p>
+                              )}
+                              {data.sampleSize && (
+                                <p className="text-sm text-gray-500">
+                                  Based on {data.sampleSize} sales
+                                </p>
+                              )}
+                              {data.price && (
+                                <p className="text-sm text-gray-700">
+                                  Sale Price: {formatPrice(data.price)}
+                                </p>
+                              )}
+                              {data.generation && (
+                                <p className="text-sm text-gray-600">Generation: {data.generation}</p>
+                              )}
+                              {data.mileage && (
+                                <p className="text-sm text-gray-600">Mileage: {formatMileage(data.mileage)}</p>
+                              )}
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    
+                    {/* Range bands - area between upper and lower bounds */}
+                    <Area
+                      type="monotone"
+                      dataKey="upperBound"
+                      fill="#3b82f6"
+                      fillOpacity={0.15}
+                      stroke="#3b82f6"
+                      strokeWidth={1}
+                      strokeOpacity={0.2}
+                      strokeDasharray="3 3"
+                      dot={false}
+                      legendType="none"
+                    />
+                    
+                    <Area
+                      type="monotone"
+                      dataKey="lowerBound"
+                      fill="#ffffff"
+                      fillOpacity={1}
+                      stroke="#3b82f6"
+                      strokeWidth={1}
+                      strokeOpacity={0.2}
+                      strokeDasharray="3 3"
+                      dot={false}
+                      legendType="none"
+                    />
+                    
+                    {/* Moving average line */}
+                    <Line
+                      type="monotone"
+                      dataKey="movingAvg"
+                      stroke="#3b82f6"
+                      strokeWidth={3}
+                      dot={false}
+                      activeDot={{ r: 6 }}
+                      legendType="none"
+                    />
+                    
+                    {/* Individual sales scatter points */}
+                    <Scatter
+                      dataKey="price"
+                      fill="#6b7280"
+                      legendType="none"
+                    >
+                        {(() => {
+                          // Check if we have multiple generations
+                          const generations = [...new Set(analytics.salesData.map(s => s.generation).filter(g => g))];
+                          const hasMultipleGenerations = generations.length > 1;
+                          
+                          if (hasMultipleGenerations) {
+                            const generationColors: Record<string, string> = {
+                              '992.2': '#10b981',
+                              '992.1': '#3b82f6',
+                              '991.2': '#8b5cf6',
+                              '991.1': '#f59e0b',
+                              '997.2': '#ef4444',
+                              '997.1': '#ec4899',
+                              '996': '#06b6d4',
+                              '982': '#06b6d4',
+                              '981': '#14b8a6',
+                              'default': '#6b7280'
+                            };
+                            
+                            return analytics.salesData.map((entry, index) => (
+                              <Cell 
+                                key={`cell-${index}`} 
+                                fill={generationColors[entry.generation] || generationColors.default}
+                              />
+                            ));
+                          }
+                          return null;
+                        })()}
+                      </Scatter>
+                  </ComposedChart>
+                </ResponsiveContainer>
               </div>
             ) : (
-              <div className="flex items-center justify-center h-[350px] text-gray-500">
-                No market trend data
+              <div className="h-[400px] flex items-center justify-center">
+                <p className="text-gray-500">No sales data available</p>
               </div>
             )}
+            
+            {/* Generation color legend */}
+            {analytics.salesData && analytics.salesData.length > 0 && (() => {
+              const generations = [...new Set(analytics.salesData.map(s => s.generation).filter(g => g))];
+              if (generations.length > 1) {
+                const generationColors: Record<string, string> = {
+                  '992.2': '#10b981',
+                  '992.1': '#3b82f6',
+                  '991.2': '#8b5cf6',
+                  '991.1': '#f59e0b',
+                  '997.2': '#ef4444',
+                  '997.1': '#ec4899',
+                  '996': '#06b6d4',
+                  '982': '#06b6d4',
+                  '981': '#14b8a6',
+                  'default': '#6b7280'
+                };
+                
+                return (
+                  <div className="mt-4 flex gap-4 justify-center text-sm flex-wrap">
+                    <span className="text-gray-500 mr-2">Generations:</span>
+                    {generations.sort().map(gen => (
+                      <span key={gen} className="flex items-center gap-1">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: generationColors[gen] || generationColors.default }}
+                        />
+                        <span className="text-gray-600">{gen}</span>
+                      </span>
+                    ))}
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </CardContent>
         </Card>
 
@@ -361,12 +616,51 @@ export default function TrimAnalyticsPage() {
             {/* Chart container centered within card */}
             <div style={{ width: '100%', height: 350, display: 'flex', justifyContent: 'center' }}>
               {analytics.priceVsMileage && analytics.priceVsMileage.length > 0 ? (
-                <ScatterChart 
-                  width={chartWidth}
-                  height={350}
-                  margin={{ top: 20, right: 20, bottom: 60, left: 20 }}
-                  data={analytics.priceVsMileage}
-                >
+                <ResponsiveContainer width={chartWidth} height={350}>
+                  <ComposedChart 
+                    margin={{ top: 20, right: 20, bottom: 60, left: 20 }}
+                    data={(() => {
+                      // Sort data by mileage for smooth range bands
+                      const sortedData = [...analytics.priceVsMileage].sort((a, b) => a.mileage - b.mileage);
+                      
+                      // Calculate moving statistics for price at different mileage points
+                      const dataWithStats = sortedData.map((point, index) => {
+                        const windowSize = 5000; // 5000 mile window
+                        const mileageMin = point.mileage - windowSize;
+                        const mileageMax = point.mileage + windowSize;
+                        
+                        // Find points within mileage window
+                        const windowPoints = sortedData.filter(p => 
+                          p.mileage >= mileageMin && p.mileage <= mileageMax
+                        );
+                        
+                        // Calculate statistics
+                        let avgPrice = point.price;
+                        let lowerBound = point.price;
+                        let upperBound = point.price;
+                        
+                        if (windowPoints.length >= 3) {
+                          const prices = windowPoints.map(p => p.price).sort((a, b) => a - b);
+                          avgPrice = windowPoints.reduce((sum, p) => sum + p.price, 0) / windowPoints.length;
+                          
+                          // Calculate percentiles
+                          const p25Index = Math.floor(prices.length * 0.25);
+                          const p75Index = Math.floor(prices.length * 0.75);
+                          lowerBound = prices[p25Index];
+                          upperBound = prices[p75Index];
+                        }
+                        
+                        return {
+                          ...point,
+                          avgPrice: Math.round(avgPrice),
+                          lowerBound: Math.round(lowerBound),
+                          upperBound: Math.round(upperBound)
+                        };
+                      });
+                      
+                      return dataWithStats;
+                    })()}
+                  >
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis 
                   dataKey="mileage" 
@@ -402,71 +696,138 @@ export default function TrimAnalyticsPage() {
                     return null;
                   }}
                 />
-                <Scatter 
-                  fill="#3b82f6"
-                >
-                  {(analytics.priceVsMileage || []).map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={
-                        entry.year >= 2024 ? '#10b981' : 
-                        entry.year >= 2022 ? '#3b82f6' : 
-                        entry.year >= 2020 ? '#8b5cf6' : 
-                        '#6b7280'
-                      } 
+                    {/* Range bands for price confidence interval */}
+                    <Area
+                      type="monotone"
+                      dataKey="upperBound"
+                      fill="#3b82f6"
+                      fillOpacity={0.1}
+                      stroke="#3b82f6"
+                      strokeWidth={1}
+                      strokeOpacity={0.2}
+                      strokeDasharray="3 3"
+                      dot={false}
+                      legendType="none"
                     />
-                  ))}
-                </Scatter>
-              </ScatterChart>
+                    
+                    <Area
+                      type="monotone"
+                      dataKey="lowerBound"
+                      fill="#ffffff"
+                      fillOpacity={1}
+                      stroke="#3b82f6"
+                      strokeWidth={1}
+                      strokeOpacity={0.2}
+                      strokeDasharray="3 3"
+                      dot={false}
+                      legendType="none"
+                    />
+                    
+                    {/* Average price trend line */}
+                    <Line
+                      type="monotone"
+                      dataKey="avgPrice"
+                      stroke="#ef4444"
+                      strokeWidth={2}
+                      dot={false}
+                      legendType="none"
+                    />
+                    
+                    {/* Individual data points as scatter */}
+                    <Scatter 
+                      dataKey="price"
+                      fill="#3b82f6"
+                      legendType="none"
+                    >
+                      {(() => {
+                        const sortedData = [...analytics.priceVsMileage].sort((a, b) => a.mileage - b.mileage);
+                        // Determine if we should color by generation or year
+                        const uniqueGenerations = [...new Set(analytics.priceVsMileage.map(d => d.generation))];
+                        const useGenerations = uniqueGenerations.length > 1;
+                        
+                        // Color palette for up to 10 different values
+                        const colors = [
+                          '#3b82f6', // blue
+                          '#10b981', // green
+                          '#f59e0b', // amber
+                          '#8b5cf6', // purple
+                          '#ef4444', // red
+                          '#06b6d4', // cyan
+                          '#f97316', // orange
+                          '#ec4899', // pink
+                          '#14b8a6', // teal
+                          '#6b7280'  // gray
+                        ];
+                        
+                        return sortedData.map((entry, index) => {
+                          let fillColor = '#3b82f6';
+                          if (useGenerations) {
+                            // Color by generation
+                            const genIndex = uniqueGenerations.sort().indexOf(entry.generation);
+                            fillColor = colors[genIndex % colors.length];
+                          } else {
+                            // Color by year
+                            const uniqueYears = [...new Set(analytics.priceVsMileage.map(d => d.year))].sort();
+                            const yearIndex = uniqueYears.indexOf(entry.year);
+                            fillColor = colors[yearIndex % colors.length];
+                          }
+                          
+                          return <Cell key={`cell-${index}`} fill={fillColor} />;
+                        });
+                      })()}
+                    </Scatter>
+                  </ComposedChart>
+                </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-full text-gray-500">
                   No data to display
                 </div>
               )}
             </div>
-            {/* Year color legend */}
+            {/* Dynamic legend based on actual data */}
             {analytics.priceVsMileage && analytics.priceVsMileage.length > 0 && (
-              <div className="mt-4 flex gap-4 justify-center text-sm">
+              <div className="mt-4 flex gap-4 justify-center text-sm flex-wrap">
                 {(() => {
-                  const years = analytics.priceVsMileage.map(d => d.year);
-                  const minYear = Math.min(...years);
-                  const maxYear = Math.max(...years);
-                  const showLegend = [];
+                  const uniqueGenerations = [...new Set(analytics.priceVsMileage.map(d => d.generation))];
+                  const useGenerations = uniqueGenerations.length > 1;
                   
-                  if (maxYear >= 2024) {
-                    showLegend.push(
-                      <span key="2024" className="flex items-center gap-1">
-                        <div className="w-3 h-3 bg-green-500 rounded-full" />
-                        2024+
-                      </span>
-                    );
-                  }
-                  if (years.some(y => y >= 2022 && y < 2024)) {
-                    showLegend.push(
-                      <span key="2022" className="flex items-center gap-1">
-                        <div className="w-3 h-3 bg-blue-500 rounded-full" />
-                        2022-2023
-                      </span>
-                    );
-                  }
-                  if (years.some(y => y >= 2020 && y < 2022)) {
-                    showLegend.push(
-                      <span key="2020" className="flex items-center gap-1">
-                        <div className="w-3 h-3 bg-purple-500 rounded-full" />
-                        2020-2021
-                      </span>
-                    );
-                  }
-                  if (minYear < 2020) {
-                    showLegend.push(
-                      <span key="pre2020" className="flex items-center gap-1">
-                        <div className="w-3 h-3 bg-gray-500 rounded-full" />
-                        Pre-2020
-                      </span>
-                    );
-                  }
+                  const colors = [
+                    '#3b82f6', // blue
+                    '#10b981', // green
+                    '#f59e0b', // amber
+                    '#8b5cf6', // purple
+                    '#ef4444', // red
+                    '#06b6d4', // cyan
+                    '#f97316', // orange
+                    '#ec4899', // pink
+                    '#14b8a6', // teal
+                    '#6b7280'  // gray
+                  ];
                   
-                  return showLegend;
+                  if (useGenerations) {
+                    // Show generation legend
+                    return uniqueGenerations.sort().map((gen, index) => (
+                      <span key={gen} className="flex items-center gap-1">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: colors[index % colors.length] }}
+                        />
+                        {gen}
+                      </span>
+                    ));
+                  } else {
+                    // Show year legend
+                    const uniqueYears = [...new Set(analytics.priceVsMileage.map(d => d.year))].sort();
+                    return uniqueYears.map((year, index) => (
+                      <span key={year} className="flex items-center gap-1">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: colors[index % colors.length] }}
+                        />
+                        {year}
+                      </span>
+                    ));
+                  }
                 })()}
               </div>
             )}
@@ -487,8 +848,8 @@ export default function TrimAnalyticsPage() {
               <BarChart width={chartWidth} height={350} data={analytics.depreciationByYear}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="year" stroke="#6b7280" tick={{ fontSize: 11 }} />
-                <YAxis yAxisId="left" orientation="left" stroke="#8b5cf6" tick={{ fontSize: 11 }} />
-                <YAxis yAxisId="right" orientation="right" stroke="#f59e0b" tick={{ fontSize: 11 }} />
+                <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" tick={{ fontSize: 11 }} />
+                <YAxis yAxisId="right" orientation="right" stroke="#10b981" tick={{ fontSize: 11 }} />
                 <Tooltip 
                   formatter={(value: any, name: string) => {
                     if (name === 'Average Price') return formatPrice(value);
@@ -498,63 +859,105 @@ export default function TrimAnalyticsPage() {
                   contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
                 />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar yAxisId="left" dataKey="avgPrice" fill="#8b5cf6" name="Average Price" />
-                <Bar yAxisId="right" dataKey="costPer1000Mi" fill="#f59e0b" name="Cost/1000mi" />
+                <Bar yAxisId="left" dataKey="avgPrice" fill="#3b82f6" name="Average Price" />
+                <Bar yAxisId="right" dataKey="costPer1000Mi" fill="#10b981" name="Cost/1000mi" />
               </BarChart>
             </div>
-            
-            {selectedGeneration === 'all' && analytics.generationComparison && (
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                {analytics.generationComparison.map((gen, index) => (
-                  <div key={`gen-compare-${index}`} className="p-4 bg-gray-50 rounded-lg">
-                    <h4 className="font-semibold text-gray-900">{gen.generation}</h4>
-                    <div className="mt-2 space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Avg Price:</span>
-                        <span className="font-medium">{formatPrice(gen.avgPrice)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Listings:</span>
-                        <span className="font-medium">{gen.listings}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Appreciation:</span>
-                        <span className={`font-medium ${gen.appreciation > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {gen.appreciation > 0 ? '+' : ''}{gen.appreciation.toFixed(1)}%
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </CardContent>
         </Card>
 
         {/* Color Premium Analysis */}
         <Card>
           <CardHeader>
-            <CardTitle>Color Impact on Value</CardTitle>
+            <CardTitle>Color Distribution & Value</CardTitle>
             <CardDescription>
-              Premium analysis for different color options
+              Premium analysis and distribution of color options
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div style={{ width: '100%', height: 260, display: 'flex', justifyContent: 'center' }}>
-              <BarChart width={chartWidth} height={260} data={analytics.colorAnalysis}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="color" stroke="#6b7280" tick={{ fontSize: 11 }} angle={-45} textAnchor="end" height={80} />
-                <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} />
-                <Tooltip 
-                  formatter={(value: any, name: string) => {
-                    if (name === 'Premium') return `${value}%`;
-                    return value;
-                  }}
-                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
-                />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="premiumPercent" fill="#fbbf24" name="Premium %" />
-              </BarChart>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Bar Chart - Color Premium */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Price Premium by Color</h4>
+                <div style={{ width: '100%', height: 260 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={analytics.colorAnalysis}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="color" stroke="#6b7280" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={80} />
+                      <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} />
+                      <Tooltip 
+                        formatter={(value: any, name: string) => {
+                          if (name === 'Premium') return `${value}%`;
+                          return value;
+                        }}
+                        contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
+                      />
+                      <Bar dataKey="premiumPercent" fill="#fbbf24" name="Premium %">
+                        {analytics.colorAnalysis.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.premiumPercent > 0 ? '#10b981' : '#ef4444'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              
+              {/* Pie Chart - Color Distribution */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Color Distribution</h4>
+                <div style={{ width: '100%', height: 260 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={analytics.colorAnalysis}
+                        dataKey="count"
+                        nameKey="color"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        label={(entry: any) => `${entry.color} ${((entry.count / analytics.colorAnalysis.reduce((sum: number, c: any) => sum + c.count, 0)) * 100).toFixed(0)}%`}
+                        labelLine={false}
+                      >
+                        {analytics.colorAnalysis.map((entry, index) => {
+                          // Define colors for common Porsche colors
+                          const colorMap: Record<string, string> = {
+                            'Black': '#1f2937',
+                            'White': '#e5e7eb',
+                            'Silver': '#9ca3af',
+                            'Gray': '#6b7280',
+                            'Grey': '#6b7280',
+                            'Red': '#dc2626',
+                            'Guards Red': '#dc2626',
+                            'Blue': '#2563eb',
+                            'Yellow': '#fbbf24',
+                            'Speed Yellow': '#fbbf24',
+                            'Racing Yellow': '#fbbf24',
+                            'Green': '#16a34a',
+                            'Orange': '#ea580c',
+                            'Brown': '#92400e',
+                            'Gold': '#facc15',
+                            'Purple': '#9333ea'
+                          };
+                          
+                          // Find matching color or use default
+                          let fillColor = '#94a3b8'; // Default gray
+                          Object.keys(colorMap).forEach(key => {
+                            if (entry.color.toLowerCase().includes(key.toLowerCase())) {
+                              fillColor = colorMap[key];
+                            }
+                          });
+                          
+                          return <Cell key={`cell-${index}`} fill={fillColor} stroke="#fff" strokeWidth={2} />;
+                        })}
+                      </Pie>
+                      <Tooltip 
+                        formatter={(value: any, name: string) => [`${value} listings`, name]}
+                        contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
             </div>
             
             <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -580,13 +983,135 @@ export default function TrimAnalyticsPage() {
           </CardContent>
         </Card>
 
-        {/* Enhanced Options Analysis with Premium Examples */}
-        {analytics.optionsAnalysis && analytics.optionsAnalysis.length > 0 && (
+        {/* Seasonality Analysis */}
+        {analytics.seasonalityAnalysis && analytics.seasonalityAnalysis.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Seasonal Price Impact</CardTitle>
+              <CardDescription>
+                Analysis of how median sales prices and volume vary by season
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Bar Chart - Price Impact by Season */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Median Price Variation by Season</h4>
+                  <div style={{ width: '100%', height: 300 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={analytics.seasonalityAnalysis}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis dataKey="season" stroke="#6b7280" tick={{ fontSize: 11 }} />
+                        <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" tick={{ fontSize: 11 }} 
+                          tickFormatter={(value) => `${value > 0 ? '+' : ''}${value.toFixed(1)}%`} />
+                        <YAxis yAxisId="right" orientation="right" stroke="#10b981" tick={{ fontSize: 11 }} />
+                        <Tooltip 
+                          formatter={(value: any, name: string) => {
+                            if (name === 'Price Impact') return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
+                            if (name === 'Sales Volume') return `${value} sales`;
+                            return value;
+                          }}
+                          contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
+                        />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                        <Bar yAxisId="left" dataKey="priceImpact" fill="#3b82f6" name="Price Impact">
+                          {analytics.seasonalityAnalysis.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.priceImpact > 0 ? '#10b981' : entry.priceImpact < 0 ? '#ef4444' : '#6b7280'} />
+                          ))}
+                        </Bar>
+                        <Line yAxisId="right" type="monotone" dataKey="salesVolume" stroke="#f59e0b" strokeWidth={2} name="Sales Volume" dot={{ r: 4 }} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+                
+                {/* Season Statistics Cards */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Seasonal Statistics</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {analytics.seasonalityAnalysis.map((season, index) => {
+                      const seasonColors = {
+                        'Winter': 'bg-blue-50 border-blue-200',
+                        'Spring': 'bg-green-50 border-green-200',
+                        'Summer': 'bg-yellow-50 border-yellow-200',
+                        'Fall': 'bg-orange-50 border-orange-200'
+                      };
+                      const bgColor = seasonColors[season.season as keyof typeof seasonColors] || 'bg-gray-50 border-gray-200';
+                      
+                      return (
+                        <div key={`season-${index}`} className={`p-3 rounded-lg border ${bgColor}`}>
+                          <div className="font-medium text-gray-900 mb-2">{season.season}</div>
+                          <div className="space-y-1 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Median:</span>
+                              <span className="font-semibold">{formatPrice(season.medianPrice)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Impact:</span>
+                              <span className={`font-bold ${
+                                season.priceImpact > 0 ? 'text-green-600' : 
+                                season.priceImpact < 0 ? 'text-red-600' : 'text-gray-600'
+                              }`}>
+                                {season.priceImpact > 0 ? '+' : ''}{season.priceImpact.toFixed(1)}%
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Sales:</span>
+                              <span>{season.salesVolume} ({season.volumePercent.toFixed(0)}%)</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* Best/Worst Season Summary */}
+                  <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="text-sm space-y-2">
+                      {(() => {
+                        const sorted = [...analytics.seasonalityAnalysis].sort((a, b) => b.priceImpact - a.priceImpact);
+                        const best = sorted[0];
+                        const worst = sorted[sorted.length - 1];
+                        return (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <TrendingUp className="h-4 w-4 text-green-600" />
+                              <span className="text-gray-700">
+                                <strong>{best.season}</strong> shows highest prices ({best.priceImpact > 0 ? '+' : ''}{best.priceImpact.toFixed(1)}% premium)
+                              </span>
+                            </div>
+                            {worst.priceImpact < 0 && (
+                              <div className="flex items-center gap-2">
+                                <TrendingDown className="h-4 w-4 text-red-600" />
+                                <span className="text-gray-700">
+                                  <strong>{worst.season}</strong> shows lowest prices ({worst.priceImpact.toFixed(1)}% discount)
+                                </span>
+                              </div>
+                            )}
+                            <div className="mt-2 text-xs text-gray-500">
+                              Based on {analytics.totalListings} sales in the selected time period
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Options Analysis - Only show for single generation or models with one generation */}
+        {analytics.optionsAnalysis && 
+         analytics.optionsAnalysis.length > 0 && 
+         (selectedGeneration !== 'all' || allGenerations.length === 1) && (
           <Card>
             <CardHeader>
               <CardTitle>Options Analysis</CardTitle>
               <CardDescription>
                 Price premiums are normalized by comparing same-year vehicles with and without each option
+                {selectedGeneration !== 'all' && ` (${selectedGeneration} only)`}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -594,10 +1119,11 @@ export default function TrimAnalyticsPage() {
               <div className="grid md:grid-cols-2 gap-6">
                 {/* Options That Add Value */}
                 <div>
-                  <h3 className="text-lg font-semibold text-green-700 mb-4">Options That Add Value</h3>
+                  <h3 className="text-lg font-semibold text-green-700 mb-4">High-Value Options</h3>
                   <div className="space-y-3">
                     {analytics.optionsAnalysis
-                      .filter(opt => (opt.premiumPercent || 0) >= 2)
+                      .sort((a, b) => (b.premiumPercent || 0) - (a.premiumPercent || 0))
+                      .slice(0, Math.ceil(analytics.optionsAnalysis.length / 2))
                       .slice(0, 5)
                       .map((option) => (
                         <div key={option.option} className="bg-green-50 rounded-lg p-4 border border-green-100">
@@ -629,6 +1155,21 @@ export default function TrimAnalyticsPage() {
                                 +{(option.premiumPercent || 0).toFixed(1)}%
                               </div>
                               <div className="text-sm text-gray-600">premium</div>
+                              {option.daysOnMarketDiff !== null && option.daysOnMarketDiff !== undefined && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {option.daysOnMarketDiff < 0 ? (
+                                    <span className="text-green-600">
+                                      {Math.abs(option.daysOnMarketDiff).toFixed(0)} days faster
+                                    </span>
+                                  ) : option.daysOnMarketDiff > 0 ? (
+                                    <span className="text-red-600">
+                                      {option.daysOnMarketDiff.toFixed(0)} days slower
+                                    </span>
+                                  ) : (
+                                    <span>Same time to sell</span>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -638,10 +1179,11 @@ export default function TrimAnalyticsPage() {
 
                 {/* Options With Less Impact */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-700 mb-4">Options With Less Impact</h3>
+                  <h3 className="text-lg font-semibold text-gray-700 mb-4">Other Common Options</h3>
                   <div className="space-y-3">
                     {analytics.optionsAnalysis
-                      .filter(opt => (opt.premiumPercent || 0) > 0 && (opt.premiumPercent || 0) < 2)
+                      .sort((a, b) => (b.premiumPercent || 0) - (a.premiumPercent || 0))
+                      .slice(Math.ceil(analytics.optionsAnalysis.length / 2))
                       .slice(0, 5)
                       .map((option) => (
                         <div key={option.option} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
@@ -675,81 +1217,37 @@ export default function TrimAnalyticsPage() {
                 </div>
               </div>
 
-              {/* Premium Examples Currently Available */}
-              {analytics.premiumExamples && analytics.premiumExamples.length > 0 && (
+
+              {/* Fastest Selling Options */}
+              {analytics.optionsAnalysis.some(opt => opt.daysOnMarketDiff !== null && opt.daysOnMarketDiff < 0) && (
                 <div className="pt-6 border-t border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Premium Examples Currently Available</h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    These listings command premium prices due to their high-value options
-                  </p>
-                  <div className="space-y-3">
-                    {analytics.premiumExamples.map((listing, idx) => (
-                      <div key={idx} className="bg-white border border-gray-200 rounded-lg p-4">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <h4 className="font-semibold text-gray-900">
-                              {listing.year} {listing.generation} - {formatPrice(listing.price)}
-                            </h4>
-                            <div className="text-sm text-gray-600 mt-1">
-                              {listing.mileage.toLocaleString()} miles • {listing.color}
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Options That Sell Faster</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {analytics.optionsAnalysis
+                      .filter(opt => opt.daysOnMarketDiff !== null && opt.daysOnMarketDiff < 0 && opt.frequency >= 3)
+                      .sort((a, b) => (a.daysOnMarketDiff || 0) - (b.daysOnMarketDiff || 0))
+                      .slice(0, 6)
+                      .map((option) => (
+                        <div key={option.option} className="bg-green-50 border border-green-200 rounded-lg p-3">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div className="font-medium text-gray-900">{option.option}</div>
+                              <div className="text-xs text-gray-600 mt-1">
+                                Avg {option.avgDaysOnMarket?.toFixed(0) || 'N/A'} days vs {option.avgDaysWithoutOption?.toFixed(0) || 'N/A'} days without
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-lg font-bold text-green-600">
+                                {Math.abs(option.daysOnMarketDiff || 0).toFixed(0)} days
+                              </div>
+                              <div className="text-xs text-gray-600">faster</div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className="text-lg font-bold text-blue-600">
-                              +{listing.premiumPercent.toFixed(1)}%
-                            </div>
-                            <div className="text-xs text-gray-500">above avg</div>
-                          </div>
                         </div>
-                        <div className="mt-3">
-                          <div className="text-xs font-medium text-gray-700 mb-1">High-Value Options:</div>
-                          <div className="flex flex-wrap gap-1">
-                            {listing.highValueOptions.map((opt, i) => (
-                              <span key={i} className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium">
-                                {opt}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                        {listing.sourceUrl && (
-                          <div className="mt-2 text-xs text-gray-500">
-                            Source: {listing.source} • {listing.daysOnMarket} days on market
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 </div>
               )}
-
-              {/* Option Value Retention by Mileage */}
-              <div className="pt-6 border-t border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Option Value Retention by Mileage</h3>
-                <div className="space-y-3">
-                  {['0-5k miles', '5k-10k miles', '10k-20k miles', '20k+ miles'].map((range, index) => {
-                    const factor = 1 - (index * 0.15);
-                    const topOptions = analytics.optionsAnalysis.slice(0, 3);
-                    return (
-                      <div key={range} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <span className="font-medium text-gray-700">{range}</span>
-                        <div className="flex gap-6">
-                          {topOptions.map((opt) => {
-                            const basePremium = (opt.pricePremium / analytics.averagePrice) * 100;
-                            return (
-                              <div key={opt.option}>
-                                <span className="text-xs text-gray-500">{opt.option.split(' ')[0]}</span>
-                                <span className="ml-2 font-bold text-green-600">
-                                  +{(basePremium * factor).toFixed(1)}%
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
 
               {/* Most Common Options */}
               <div className="pt-6 border-t border-gray-200">
@@ -780,33 +1278,38 @@ export default function TrimAnalyticsPage() {
               ((analytics.mileageDistribution[0].avgPrice - range.avgPrice) / analytics.mileageDistribution[0].avgPrice) * -100,
             isBaseline: index === 0
           }))}
-          yearData={analytics.depreciationByYear ? 
-            analytics.depreciationByYear.slice(0, 3).map(year => ({
-              year: year.year,
-              ranges: {
-                '0-5k': {
-                  price: year.avgPrice * 1.1,
-                  listings: Math.floor(Math.random() * 50) + 10,
-                  depreciation: 0,
-                  isBase: true
-                },
-                '5k-10k': {
-                  price: year.avgPrice,
-                  listings: Math.floor(Math.random() * 30) + 5,
-                  depreciation: -3.7
-                },
-                '10k-20k': {
-                  price: year.avgPrice * 0.95,
-                  listings: Math.floor(Math.random() * 20) + 3,
-                  depreciation: -5.8
-                },
-                '20k+': {
-                  price: year.avgPrice * 0.88,
-                  listings: Math.floor(Math.random() * 15) + 2,
-                  depreciation: -12.0
+          yearData={analytics.multiAxisDepreciation && !analytics.multiAxisDepreciation.useGeneration ? 
+            analytics.multiAxisDepreciation.data.map((row: any) => {
+              // Combine 20k-30k and 30k+ into 20k+ for the component
+              const twentyKPlus = row['20k-30k'] || row['30k+'];
+              
+              return {
+                year: row.key,
+                ranges: {
+                  '0-5k': row['0-5k'] ? {
+                    price: row['0-5k'].avgPrice,
+                    listings: row['0-5k'].count,
+                    depreciation: parseFloat(row['0-5k'].depreciation || '0'),
+                    isBase: true
+                  } : { price: 0, listings: 0, depreciation: 0, isBase: true },
+                  '5k-10k': row['5k-10k'] ? {
+                    price: row['5k-10k'].avgPrice,
+                    listings: row['5k-10k'].count,
+                    depreciation: parseFloat(row['5k-10k'].depreciation || '0')
+                  } : { price: 0, listings: 0, depreciation: 0 },
+                  '10k-20k': row['10k-20k'] ? {
+                    price: row['10k-20k'].avgPrice,
+                    listings: row['10k-20k'].count,
+                    depreciation: parseFloat(row['10k-20k'].depreciation || '0')
+                  } : { price: 0, listings: 0, depreciation: 0 },
+                  '20k+': twentyKPlus ? {
+                    price: twentyKPlus.avgPrice,
+                    listings: twentyKPlus.count,
+                    depreciation: parseFloat(twentyKPlus.depreciation || '0')
+                  } : { price: 0, listings: 0, depreciation: 0 }
                 }
-              }
-            })) : []
+              };
+            }).slice(0, 3) : []
           }
           averageLossPerMile={analytics.depreciationByYear && analytics.depreciationByYear.length > 0 ?
             analytics.depreciationByYear[0].costPer1000Mi : 3007
@@ -814,33 +1317,14 @@ export default function TrimAnalyticsPage() {
           trimName={trimDisplay}
         />
 
-        {/* Mileage Distribution Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Mileage Distribution</CardTitle>
-            <CardDescription>
-              Price impact across different mileage ranges
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div style={{ width: '100%', height: 260, display: 'flex', justifyContent: 'center' }}>
-              <AreaChart width={chartWidth} height={260} data={analytics.mileageDistribution}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="range" stroke="#6b7280" tick={{ fontSize: 11 }} />
-                <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(value: any) => formatPrice(value)} contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }} />
-                <Area type="monotone" dataKey="avgPrice" stroke="#3b82f6" fill="#93c5fd" name="Average Price" />
-              </AreaChart>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Top Current Listings */}
+
+        {/* Top Sales Examples */}
         <Card>
           <CardHeader>
-            <CardTitle>Premium Examples Currently Available</CardTitle>
+            <CardTitle>Recent High-Value Sales</CardTitle>
             <CardDescription>
-              Top {trimDisplay} listings in the market
+              Top {trimDisplay} sales from the past 90 days
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -863,7 +1347,7 @@ export default function TrimAnalyticsPage() {
                         {listing.color} • {formatMileage(listing.mileage)} • {listing.dealer}
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
-                        VIN: {listing.vin} • {listing.daysOnMarket} days on market
+                        VIN: {listing.vin} • Sold
                       </div>
                     </div>
                   </div>

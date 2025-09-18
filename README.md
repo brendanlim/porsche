@@ -1,29 +1,37 @@
-# PorscheTrends - Market Intelligence Platform
+# PorscheStats - Market Intelligence Platform
 
-A comprehensive Next.js application for tracking Porsche sports car market values, price trends, and vehicle history across multiple marketplaces.
+A comprehensive market analytics platform providing real-time pricing intelligence, investment tracking, and data-driven insights for the Porsche sports car market.
 
-![PorscheTrends](https://img.shields.io/badge/Next.js-15.5-blue) ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue) ![Supabase](https://img.shields.io/badge/Supabase-Ready-green)
+![PorscheStats](https://img.shields.io/badge/Next.js-15.5-blue) ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue) ![Supabase](https://img.shields.io/badge/Supabase-Ready-green) ![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-Automated-success)
 
-## 🚀 Features
+## 🎯 Mission
 
-### Core Functionality
-- **Multi-Source Data Collection**: Scrapes from BaT, Classic.com, Cars.com, Edmunds, Cars & Bids, Autotrader, CarGurus
-- **Market Analysis**: Interactive price vs. mileage charts for all Porsche sports cars
-- **VIN History Tracking**: Complete price history for any vehicle by VIN
-- **Browse Listings**: Filter and search through comprehensive listing data
-- **HTML Storage**: Archives all scraped HTML for data integrity and reprocessing
-- **AI-Powered Normalization**: Google Gemini API for intelligent model/trim extraction
-- **User Authentication**: Complete auth system with Supabase
-- **Subscription Management**: Premium features with paywall
+To democratize access to Porsche market data by transforming fragmented, opaque pricing information into clear, actionable intelligence that empowers buyers to avoid overpaying, sellers to maximize value, and collectors to make strategic portfolio decisions.
 
-### Technical Highlights
-- Built with Next.js 15 and TypeScript
-- Supabase for database and authentication
-- Recharts for data visualization
-- Tailwind CSS for styling
-- Bright Data proxy for reliable scraping
-- HTML archival system with reparse capabilities
-- Vercel-ready deployment configuration
+## 🚀 Key Features
+
+### Market Analytics
+- **Real-Time Price Tracking**: Live market data from 5+ major platforms
+- **Seasonal Price Analysis**: Median price impact by season (Winter/Spring/Summer/Fall)
+- **Options Value Calculator**: How specific options affect market value
+- **Days on Market Analysis**: How options impact selling speed
+- **Generation Comparisons**: Side-by-side analysis across model generations
+- **Color Premium Analysis**: Price differences by exterior/interior combinations
+- **True Cost Transparency**: Includes all marketplace fees (e.g., BaT's 5% buyer premium)
+
+### Data Intelligence
+- **Multi-Source Aggregation**: BaT, Classic.com, Cars.com, Edmunds, Cars & Bids, Autotrader
+- **AI-Powered Normalization**: Google Gemini for consistent options categorization
+- **VIN History Tracking**: Complete transaction history for any vehicle
+- **Automated Data Pipeline**: GitHub Actions cron jobs for continuous updates
+- **HTML Archival System**: Complete data integrity with reprocessing capabilities
+
+### User Experience
+- **Interactive Visualizations**: Price vs. mileage scatter plots with filters
+- **Model/Trim Analytics**: Dedicated pages for each Porsche variant
+- **Time Range Filters**: 7d, 30d, 90d, 1y, 2y, 3y, All-time views
+- **Mobile Responsive**: Full optimization for all devices
+- **Browse & Search**: Filter by model, price, mileage, options, colors
 
 ## 📋 Prerequisites
 
@@ -36,13 +44,13 @@ Before you begin, you'll need:
 5. **Stripe Account** (optional for payments) - [Sign up here](https://stripe.com)
 6. **Vercel Account** (for deployment) - [Sign up here](https://vercel.com)
 
-## 🛠️ Installation
+## 🛠️ Quick Start
 
 ### 1. Clone and Install
 
 ```bash
 # Clone the repository
-git clone [your-repo-url]
+git clone https://github.com/yourusername/porschetrends.git
 cd porschetrends
 
 # Install dependencies
@@ -52,18 +60,18 @@ npm install
 ### 2. Set up Supabase
 
 1. Create a new project at [supabase.com](https://supabase.com)
-2. Go to SQL Editor in your Supabase dashboard
-3. Run the schema creation script:
+2. Go to SQL Editor and run migrations in order:
    ```sql
-   -- Copy and run the contents of:
+   -- Run each file in sequence:
    -- /supabase/migrations/001_initial_schema.sql
+   -- /supabase/migrations/002_raw_html_storage.sql
+   -- /supabase/migrations/003_add_generation_column.sql
+   -- /supabase/migrations/004_add_list_date.sql
+   -- /supabase/migrations/005_add_buyer_fee_fields.sql
+   -- /supabase/migrations/006_add_options_tables.sql
+   -- /supabase/migrations/007_add_options_and_list_date.sql
    ```
-4. Run the seed data:
-   ```sql
-   -- Copy and run the contents of:
-   -- /supabase/seed.sql
-   ```
-5. Get your API keys from Project Settings > API
+3. Get your API keys from Project Settings > API
 
 ### 3. Configure Environment Variables
 
@@ -130,12 +138,12 @@ The app includes a `vercel.json` configuration with:
 porschetrends/
 ├── app/                  # Next.js app directory
 │   ├── api/             # API routes
+│   │   ├── analytics/   # Analytics endpoints
 │   │   ├── scrape/      # Scraping endpoints
-│   │   ├── market-data/ # Market data API
 │   │   └── vin/         # VIN lookup API
+│   ├── models/          # Model/trim analytics pages
 │   ├── browse/          # Browse listings page
 │   ├── vin/             # VIN history page
-│   ├── login/           # Authentication pages
 │   └── page.tsx         # Homepage
 ├── components/          # React components
 │   ├── MarketChart.tsx  # Interactive price chart
@@ -145,23 +153,30 @@ porschetrends/
 │   ├── scrapers/        # Web scraping logic
 │   ├── services/        # Business logic
 │   ├── supabase/        # Database clients
-│   ├── auth/            # Authentication hooks
 │   └── types/           # TypeScript definitions
-└── supabase/           # Database migrations
-```
+├── scripts/             # Data pipeline scripts
+├── prd/                 # Product documentation
+├── notes/               # Development notes
+└── .github/            # GitHub Actions workflows
+    └── workflows/
+        └── scheduled-scraping.yml
 
 ## 🔧 API Endpoints
 
-### Scraping
+### Analytics
 ```
-POST /api/scrape
-Authorization: Bearer [SCRAPER_API_KEY]
-Body: {
-  source: "bat",
-  model?: "911",
-  maxPages?: 3,
-  normalize?: true
-}
+GET /api/analytics/[model]/[trim]
+Query Parameters:
+  - range: 7d | 30d | 90d | 1y | 2y | 3y | all
+  - generation: string (e.g., "991.2", "992.1")
+
+Response includes:
+  - Price trends and median values
+  - Seasonal price analysis
+  - Options value impact
+  - Days on market by options
+  - Generation comparisons
+  - Color premiums
 ```
 
 ### Market Data
@@ -177,53 +192,58 @@ GET /api/vin/[VIN]
 ## 🗄️ Database Schema
 
 The application uses a comprehensive PostgreSQL schema with:
-- **Manufacturers, Models, Trims**: Hierarchical vehicle taxonomy
-- **Listings**: Core listing data with VIN tracking
-- **Price History**: Temporal price tracking
+- **Listings**: Core listing data with VIN tracking and buyer fee calculations
+- **Options**: Normalized options with many-to-many relationships
+- **Listing Options**: Junction table linking listings to their options
 - **Users & Profiles**: Authentication and subscription management
-- **Ingestion Runs**: Scraping job tracking
+- **Saved Searches**: User alerts and saved filters
 
-## 🤖 Data Collection & Scripts
+Key fields tracked:
+- True sale prices (including marketplace fees)
+- List date and sold date for time-on-market analysis
+- Normalized options for value impact analysis
+- VIN for complete vehicle history
 
-### Available Scripts
+## 🤖 Automated Data Pipeline
 
-#### 1. Comprehensive Scraping (All Sources)
-```bash
-# Scrape from all configured sources
-NODE_TLS_REJECT_UNAUTHORIZED=0 npx tsx scripts/scrape-all.ts
+### GitHub Actions Cron Jobs
+The platform uses GitHub Actions for automated scraping (2,000 free minutes/month):
+
+```yaml
+# Runs every 6 hours automatically
+- Bring a Trailer: */6 hours (includes 5% buyer fee)
+- Cars.com: */12 hours
+- Classic.com: Weekly on Sundays
+- Autotrader: Daily at 2 AM EST
 ```
 
-#### 2. Reparse Stored HTML
+### Manual Scripts
+
+#### Primary Scraping (SAVES to database)
 ```bash
-# Reparse all stored HTML files
-npx tsx scripts/reparse-html.ts
-
-# Reparse specific source from today
-npx tsx scripts/reparse-html.ts --source bat --date 20250906
-
-# Reparse specific model/trim
-npx tsx scripts/reparse-html.ts --source bat --model 718-cayman --trim gt4
-
-# Dry run preview (no database changes)
-npx tsx scripts/reparse-html.ts --source classic --dry-run --limit 10
-
-# Show help
-npx tsx scripts/reparse-html.ts --help
+# Scrape and save to database
+npx tsx scripts/scrape-and-save.ts --source=bat --max-pages=10
 ```
 
-#### 3. Test Scripts
+#### Parse Stored HTML
 ```bash
-# Test BaT price extraction
-NODE_TLS_REJECT_UNAUTHORIZED=0 npx tsx scripts/test-price-extraction.ts
+# Parse all stored HTML and save to database
+npx tsx scripts/parse-all-stored-html.ts
+```
 
-# Test BaT sold detection
-NODE_TLS_REJECT_UNAUTHORIZED=0 npx tsx scripts/test-bat-sold.ts
+#### Apply BaT Buyer Fees
+```bash
+# Update all BaT listings with 5% buyer fee (capped at $7,500)
+npx tsx scripts/apply-bat-buyer-fees.ts
+```
 
-# Check database schema
-npx tsx scripts/check-schema.ts
+#### Data Normalization
+```bash
+# Normalize colors across all listings
+npx tsx scripts/normalize-colors.ts
 
-# Clean up database (remove NULL model/trim)
-npx tsx scripts/cleanup-database.ts
+# Extract and populate options
+npx tsx scripts/populate-listing-options.ts
 ```
 
 ### Data Sources
@@ -265,11 +285,13 @@ carscom/
 └── [other sources]/
 ```
 
-### Golden Rules
-1. **Storage is cheap, scraping is not** - Always store raw HTML
-2. **Sports cars only** - NO SUVs (Cayenne, Macan) or sedans (Panamera, Taycan)
-3. **Real data only** - No synthetic or fake data
-4. **Normalize with AI** - Use Gemini for consistent model/trim extraction
+### Data Collection Principles
+1. **Storage is cheap, scraping is not** - Always store raw HTML for reprocessing
+2. **Sports cars only** - 911, 718, Boxster, Cayman models ONLY
+3. **Real data only** - No synthetic data, all from actual marketplace listings
+4. **True costs** - Include all fees (BaT 5% buyer premium, dealer fees)
+5. **Normalize with AI** - Google Gemini for consistent options categorization
+6. **Verify saves** - Always confirm data is actually saved to database
 
 ## 🔐 Authentication Flow
 
@@ -293,23 +315,29 @@ Stripe integration is prepared but requires:
 3. **Test Browse**: Filter listings by model, price, mileage
 4. **Test Scraping**: Use the API endpoint with your scraper key
 
-## 📊 Key Features Status
+## 📊 Implementation Status
 
-✅ **Completed**
-- Next.js application setup
-- Database schema and migrations
-- BaT scraper with AI normalization
-- Market chart visualization
+✅ **Live Features**
+- Multi-source data aggregation (BaT, Classic.com, Cars.com)
+- Real-time market analytics with interactive charts
+- Seasonal price analysis (median prices by season)
+- Options value calculator
+- Days on market analysis
+- Color premium analysis
+- Generation comparisons
+- BaT buyer fee calculations (5% capped at $7,500)
+- GitHub Actions automated scraping
+- AI-powered options normalization
 - VIN history tracking
-- Browse with filters
-- User authentication
-- Responsive design
+- Mobile responsive design
 
-🚧 **In Progress**
-- Stripe payment integration
-- Additional scrapers (Cars.com, CarGurus)
-- Email notifications
-- Advanced analytics
+🚧 **Coming Soon (Q4 2025)**
+- Stripe subscription tiers ($49-$999/month)
+- Email/SMS alerts for price changes
+- API access for developers
+- Portfolio management tools
+- Machine learning price predictions
+- Mobile app (React Native)
 
 ## 🐛 Troubleshooting
 
@@ -329,12 +357,17 @@ npm install
 - Check if GEMINI_API_KEY is valid
 - Review logs for specific errors
 
-## 📚 Resources
+## 📚 Documentation
 
+### Product Documentation
+- [Product Requirements Document](/prd/README.md)
+- [Technical Specification](/prd/technical-spec.md)
+- [Development Notes](/notes/)
+
+### External Resources
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Supabase Documentation](https://supabase.com/docs)
-- [Tailwind CSS](https://tailwindcss.com/docs)
-- [Recharts](https://recharts.org)
+- [GitHub Actions](https://docs.github.com/en/actions)
 - [Google AI Studio](https://makersuite.google.com)
 
 ## 🤝 Contributing
@@ -346,10 +379,31 @@ Contributions are welcome! Please:
 4. Push to the branch
 5. Open a Pull Request
 
+## 💰 Monetization Strategy
+
+### Subscription Tiers (Coming Q4 2025)
+- **Free**: Limited 30-day data, blurred charts
+- **Enthusiast** ($49/mo): Full data access, email alerts
+- **Professional** ($199/mo): API access, advanced analytics
+- **Enterprise** ($999+/mo): White-label, custom integrations
+
+### Additional Revenue
+- Affiliate partnerships (insurance, financing)
+- Data licensing to OEMs and insurers
+- Premium valuation certificates
+
+## 📈 Success Metrics
+
+- **Data Coverage**: 95% of Porsche sports car transactions
+- **Price Accuracy**: Within 5% of actual sale price
+- **Update Frequency**: <24 hours for new listings
+- **Uptime**: 99.9% availability
+
 ## 📄 License
 
-This project is private and proprietary.
+Proprietary - All rights reserved.
 
 ---
 
-Built with ❤️ for the Porsche enthusiast community
+**Built for the Porsche enthusiast community**  
+Providing transparency and confidence in the high-value sports car market.

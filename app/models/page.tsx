@@ -40,13 +40,15 @@ export default function ModelsPage() {
       
       // Fetch listings directly and aggregate in the frontend
       // Note: Supabase has a default limit of 1000, we need to fetch all
+      // IMPORTANT: Only fetch listings with sold_date (actual sales, not just listings)
       const { data: listings, error: listingsError } = await supabase
         .from('listings')
-        .select('model, trim, price, mileage, year, created_at, generation')
+        .select('model, trim, price, mileage, year, created_at, generation, sold_date')
         .not('model', 'is', null)
+        .not('sold_date', 'is', null) // Only include completed sales with sold dates
         .gt('price', 15000) // Filter out bad data
         .order('model', { ascending: true })
-        .range(0, 9999); // Fetch up to 10,000 listings
+        .limit(9999);
 
       if (listingsError) throw listingsError;
 

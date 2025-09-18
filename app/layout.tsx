@@ -7,7 +7,7 @@ import { Footer } from "@/components/Footer";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "PorscheTrends - Market Intelligence for Porsche Enthusiasts",
+  title: "PorscheStats - Market Intelligence for Porsche Enthusiasts",
   description: "Real-time market data, price trends, and comprehensive analysis for the Porsche market. Track values, find deals, and make informed decisions.",
   keywords: "Porsche, market value, price trends, 911, 718, Cayman, Boxster, GT3, GT4, market analysis",
 };

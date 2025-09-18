@@ -140,7 +140,7 @@ export class BrightDataClient {
   private async fetchDirect(url: string): Promise<string> {
     const response = await axios.get(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; PorscheTrends/1.0)',
+        'User-Agent': 'Mozilla/5.0 (compatible; PorscheStats/1.0)',
       },
       timeout: 30000,
     });

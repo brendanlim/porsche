@@ -125,7 +125,7 @@ async function generateScraperKey() {
 
 async function main() {
   console.log('========================================');
-  console.log('   PorscheTrends Setup Verification');
+  console.log('   PorscheStats Setup Verification');
   console.log('========================================');
   
   const envOk = await checkEnvVars();

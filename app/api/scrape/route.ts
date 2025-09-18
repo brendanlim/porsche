@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
-// Simple health check endpoint for cron job
-// Actual scraping should be done by external service or GitHub Actions
 export async function GET(request: NextRequest) {
   try {
     // Check if this is a Vercel cron request
     const isCron = request.headers.get('x-vercel-cron') === '1';
+    const isDev = process.env.NODE_ENV === 'development';
     
-    if (!isCron) {
+    if (!isCron && !isDev) {
       return NextResponse.json(
         { error: 'This endpoint is only accessible via Vercel Cron' },
         { status: 403 }
@@ -28,10 +27,37 @@ export async function GET(request: NextRequest) {
       .select('*', { count: 'exact', head: true })
       .gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString());
     
-    // TODO: Trigger actual scraping via:
-    // 1. GitHub Actions webhook
-    // 2. External scraping service
-    // 3. Scheduled task on a dedicated server
+    // Trigger GitHub Actions workflow via repository dispatch
+    // Note: This requires a GitHub personal access token with workflow permissions
+    if (process.env.GITHUB_TOKEN) {
+      try {
+        const response = await fetch(
+          'https://api.github.com/repos/brendan-lim/porschetrends/actions/workflows/daily-scrape.yml/dispatches',
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
+              'Accept': 'application/vnd.github.v3+json',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              ref: 'main',
+              inputs: {
+                max_pages: '2'
+              }
+            })
+          }
+        );
+        
+        if (response.ok) {
+          console.log('Successfully triggered GitHub Actions workflow');
+        } else {
+          console.error('Failed to trigger GitHub Actions:', response.statusText);
+        }
+      } catch (error) {
+        console.error('Error triggering GitHub Actions:', error);
+      }
+    }
     
     return NextResponse.json({
       success: true,
@@ -41,7 +67,7 @@ export async function GET(request: NextRequest) {
         todaysListings,
         timestamp: new Date().toISOString()
       },
-      note: 'Actual scraping should be triggered externally'
+      note: 'Scraping is handled by GitHub Actions workflow'
     });
     
   } catch (error) {

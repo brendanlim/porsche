@@ -1,22 +1,28 @@
-import { GoogleGenAI } from '@google/genai';
+import OpenAI from 'openai';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
-const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+// Lazy initialization to ensure env vars are loaded
+let openai: OpenAI | null = null;
+let SYSTEM_PROMPT: string | null = null;
 
-const SYSTEM_PROMPT = `You are a Porsche vehicle expert and a data normalization specialist. Your task is to extract key vehicle options from raw text and return them as a clean, structured JSON array. 
+function getOpenAI(): OpenAI {
+  if (!openai) {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY!,
+    });
+  }
+  return openai;
+}
 
-Rules:
-1. Normalize common abbreviations (e.g., "PCCB" → "Porsche Ceramic Composite Brakes")
-2. Keep paint colors separate from Paint-to-Sample notation
-3. Include all genuine options but exclude basic components like "Limited-Slip Differential" (standard on GT3)
-4. Exclude basic specifications like engine size or transmission type
-5. Include upholstery and interior materials as options
-6. Clean up redundant text (e.g., "20" & 21" Center-Lock Wheels" → "Center-Lock Wheels")
-
-Example input from BaT:
-"Limited-Slip Differential; Paint-To-Sample Mint Green Paint; Carbon-Fiber Roof; Black Leather & Race-Tex Upholstery; 20" & 21" Center-Lock Wheels; Porsche Ceramic Composite Brakes"
-
-Example output:
-["Paint to Sample - Mint Green", "Carbon Fiber Roof", "Black Leather/Race-Tex Interior", "Center-Lock Wheels", "Porsche Ceramic Composite Brakes (PCCB)"]`;
+function getSystemPrompt(): string {
+  if (!SYSTEM_PROMPT) {
+    // Read the prompt from the markdown file
+    const promptPath = join(process.cwd(), 'lib', 'prompts', 'options-prompt.md');
+    SYSTEM_PROMPT = readFileSync(promptPath, 'utf-8');
+  }
+  return SYSTEM_PROMPT;
+}
 
 export async function normalizeOptions(rawOptionsText: string): Promise<string[]> {
   if (!rawOptionsText || rawOptionsText.trim() === '') {
@@ -24,19 +30,19 @@ export async function normalizeOptions(rawOptionsText: string): Promise<string[]
   }
 
   try {
-    const prompt = `${SYSTEM_PROMPT}
-
-Raw options text:
-${rawOptionsText}
-
-Return ONLY a JSON array of normalized option names. Example format:
-["Porsche Ceramic Composite Brakes (PCCB)", "Sport Chrono Package", "Paint to Sample - Shark Blue"]`;
-
-    const result = await genAI.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt
+    const systemPrompt = getSystemPrompt();
+    
+    const completion = await getOpenAI().chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Raw options text:\n${rawOptionsText}\n\nReturn ONLY a JSON array of normalized option names that match our database options exactly.` }
+      ],
+      temperature: 0.1,
+      response_format: { type: "json_object" },
     });
-    const text = result.text;
+    
+    const text = completion.choices[0].message.content || '';
     
     // Extract JSON array from response
     const jsonMatch = text.match(/\[.*\]/s);
@@ -59,9 +65,9 @@ Return ONLY a JSON array of normalized option names. Example format:
       
   } catch (error: any) {
     if (error.status === 429) {
-      console.warn('Gemini rate limit (429) for options. Using fallback parsing.');
+      console.warn('OpenAI rate limit (429) for options. Using fallback parsing.');
     } else {
-      console.error('Gemini options normalization failed:', error.message || error);
+      console.error('OpenAI options normalization failed:', error.message || error);
     }
     // Fallback to basic parsing
     return rawOptionsText

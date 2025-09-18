@@ -41,7 +41,7 @@ async function scrapeBaTAPI() {
       }, {
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (compatible; PorscheTrends/1.0)',
+          'User-Agent': 'Mozilla/5.0 (compatible; PorscheStats/1.0)',
         }
       });
       

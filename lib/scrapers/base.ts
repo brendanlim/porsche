@@ -35,6 +35,9 @@ export interface ScraperResult {
   seller_type?: string;
   description?: string;
   scraped_at?: Date;
+  buyer_fee_amount?: number;
+  buyer_fee_applied?: boolean;
+  price_before_fee?: number;
 }
 
 // Export ScrapedListing as alias for backward compatibility

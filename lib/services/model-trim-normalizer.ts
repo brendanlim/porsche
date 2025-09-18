@@ -1,16 +1,25 @@
-import { GoogleGenAI } from '@google/genai';
+import OpenAI from 'openai';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-// Initialize Gemini with Google Cloud API key
-const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+// Lazy initialization to ensure env vars are loaded
+let openai: OpenAI | null = null;
+
+function getOpenAI(): OpenAI {
+  if (!openai) {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY!,
+    });
+  }
+  return openai;
+}
 
 // Load prompt from file
 let SYSTEM_PROMPT: string;
 try {
-  SYSTEM_PROMPT = readFileSync(join(process.cwd(), 'lib/prompts/model-trim-prompt.md'), 'utf-8');
+  SYSTEM_PROMPT = readFileSync(join(process.cwd(), 'lib/prompts/model-trim-normalization.md'), 'utf-8');
 } catch (error) {
-  console.warn('Could not load model-trim prompt file, using inline prompt');
+  console.warn('Could not load model-trim-normalization prompt file, using inline prompt');
   SYSTEM_PROMPT = `You are a Porsche vehicle expert. Extract model and trim from vehicle titles.
 NEVER return Cayenne, Macan, Panamera, or Taycan - sports cars only!
 Return JSON: {"model": "string or null", "trim": "string or null", "generation": "string or null", "year": number or null}`;
@@ -24,31 +33,34 @@ export interface ModelTrimResult {
 }
 
 /**
- * Normalize model and trim from a vehicle title using Gemini AI
+ * Normalize model and trim from a vehicle title using OpenAI
  */
 export async function normalizeModelTrim(title: string): Promise<ModelTrimResult> {
   try {
-    if (!process.env.GEMINI_API_KEY) {
-      console.warn('Gemini API key not set, using fallback parsing');
+    if (!process.env.OPENAI_API_KEY) {
+      console.warn('OpenAI API key not set, using fallback parsing');
       return fallbackParsing(title);
     }
 
-    // Use gemini-1.5-flash which has better availability
-    let model;
-    let result;
+    // Use OpenAI with structured output
+    let completion;
     
     try {
-      const prompt = `${SYSTEM_PROMPT}\n\nExtract model and trim from this title:\n"${title}"`;
-      
       // Retry logic for overload errors
       let retries = 3;
       let lastError;
       
       while (retries > 0) {
         try {
-          result = await genAI.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt
+          completion = await getOpenAI().chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: SYSTEM_PROMPT },
+              { role: 'user', content: `Extract model and trim from this title:\n"${title}"` }
+            ],
+            temperature: 0.1,
+            response_format: { type: "json_object" },
+            max_tokens: 200,
           });
           break; // Success, exit loop
         } catch (error: any) {
@@ -56,17 +68,17 @@ export async function normalizeModelTrim(title: string): Promise<ModelTrimResult
           
           if (error.status === 429) {
             // Rate limit, not quota - show the actual error
-            console.warn(`Gemini rate limit (429) for "${title}". Error:`, error.message);
+            console.warn(`OpenAI rate limit (429) for "${title}". Error:`, error.message);
             return fallbackParsing(title);
           } else if (error.status === 503 || error.message?.includes('overloaded')) {
             // Model overloaded, retry with exponential backoff
             retries--;
             if (retries > 0) {
               const delay = (3 - retries) * 2000; // 2s, 4s, 6s
-              console.log(`Gemini overloaded, retrying in ${delay/1000}s... (${retries} retries left)`);
+              console.log(`OpenAI overloaded, retrying in ${delay/1000}s... (${retries} retries left)`);
               await new Promise(resolve => setTimeout(resolve, delay));
             } else {
-              console.warn('Gemini overloaded after retries, using fallback parsing for:', title);
+              console.warn('OpenAI overloaded after retries, using fallback parsing for:', title);
               return fallbackParsing(title);
             }
           } else {
@@ -75,15 +87,15 @@ export async function normalizeModelTrim(title: string): Promise<ModelTrimResult
         }
       }
       
-      if (!result && lastError) {
+      if (!completion && lastError) {
         throw lastError;
       }
     } catch (error: any) {
-      console.warn('Gemini error, using fallback parsing:', error.message);
+      console.warn('OpenAI error, using fallback parsing:', error.message);
       return fallbackParsing(title);
     }
     
-    const text = result.text;
+    const text = completion.choices[0].message.content || '';
     
     // Parse JSON response
     try {
@@ -99,20 +111,20 @@ export async function normalizeModelTrim(title: string): Promise<ModelTrimResult
         };
       }
     } catch (parseError) {
-      console.error('Failed to parse Gemini response:', text);
+      console.error('Failed to parse OpenAI response:', text);
     }
     
     // Fall back to basic parsing if Gemini fails
     return fallbackParsing(title);
     
   } catch (error) {
-    console.error('Gemini model/trim normalization failed:', error);
+    console.error('OpenAI model/trim normalization failed:', error);
     return fallbackParsing(title);
   }
 }
 
 /**
- * Fallback parsing when Gemini is not available
+ * Fallback parsing when OpenAI is not available
  */
 function fallbackParsing(title: string): ModelTrimResult {
   let model: string | null = null;
@@ -143,11 +155,20 @@ function fallbackParsing(title: string): ModelTrimResult {
     { pattern: /GT2[\s-]?RS/i, trim: 'GT2 RS' },
     { pattern: /GT4[\s-]?RS/i, trim: 'GT4 RS' },
     { pattern: /Spyder[\s-]?RS/i, trim: 'Spyder RS' },
+    { pattern: /GT3[\s-]?Touring/i, trim: 'GT3 Touring' },
     { pattern: /GT3/i, trim: 'GT3' },
     { pattern: /GT2/i, trim: 'GT2' },
     { pattern: /GT4/i, trim: 'GT4' },
     { pattern: /Turbo[\s-]?S/i, trim: 'Turbo S' },
     { pattern: /Turbo/i, trim: 'Turbo' },
+    { pattern: /Carrera[\s-]?T/i, trim: 'Carrera T' },
+    { pattern: /Carrera[\s-]?GTS/i, trim: 'Carrera GTS' },
+    { pattern: /Carrera[\s-]?4S[\s-]?Cabriolet/i, trim: 'Carrera 4S Cabriolet' },
+    { pattern: /Carrera[\s-]?4[\s-]?Cabriolet/i, trim: 'Carrera 4 Cabriolet' },
+    { pattern: /Carrera[\s-]?S[\s-]?Cabriolet/i, trim: 'Carrera S Cabriolet' },
+    { pattern: /Carrera[\s-]?Cabriolet/i, trim: 'Carrera Cabriolet' },
+    { pattern: /Carrera[\s-]?4[\s-]?Targa/i, trim: 'Carrera 4 Targa' },
+    { pattern: /Carrera[\s-]?Targa/i, trim: 'Carrera Targa' },
     { pattern: /Carrera[\s-]?4S/i, trim: 'Carrera 4S' },
     { pattern: /Carrera[\s-]?S/i, trim: 'Carrera S' },
     { pattern: /Carrera[\s-]?4/i, trim: 'Carrera 4' },
@@ -170,11 +191,26 @@ function fallbackParsing(title: string): ModelTrimResult {
     }
   }
   
+  // If no trim found and it's a base 911, set trim to Carrera
+  if (!trim && model === '911' && (title.includes('Base') || !title.match(/GT|Turbo|Targa|Cabriolet/i))) {
+    trim = 'Carrera';
+  }
+  
+  // Never use "Base" for 911
+  if (model === '911' && trim === 'Base') {
+    trim = 'Carrera';
+  }
+  
   // Extract generation
-  const genPatterns = ['992.2', '992.1', '992', '991.2', '991.1', '991', '997.2', '997.1', '997', '996', '982', '981', '987.2', '987.1', '986'];
+  const genPatterns = ['992.2', '992.1', '992', '991.2', '991.1', '991', '997.2', '997.1', '997', '996', '993', '964', '982', '981', '987', '986'];
   for (const gen of genPatterns) {
     if (title.includes(gen)) {
       generation = gen;
+      // For 911s, don't use bare generation codes for 997 and newer
+      if (model === '911' && ['992', '991', '997'].includes(gen)) {
+        // Will be inferred from year below
+        generation = null;
+      }
       break;
     }
   }
@@ -189,11 +225,12 @@ function fallbackParsing(title: string): ModelTrimResult {
       else if (year >= 2009) generation = '997.2';
       else if (year >= 2005) generation = '997.1';
       else if (year >= 1999) generation = '996';
+      else if (year >= 1995) generation = '993';
+      else if (year >= 1989) generation = '964';
     } else if (model.includes('718') || model.includes('Cayman') || model.includes('Boxster')) {
-      if (year >= 2016) generation = '982';
+      if (year >= 2017) generation = '982';
       else if (year >= 2013) generation = '981';
-      else if (year >= 2009) generation = '987.2';
-      else if (year >= 2005) generation = '987.1';
+      else if (year >= 2006) generation = '987';  // No longer using 987.1/987.2
       else if (year >= 1997) generation = '986';
     }
   }

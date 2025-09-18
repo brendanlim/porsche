@@ -96,7 +96,7 @@ export default function ModelAnalyticsPage() {
   const model = params.model as string;
   const [analytics, setAnalytics] = useState<ModelAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState('30d');
+  const [timeRange, setTimeRange] = useState('2y');
 
   useEffect(() => {
     fetchAnalytics();

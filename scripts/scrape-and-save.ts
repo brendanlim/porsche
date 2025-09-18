@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { ScrapedListing } from '../lib/types/scraper';
+import { processListingOptions } from '../lib/services/options-manager';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
@@ -19,6 +20,91 @@ const supabase = createClient(
   }
 );
 
+// Fallback parsing function when fields are missing
+function parseListingDetails(listing: ScrapedListing): ScrapedListing {
+  // If we already have year and generation, return as-is
+  if (listing.year && listing.generation) {
+    return listing;
+  }
+  
+  const title = listing.title || '';
+  let year = listing.year;
+  let model = listing.model;
+  let trim = listing.trim;
+  let generation = listing.generation;
+  
+  // Extract year from title if not set
+  if (!year) {
+    const yearMatch = title.match(/\b(19\d{2}|20\d{2})\b/);
+    if (yearMatch) {
+      year = parseInt(yearMatch[1]);
+    }
+  }
+  
+  // Parse trim if not properly set
+  if (model === '911' && (!trim || trim === 'Unknown')) {
+    // GT models (check these first as they're most specific)
+    if (title.includes('GT3 RS') || title.includes('GT3RS')) {
+      trim = 'GT3 RS';
+    } else if (title.includes('GT3 Touring')) {
+      trim = 'GT3 Touring';
+    } else if (title.includes('GT3 Cup')) {
+      trim = 'GT3 Cup';
+    } else if (title.includes('GT3')) {
+      trim = 'GT3';
+    } else if (title.includes('GT2 RS') || title.includes('GT2RS')) {
+      trim = 'GT2 RS';
+    } else if (title.includes('GT2')) {
+      trim = 'GT2';
+    }
+    // Turbo models
+    else if (title.includes('Turbo S')) {
+      trim = 'Turbo S';
+    } else if (title.includes('Turbo')) {
+      trim = 'Turbo';
+    }
+    // Carrera variants
+    else if (title.includes('Carrera 4S')) {
+      trim = 'Carrera 4S';
+    } else if (title.includes('Carrera 4')) {
+      trim = 'Carrera 4';
+    } else if (title.includes('Carrera S')) {
+      trim = 'Carrera S';
+    } else if (title.includes('Carrera')) {
+      trim = 'Carrera';
+    }
+  }
+  
+  // Infer generation from year if not set
+  if (!generation && year) {
+    if (model === '911') {
+      if (year >= 2024) generation = '992.2';
+      else if (year >= 2019) generation = '992.1';
+      else if (year >= 2016) generation = '991.2';
+      else if (year >= 2012) generation = '991.1';
+      else if (year >= 2009) generation = '997.2';
+      else if (year >= 2005) generation = '997.1';
+      else if (year >= 1999) generation = '996';
+      else if (year >= 1995) generation = '993';
+      else if (year >= 1989) generation = '964';
+    } else if (model?.includes('718') || model?.includes('Cayman') || model?.includes('Boxster')) {
+      if (year >= 2016) generation = '982';
+      else if (year >= 2013) generation = '981';
+      else if (year >= 2009) generation = '987.2';
+      else if (year >= 2005) generation = '987.1';
+      else if (year >= 1997) generation = '986';
+    }
+  }
+  
+  return {
+    ...listing,
+    year,
+    model,
+    trim,
+    generation
+  };
+}
+
 // Function to save listings to database
 async function saveListings(listings: ScrapedListing[], source: string): Promise<number> {
   let savedCount = 0;
@@ -26,78 +112,96 @@ async function saveListings(listings: ScrapedListing[], source: string): Promise
   
   for (const listing of listings) {
     try {
-      // Check if listing already exists (by VIN or source_url)
-      let existingId = null;
+      // Parse listing details
+      const parsed = parseListingDetails(listing);
       
+      // If VIN exists, check for duplicates
       if (listing.vin) {
-        const { data: existing } = await supabase
+        const { data: existingWithVin } = await supabase
           .from('listings')
-          .select('id')
+          .select('id, source_url, sold_date, price, mileage, options_text')
           .eq('vin', listing.vin)
           .single();
         
-        if (existing) existingId = existing.id;
+        if (existingWithVin && existingWithVin.source_url !== listing.source_url) {
+          // Check if it's the same sale (same sold_date) or a relisting
+          const isSameSale = existingWithVin.sold_date && listing.sold_date && 
+            new Date(existingWithVin.sold_date).toDateString() === new Date(listing.sold_date).toDateString();
+          
+          if (isSameSale) {
+            console.log(`   ⚠️  VIN ${listing.vin} - same sold date, merging duplicate listings`);
+            
+            // Merge data into the existing listing, preferring non-null values
+            const mergedUpdates: any = {};
+            if (!existingWithVin.price && listing.price) mergedUpdates.price = listing.price;
+            if (!existingWithVin.mileage && listing.mileage) mergedUpdates.mileage = listing.mileage;
+            if (!existingWithVin.options_text && listing.options_text) mergedUpdates.options_text = listing.options_text;
+            if (listing.exterior_color) mergedUpdates.exterior_color = listing.exterior_color;
+            if (listing.interior_color) mergedUpdates.interior_color = listing.interior_color;
+            
+            if (Object.keys(mergedUpdates).length > 0) {
+              const { error: updateError } = await supabase
+                .from('listings')
+                .update({
+                  ...mergedUpdates,
+                  scraped_at: new Date().toISOString()
+                })
+                .eq('id', existingWithVin.id);
+              
+              if (!updateError) {
+                updatedCount++;
+                console.log(`   ✓ Merged data into existing listing`);
+                // Process options if we just added them
+                if (mergedUpdates.options_text) {
+                  await processListingOptions(existingWithVin.id, mergedUpdates.options_text);
+                }
+              }
+            }
+            continue; // Skip the upsert below since we're merging
+          } else {
+            console.log(`   ⚠️  VIN ${listing.vin} - different sold dates, this is a relisted car`);
+            // Continue with normal upsert, which will handle the duplicate VIN constraint
+          }
+        }
       }
       
-      // If not found by VIN, check by source URL
-      if (!existingId && listing.source_url) {
-        const { data: existing } = await supabase
-          .from('listings')
-          .select('id')
-          .eq('source_url', listing.source_url)
-          .single();
-        
-        if (existing) existingId = existing.id;
-      }
+      // Use upsert to insert or update based on source_url
+      const { data: upsertedListing, error } = await supabase
+        .from('listings')
+        .upsert({
+          source,
+          source_url: listing.source_url,
+          vin: listing.vin,
+          year: parsed.year,
+          model: parsed.model,
+          trim: parsed.trim,
+          generation: parsed.generation,
+          price: listing.price,
+          mileage: listing.mileage,
+          exterior_color: listing.exterior_color,
+          interior_color: listing.interior_color,
+          dealer_name: listing.dealer_name,
+          location: listing.location,
+          title: listing.title,
+          description: listing.description,
+          options_text: listing.options_text,
+          sold_date: listing.sold_date,
+          scraped_at: new Date().toISOString()
+        }, {
+          onConflict: 'source_url',
+          ignoreDuplicates: false  // Update existing records
+        })
+        .select('id')
+        .single();
       
-      if (existingId) {
-        // Update existing listing
-        const { error } = await supabase
-          .from('listings')
-          .update({
-            price: listing.price,
-            mileage: listing.mileage,
-            sold_date: listing.sold_date,
-            vin: listing.vin || undefined,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingId);
-        
-        if (!error) {
-          updatedCount++;
-        } else {
-          console.error(`Failed to update listing: ${error.message}`);
+      if (!error && upsertedListing) {
+        savedCount++;
+        // Process options for the listing
+        if (listing.options_text) {
+          await processListingOptions(upsertedListing.id, listing.options_text);
         }
       } else {
-        // Insert new listing
-        const { error } = await supabase
-          .from('listings')
-          .insert({
-            source,
-            source_url: listing.source_url,
-            vin: listing.vin,
-            year: listing.year,
-            model: listing.model,
-            trim: listing.trim,
-            generation: listing.generation,
-            price: listing.price,
-            mileage: listing.mileage,
-            exterior_color: listing.exterior_color,
-            interior_color: listing.interior_color,
-            dealer_name: listing.dealer_name,
-            location: listing.location,
-            title: listing.title,
-            description: listing.description,
-            options_text: listing.options_text,
-            sold_date: listing.sold_date,
-            scraped_at: new Date().toISOString()
-          });
-        
-        if (!error) {
-          savedCount++;
-        } else {
-          console.error(`Failed to save listing: ${error.message}`);
-        }
+        console.error(`Failed to save listing: ${error?.message}`);
       }
     } catch (err) {
       console.error('Error saving listing:', err);
@@ -183,7 +287,7 @@ async function main() {
       const batScraper = new BaTScraperPuppeteer();
       const batResults = await batScraper.scrapeListings({
         model: model || undefined,
-        maxPages: maxPagesOverride || (model && trim ? 1 : 5),  // Use override or default
+        maxPages: maxPagesOverride !== null ? maxPagesOverride : (model && trim ? 1 : 5),  // Use override if provided
         onlySold: true
       });
       results.bat = batResults.length;
@@ -209,7 +313,7 @@ async function main() {
       const classicScraper = new ClassicScraper();
       const classicResults = await classicScraper.scrapeListings({
         model: model || undefined,
-        maxPages: maxPagesOverride || (model && trim ? 2 : 5),
+        maxPages: maxPagesOverride !== null ? maxPagesOverride : (model && trim ? 2 : 5),
         onlySold: true
       });
       results.classic = classicResults.length;
@@ -235,7 +339,7 @@ async function main() {
       const carsAndBidsScraper = new CarsAndBidsScraper();
       const carsAndBidsResults = await carsAndBidsScraper.scrapeListings({
         model: model || undefined,
-        maxPages: maxPagesOverride || (model && trim ? 2 : 5),
+        maxPages: maxPagesOverride !== null ? maxPagesOverride : (model && trim ? 2 : 5),
         onlySold: true
       });
       results.carsAndBids = carsAndBidsResults.length;
@@ -261,7 +365,7 @@ async function main() {
       const edmundsScraper = new EdmundsScraper();
       const edmundsResults = await edmundsScraper.scrapeListings({
         model: model || undefined,
-        maxPages: maxPagesOverride || (model && trim ? 2 : 5),
+        maxPages: maxPagesOverride !== null ? maxPagesOverride : (model && trim ? 2 : 5),
         onlySold: true
       });
       results.edmunds = edmundsResults.length;
@@ -287,7 +391,7 @@ async function main() {
       const carsScraper = new CarsScraper();
       const carsResults = await carsScraper.scrapeListings({
         model: model || undefined,
-        maxPages: maxPagesOverride || (model && trim ? 2 : 5),
+        maxPages: maxPagesOverride !== null ? maxPagesOverride : (model && trim ? 2 : 5),
         onlySold: true
       });
       results.cars = carsResults.length;

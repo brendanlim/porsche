@@ -1,7 +1,7 @@
 #!/usr/bin/env npx tsx
 import * as dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenAI } from '@google/genai';
+import OpenAI from 'openai';
 
 dotenv.config({ path: '.env.local' });
 
@@ -16,7 +16,17 @@ const supabase = createClient(
   }
 );
 
-const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+// Lazy initialization to ensure env vars are loaded
+let openai: OpenAI | null = null;
+
+function getOpenAI(): OpenAI {
+  if (!openai) {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY!,
+    });
+  }
+  return openai;
+}
 
 // Map of common color variations to normalized names
 const COLOR_NORMALIZATION: Record<string, string> = {
@@ -98,9 +108,8 @@ function extractColorFromDescription(description: string): string | null {
   return null;
 }
 
-async function normalizeWithGemini(description: string): Promise<string | null> {
-  try {
-    const prompt = `Extract ONLY the exterior paint color from this Porsche vehicle description.
+async function normalizeWithOpenAI(description: string): Promise<string | null> {
+  const prompt = `Extract ONLY the exterior paint color from this Porsche vehicle description.
     
 Description: "${description}"
 
@@ -114,42 +123,67 @@ Rules:
 
 Return ONLY the color name or NULL, nothing else.`;
 
-    const result = await genAI.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt
-    });
-    
-    const text = result.text.trim();
-    
-    // Clean up Gemini response
-    if (text.toLowerCase() === 'null' || text === '') {
-      return null;
-    }
-    
-    // Remove quotes if present
-    return text.replace(/^["']|["']$/g, '').trim();
-  } catch (error: any) {
-    if (error.status === 503 || error.message?.includes('overloaded')) {
-      // Wait and retry once
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      try {
-        const result = await genAI.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: `Extract the exterior color from: "${description}". Return ONLY the color name or NULL.`
-        });
-        const text = result.text.trim();
-        return text.toLowerCase() === 'null' ? null : text.replace(/^["']|["']$/g, '').trim();
-      } catch {
+  // Retry logic for overload errors - similar to model-trim-normalizer.ts
+  let retries = 3;
+  let lastError: any;
+  
+  while (retries > 0) {
+    try {
+      const completion = await getOpenAI().chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'Extract ONLY the exterior paint color from Porsche vehicle descriptions. Return ONLY the color name or NULL, nothing else.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.1,
+        max_tokens: 50,
+      });
+      
+      const text = completion.choices[0].message.content?.trim() || '';
+      
+      // Clean up Gemini response
+      if (text.toLowerCase() === 'null' || text === '') {
+        return null;
+      }
+      
+      // Remove quotes if present
+      return text.replace(/^["']|["']$/g, '').trim();
+    } catch (error: any) {
+      lastError = error;
+      
+      if (error.status === 429) {
+        // Quota exhausted - give up immediately to avoid burning through quota
+        console.warn(`OpenAI quota exhausted (429). Stopping color normalization.`);
+        throw new Error('QUOTA_EXHAUSTED');
+      } else if (error.status === 503 || error.message?.includes('overloaded')) {
+        // Model overloaded, retry with exponential backoff
+        retries--;
+        if (retries > 0) {
+          const delay = (3 - retries) * 2000; // 2s, 4s, 6s
+          console.log(`OpenAI overloaded, retrying in ${delay/1000}s... (${retries} retries left)`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          console.warn('OpenAI overloaded after retries for:', description.substring(0, 50));
+          return null;
+        }
+      } else {
+        // Unknown error, log and return null
+        console.error('OpenAI error:', error.message);
         return null;
       }
     }
-    console.error('Gemini error:', error.message);
-    return null;
   }
+  
+  return null;
 }
 
 async function normalizeColors() {
   console.log('Fetching all listings with exterior colors...\n');
+  
+  // Check if OpenAI API key is set
+  if (!process.env.OPENAI_API_KEY) {
+    console.warn('⚠️ OPENAI_API_KEY not set. Only simple normalization will be performed.');
+  }
   
   const { data: listings, error } = await supabase
     .from('listings')
@@ -177,7 +211,7 @@ async function normalizeColors() {
         new_color: normalized
       });
     } else if (!normalized && listing.exterior_color) {
-      // Couldn't normalize with simple rules - try Gemini
+      // Couldn't normalize with simple rules - try OpenAI
       needsGemini.push({
         id: listing.id,
         color: listing.exterior_color,
@@ -187,47 +221,91 @@ async function normalizeColors() {
     }
   }
   
-  // Second pass: use Gemini for difficult cases
+  // Second pass: use OpenAI for difficult cases
   if (needsGemini.length > 0) {
-    console.log(`\n🤖 Using Gemini to normalize ${needsGemini.length} complex color descriptions...`);
-    
-    for (let i = 0; i < needsGemini.length; i++) {
-      const item = needsGemini[i];
+    if (process.env.OPENAI_API_KEY) {
+      console.log(`\n🤖 Using OpenAI to normalize ${needsGemini.length} complex color descriptions...`);
+      console.log(`(Processing with delay every 5 items to avoid overload)\n`);
       
-      // Skip obvious non-colors
-      if (item.color.includes('.jpg') || 
-          item.color.includes('scaled') || 
-          item.color.includes('_') ||
-          item.color.length > 200) {
-        updates.push({
-          id: item.id,
-          old_color: item.color,
-          new_color: null
-        });
-        continue;
+      for (let i = 0; i < needsGemini.length; i++) {
+        const item = needsGemini[i];
+        console.log(`  Processing ${i+1}/${needsGemini.length}: "${item.color.substring(0, 40)}..."`)
+        
+        // Skip obvious non-colors
+        if (item.color.includes('.jpg') || 
+            item.color.includes('scaled') || 
+            item.color.includes('_') ||
+            item.color.length > 200) {
+          updates.push({
+            id: item.id,
+            old_color: item.color,
+            new_color: null
+          });
+          continue;
+        }
+        
+        try {
+          const geminiColor = await normalizeWithOpenAI(item.color);
+          
+          if (geminiColor && geminiColor !== item.color) {
+            updates.push({
+              id: item.id,
+              old_color: item.color,
+              new_color: geminiColor
+            });
+            console.log(`  ✅ "${item.color.substring(0, 50)}..." → "${geminiColor}"`);
+          } else if (!geminiColor) {
+            // OpenAI couldn't extract a color either - set to null
+            updates.push({
+              id: item.id,
+              old_color: item.color,
+              new_color: null
+            });
+          }
+        } catch (error: any) {
+          if (error.message === 'QUOTA_EXHAUSTED') {
+            console.log('\n⚠️ OpenAI quota exhausted. Stopping OpenAI processing.');
+            console.log(`Processed ${i} of ${needsGemini.length} items before quota limit.`);
+            
+            // Mark remaining items as skipped
+            for (let j = i; j < needsGemini.length; j++) {
+              updates.push({
+                id: needsGemini[j].id,
+                old_color: needsGemini[j].color,
+                new_color: null  // Can't process without OpenAI
+              });
+            }
+            break;
+          }
+          // For other errors, just skip this item
+          updates.push({
+            id: item.id,
+            old_color: item.color,
+            new_color: null
+          });
+        }
+        
+        // Add delay every 5 requests to avoid overloading OpenAI
+        if ((i + 1) % 5 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
-      
-      const geminiColor = await normalizeWithGemini(item.color);
-      
-      if (geminiColor && geminiColor !== item.color) {
-        updates.push({
-          id: item.id,
-          old_color: item.color,
-          new_color: geminiColor
-        });
-        console.log(`  ✅ "${item.color.substring(0, 50)}..." → "${geminiColor}"`);
-      } else if (!geminiColor) {
-        // Gemini couldn't extract a color either - set to null
-        updates.push({
-          id: item.id,
-          old_color: item.color,
-          new_color: null
-        });
-      }
-      
-      // Add delay every 5 requests to avoid overloading Gemini
-      if ((i + 1) % 5 === 0) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+    } else {
+      console.log(`\n⚠️ Skipping OpenAI normalization for ${needsGemini.length} complex colors (no API key).`);
+      // Mark all as unable to process without OpenAI
+      for (const item of needsGemini) {
+        // For obvious non-colors, set to null
+        if (item.color.includes('.jpg') || 
+            item.color.includes('scaled') || 
+            item.color.includes('_') ||
+            item.color.length > 200) {
+          updates.push({
+            id: item.id,
+            old_color: item.color,
+            new_color: null
+          });
+        }
+        // For others, leave unchanged since we can't process without OpenAI
       }
     }
   }
@@ -274,26 +352,52 @@ async function normalizeColors() {
     console.log(`❌ Failed to update ${errorCount} listings`);
   }
   
-  // Show final color distribution for 996 GT3s
-  console.log('\n📊 Updated 996 GT3 color distribution:');
+  // Show final color distribution for all models
+  console.log('\n📊 Updated color distribution across all models:');
   const { data: updatedColors } = await supabase
     .from('listings')
-    .select('exterior_color')
-    .eq('model', '911')
-    .eq('trim', 'GT3')
-    .eq('generation', '996')
+    .select('exterior_color, model, trim')
     .not('exterior_color', 'is', null);
   
   const colorCounts: Record<string, number> = {};
+  const modelColorCounts: Record<string, Record<string, number>> = {};
+  
   updatedColors?.forEach(l => {
+    // Overall counts
     colorCounts[l.exterior_color] = (colorCounts[l.exterior_color] || 0) + 1;
+    
+    // Per-model counts
+    const modelKey = `${l.model}${l.trim ? ' ' + l.trim : ''}`;
+    if (!modelColorCounts[modelKey]) {
+      modelColorCounts[modelKey] = {};
+    }
+    modelColorCounts[modelKey][l.exterior_color] = 
+      (modelColorCounts[modelKey][l.exterior_color] || 0) + 1;
   });
   
+  // Show top colors overall
+  console.log('\nTop colors overall:');
   Object.entries(colorCounts)
     .sort(([,a], [,b]) => b - a)
+    .slice(0, 15)
     .forEach(([color, count]) => {
-      console.log(`  ${count.toString().padStart(3)} ${color}`);
+      console.log(`  ${count.toString().padStart(4)} ${color}`);
     });
+  
+  // Show top models with color data
+  const modelsWithColors = Object.entries(modelColorCounts)
+    .map(([model, colors]) => ({
+      model,
+      total: Object.values(colors).reduce((a, b) => a + b, 0),
+      topColor: Object.entries(colors).sort(([,a], [,b]) => b - a)[0]
+    }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5);
+  
+  console.log('\nTop models with color data:');
+  modelsWithColors.forEach(({ model, total, topColor }) => {
+    console.log(`  ${model}: ${total} listings (most common: ${topColor[0]} with ${topColor[1]} listings)`);
+  });
 }
 
 normalizeColors().catch(console.error);

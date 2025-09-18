@@ -513,10 +513,34 @@ export class BaTScraper extends BaseScraper {
   }
 
   private extractSoldDate($: cheerio.CheerioAPI, pageText: string): Date | undefined {
+    // First try to extract from specific BaT elements
+    // BaT shows "Sold for $XXX on Month Day, Year" in the listing-available-info
+    const soldInfo = $('.listing-available-info').text();
+    const soldMatch = soldInfo.match(/on\s+([\w\s]+\d{1,2},?\s*\d{4})/i);
+    if (soldMatch) {
+      const date = new Date(soldMatch[1]);
+      if (!isNaN(date.getTime())) {
+        return date;
+      }
+    }
+    
+    // Try to find in the auction status area
+    const auctionStatus = $('.auction-status').text();
+    const statusMatch = auctionStatus.match(/([\w\s]+\d{1,2},?\s*\d{4})/i);
+    if (statusMatch) {
+      const date = new Date(statusMatch[1]);
+      if (!isNaN(date.getTime())) {
+        return date;
+      }
+    }
+    
+    // Fallback to text patterns
     const patterns = [
+      /sold\s+for\s+\$[\d,]+\s+on\s+([\w\s]+\d{1,2},?\s*\d{4})/i,
       /ended[:\s]*([\w\s]+\d{1,2},?\s*\d{4})/i,
       /sold on[:\s]*([\w\s]+\d{1,2},?\s*\d{4})/i,
-      /auction ended[:\s]*([\w\s]+\d{1,2},?\s*\d{4})/i
+      /auction ended[:\s]*([\w\s]+\d{1,2},?\s*\d{4})/i,
+      /ending\s+([\w\s]+\d{1,2},?\s*\d{4})/i
     ];
     
     for (const pattern of patterns) {

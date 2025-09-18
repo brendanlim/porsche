@@ -60,7 +60,7 @@ export function DepreciationTable({ data, yearData, averageLossPerMile, trimName
       <CardHeader>
         <CardTitle>Depreciation by Mileage</CardTitle>
         <CardDescription>
-          Depreciation percentages are normalized by comparing same-year vehicles at different mileage ranges
+          Depreciation is calculated using regression analysis to isolate the impact of mileage from other factors like options and year
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -83,7 +83,7 @@ export function DepreciationTable({ data, yearData, averageLossPerMile, trimName
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {data.map((row) => (
+              {data.filter(row => row.listings > 0).map((row) => (
                 <tr key={row.mileageRange} className="hover:bg-gray-50 transition-colors">
                   <td className="py-3 px-4 font-medium text-gray-900">{row.mileageRange}</td>
                   <td className="py-3 px-4 text-center text-gray-600">{row.listings}</td>

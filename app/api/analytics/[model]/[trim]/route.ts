@@ -63,72 +63,73 @@ export async function GET(
 ) {
   const { model, trim } = await params;
   const searchParams = request.nextUrl.searchParams;
-  const range = searchParams.get('range') || '30d';
+  const range = searchParams.get('range') || '6m';
   const generationFilter = searchParams.get('generation');
   
-  // Convert from URL format and match database casing
-  const modelParts = model.split('-');
-  const modelName = modelParts.map((part, i) => {
-    // Special case for 718, 911 etc - keep as numbers
-    if (/^\d+/.test(part)) return part;
-    // Capitalize first letter of each word
-    return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
-  }).join(' ');
-  const trimName = trim.replace(/-/g, ' ').toUpperCase();
+  // Convert from URL format (kebab-case) to spaced format
+  const modelName = model.replace(/-/g, ' ');
+  const trimName = trim.replace(/-/g, ' ');
   
   try {
     // Get date range
     const now = new Date();
     const startDate = new Date();
     switch (range) {
-      case '7d':
-        startDate.setDate(now.getDate() - 7);
+      case '3m':
+        startDate.setMonth(now.getMonth() - 3);
         break;
-      case '30d':
-        startDate.setDate(now.getDate() - 30);
-        break;
-      case '90d':
-        startDate.setDate(now.getDate() - 90);
+      case '6m':
+        startDate.setMonth(now.getMonth() - 6);
         break;
       case '1y':
         startDate.setFullYear(now.getFullYear() - 1);
+        break;
+      case '2y':
+        startDate.setFullYear(now.getFullYear() - 2);
+        break;
+      case '3y':
+        startDate.setFullYear(now.getFullYear() - 3);
         break;
       case 'all':
         startDate.setFullYear(2010); // Get all data
         break;
       default:
-        startDate.setDate(now.getDate() - 30);
+        startDate.setMonth(now.getMonth() - 6); // Default to 6 months
     }
 
-    // Fetch listings directly from listings table
+    // Fetch listings that SOLD within the date range - this is critical for accurate analysis
     const { data: allListings, error: listingsError } = await supabaseAdmin
       .from('listings')
       .select('*')
-      .eq('model', modelName)
-      .eq('trim', trimName)
-      .gte('scraped_at', startDate.toISOString())
-      .order('scraped_at', { ascending: false });
+      .ilike('model', modelName)  // Case-insensitive match
+      .ilike('trim', trimName)    // Case-insensitive match
+      .not('sold_date', 'is', null)  // Must have a sold date
+      .gte('sold_date', startDate.toISOString())  // Filter by WHEN IT SOLD, not when scraped
+      .order('sold_date', { ascending: false });
 
     if (listingsError) throw listingsError;
 
-    // Use the listings directly
-    let filteredListings = allListings || [];
+    // Use sold_price if available, otherwise fall back to price
+    let filteredListings = (allListings || []).map(listing => ({
+      ...listing,
+      price: listing.sold_price || listing.price  // Prefer sold_price
+    }));
 
     // Filter out parts and race cars based on unrealistic prices
     // GT3 minimum should be around $100k for street cars
     // GT3 RS minimum should be around $220k
     // GT4 RS minimum should be around $220k
     const minPrices: Record<string, number> = {
-      'GT3': 100000,
-      'GT3 RS': 220000,
-      'GT4 RS': 220000,
-      'GT2': 150000,
-      'GT2 RS': 250000,
-      'Turbo': 80000,
-      'Turbo S': 100000,
+      'gt3': 100000,
+      'gt3 rs': 220000,
+      'gt4 rs': 175000,  // Lowered from 220k to include more legitimate sales
+      'gt2': 150000,
+      'gt2 rs': 250000,
+      'turbo': 80000,
+      'turbo s': 100000,
     };
     
-    const minPrice = minPrices[trimName] || 0;
+    const minPrice = minPrices[trimName.toLowerCase()] || 0;
     if (minPrice > 0) {
       filteredListings = filteredListings.filter(l => l.price >= minPrice);
     }
@@ -186,6 +187,53 @@ export async function GET(
       filteredListings.map(l => getGeneration(l.year || 0, modelName)).filter(g => g !== null && g !== undefined)
     )).sort();
 
+    // Calculate month-over-month changes
+    const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+    
+    const thisMonthListings = filteredListings.filter(l => {
+      const soldDate = new Date(l.sold_date);
+      return soldDate >= thisMonth;
+    });
+    
+    const lastMonthListings = filteredListings.filter(l => {
+      const soldDate = new Date(l.sold_date);
+      return soldDate >= lastMonth && soldDate <= lastMonthEnd;
+    });
+    
+    // Calculate month-over-month metrics
+    let priceChangePercent: number | null = null;
+    let listingsChangePercent: number | null = null;
+    let mileageChangePercent: number | null = null;
+    
+    if (lastMonthListings.length >= 3 && thisMonthListings.length >= 3) {
+      const lastMonthAvgPrice = lastMonthListings
+        .map(l => l.price)
+        .filter(p => p > 0)
+        .reduce((a, b) => a + b, 0) / lastMonthListings.length;
+      
+      const thisMonthAvgPrice = thisMonthListings
+        .map(l => l.price)
+        .filter(p => p > 0)
+        .reduce((a, b) => a + b, 0) / thisMonthListings.length || averagePrice;
+      
+      if (lastMonthAvgPrice > 0) {
+        priceChangePercent = ((thisMonthAvgPrice - lastMonthAvgPrice) / lastMonthAvgPrice) * 100;
+      }
+      
+      listingsChangePercent = ((thisMonthListings.length - lastMonthListings.length) / lastMonthListings.length) * 100;
+      
+      const lastMonthMileages = lastMonthListings.map(l => l.mileage).filter(m => m > 0);
+      const thisMonthMileages = thisMonthListings.map(l => l.mileage).filter(m => m > 0);
+      
+      if (lastMonthMileages.length > 0 && thisMonthMileages.length > 0) {
+        const lastMonthAvgMileage = lastMonthMileages.reduce((a, b) => a + b, 0) / lastMonthMileages.length;
+        const thisMonthAvgMileage = thisMonthMileages.reduce((a, b) => a + b, 0) / thisMonthMileages.length;
+        mileageChangePercent = ((thisMonthAvgMileage - lastMonthAvgMileage) / lastMonthAvgMileage) * 100;
+      }
+    }
+    
     // Calculate YoY appreciation
     const currentYear = new Date().getFullYear();
     const lastYearListings = filteredListings.filter(l => 
@@ -205,14 +253,14 @@ export async function GET(
       yearOverYearAppreciation = getAppreciationByTrim(trimName);
     }
 
-    // Market trends - use REAL data grouped by scraped date
+    // Market trends - group by sold_date if available, otherwise scraped_at
     const trendsByDay = new Map();
     
-    // Group listings by their scraped date
+    // Group listings by their sale date (or scraped date if not sold)
     filteredListings.forEach(listing => {
       if (listing.price > 0) {
-        // Use scraped_at or created_at date
-        const dateStr = (listing.scraped_at || listing.created_at).split('T')[0];
+        // Use sold_date if available, otherwise scraped_at
+        const dateStr = (listing.sold_date || listing.scraped_at || listing.created_at).split('T')[0];
         
         if (!trendsByDay.has(dateStr)) {
           trendsByDay.set(dateStr, {
@@ -275,7 +323,7 @@ export async function GET(
       .sort((a, b) => b.premiumPercent - a.premiumPercent)
       .slice(0, 6);
 
-    // Mileage distribution
+    // Mileage distribution with normalization
     const mileageRanges = [
       { range: '0-5k', min: 0, max: 5000 },
       { range: '5k-10k', min: 5000, max: 10000 },
@@ -284,25 +332,76 @@ export async function GET(
       { range: '30k+', min: 30000, max: Infinity }
     ];
 
+    // Calculate normalized mileage depreciation
+    // Group by year first to control for age differences
+    const mileageByYear = new Map();
+    filteredListings.forEach(l => {
+      if (l.year && l.mileage !== null && l.mileage !== undefined && l.price > 0) {
+        if (!mileageByYear.has(l.year)) {
+          mileageByYear.set(l.year, []);
+        }
+        mileageByYear.get(l.year).push({ mileage: l.mileage, price: l.price });
+      }
+    });
+
+    // Calculate depreciation per mile for each year
+    const depreciationRates = [];
+    mileageByYear.forEach((listings, year) => {
+      if (listings.length >= 2) {
+        // Simple linear regression for price vs mileage
+        const n = listings.length;
+        const sumX = listings.reduce((sum, l) => sum + l.mileage, 0);
+        const sumY = listings.reduce((sum, l) => sum + l.price, 0);
+        const sumXY = listings.reduce((sum, l) => sum + (l.mileage * l.price), 0);
+        const sumX2 = listings.reduce((sum, l) => sum + (l.mileage * l.mileage), 0);
+        
+        const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+        const intercept = (sumY - slope * sumX) / n;
+        
+        if (intercept > 0) {
+          depreciationRates.push({
+            year,
+            depreciationPerMile: -slope,
+            basePrice: intercept
+          });
+        }
+      }
+    });
+
+    // Calculate average depreciation rate
+    const avgDepreciationPerMile = depreciationRates.length > 0
+      ? depreciationRates.reduce((sum, r) => sum + r.depreciationPerMile, 0) / depreciationRates.length
+      : 0;
+
+    // Use median year's base price as reference
+    const medianYear = [...new Set(filteredListings.map(l => l.year))].sort()[Math.floor(filteredListings.length / 2)];
+    const referenceBasePrice = depreciationRates.find(r => r.year === medianYear)?.basePrice || averagePrice;
+
     const mileageDistribution = mileageRanges.map(range => {
       const inRange = filteredListings.filter(l => 
         l.mileage >= range.min && l.mileage < range.max
       );
-      const avgPrice = inRange.length > 0
+      
+      // Calculate normalized price based on mileage alone
+      const avgMileage = (range.min + Math.min(range.max, 50000)) / 2;
+      const normalizedPrice = referenceBasePrice - (avgDepreciationPerMile * avgMileage);
+      
+      // Also calculate actual average for comparison
+      const actualAvgPrice = inRange.length > 0
         ? inRange.reduce((sum, l) => sum + l.price, 0) / inRange.length
-        : 0; // No fake data - return 0 if no real data
+        : normalizedPrice;
       
       return {
         range: range.range,
         count: inRange.length,
-        avgPrice: avgPrice
+        avgPrice: inRange.length > 0 ? actualAvgPrice : normalizedPrice
       };
     });
 
     // Depreciation by year
     const yearGroups = new Map();
     filteredListings.forEach(l => {
-      const year = l.model_years?.year;
+      const year = l.year;
       if (year) {
         if (!yearGroups.has(year)) {
           yearGroups.set(year, { prices: [], mileages: [] });
@@ -335,6 +434,69 @@ export async function GET(
         };
       })
       .sort((a, b) => b.year - a.year);
+    
+    // Multi-axis depreciation table (Year/Generation vs Mileage)
+    const multiAxisDepreciation = (() => {
+      // Determine if we should use generation or year as the axis
+      const uniqueGenerations = [...new Set(filteredListings.map(l => l.generation).filter(g => g))];
+      const useGeneration = generationFilter === 'all' && uniqueGenerations.length > 1;
+      
+      // Define mileage ranges for columns
+      const mileageRanges = [
+        { label: '0-5k', min: 0, max: 5000 },
+        { label: '5k-10k', min: 5000, max: 10000 },
+        { label: '10k-20k', min: 10000, max: 20000 },
+        { label: '20k-30k', min: 20000, max: 30000 },
+        { label: '30k+', min: 30000, max: Infinity }
+      ];
+      
+      // Get unique years or generations for rows
+      const rowKeys = useGeneration 
+        ? uniqueGenerations.sort()
+        : [...new Set(filteredListings.map(l => l.year).filter(y => y))].sort((a, b) => b - a);
+      
+      // Calculate baseline (0-5k miles average)
+      const baselineListings = filteredListings.filter(l => l.mileage >= 0 && l.mileage < 5000 && l.price > 0);
+      const baselinePrice = baselineListings.length > 0
+        ? baselineListings.reduce((sum, l) => sum + l.price, 0) / baselineListings.length
+        : averagePrice;
+      
+      // Build the matrix
+      const matrix = rowKeys.map(rowKey => {
+        const row: any = { key: rowKey };
+        
+        mileageRanges.forEach(range => {
+          // Filter listings for this row and mileage range
+          const cellListings = filteredListings.filter(l => {
+            const matchesRow = useGeneration ? l.generation === rowKey : l.year === rowKey;
+            const inMileageRange = l.mileage >= range.min && l.mileage < range.max;
+            return matchesRow && inMileageRange && l.price > 0;
+          });
+          
+          if (cellListings.length > 0) {
+            const avgPrice = cellListings.reduce((sum, l) => sum + l.price, 0) / cellListings.length;
+            const depreciation = range.label === '0-5k' ? 0 : ((baselinePrice - avgPrice) / baselinePrice) * 100;
+            
+            row[range.label] = {
+              avgPrice,
+              count: cellListings.length,
+              depreciation: depreciation.toFixed(1)
+            };
+          } else {
+            row[range.label] = null;
+          }
+        });
+        
+        return row;
+      });
+      
+      return {
+        useGeneration,
+        mileageRanges: mileageRanges.map(r => r.label),
+        data: matrix,
+        baselinePrice
+      };
+    })();
 
     // Generation comparison
     const genData = new Map();
@@ -418,6 +580,36 @@ export async function GET(
         ? ((avgWithOption - avgWithoutOption) / avgWithoutOption) * 100
         : 0;
       
+      // Calculate days on market for listings with proper dates
+      const withOptionDays = withOption
+        .filter(l => l.list_date && l.sold_date)
+        .map(l => {
+          const listDate = new Date(l.list_date);
+          const soldDate = new Date(l.sold_date);
+          return Math.max(0, Math.floor((soldDate.getTime() - listDate.getTime()) / (1000 * 60 * 60 * 24)));
+        });
+      
+      const withoutOptionDays = withoutOption
+        .filter(l => l.list_date && l.sold_date)
+        .map(l => {
+          const listDate = new Date(l.list_date);
+          const soldDate = new Date(l.sold_date);
+          return Math.max(0, Math.floor((soldDate.getTime() - listDate.getTime()) / (1000 * 60 * 60 * 24)));
+        });
+      
+      const avgDaysWithOption = withOptionDays.length > 0
+        ? withOptionDays.reduce((a, b) => a + b, 0) / withOptionDays.length
+        : null;
+      
+      const avgDaysWithoutOption = withoutOptionDays.length > 0
+        ? withoutOptionDays.reduce((a, b) => a + b, 0) / withoutOptionDays.length
+        : null;
+      
+      // Calculate days on market difference
+      const daysOnMarketDiff = (avgDaysWithOption !== null && avgDaysWithoutOption !== null)
+        ? avgDaysWithOption - avgDaysWithoutOption
+        : null;
+      
       // Determine market availability
       const listingPercent = (withOption.length / filteredListings.length) * 100;
       let marketAvailability: 'high' | 'medium' | 'low' | 'rare' = 'low';
@@ -458,6 +650,9 @@ export async function GET(
         premiumPercent,
         marketAvailability,
         priceImpact,
+        avgDaysOnMarket: avgDaysWithOption,
+        avgDaysWithoutOption,
+        daysOnMarketDiff,
         withOptionCount: withOption.length,
         withoutOptionCount: withoutOption.length
       };
@@ -501,9 +696,9 @@ export async function GET(
         source: l.source || 'Unknown',
         sourceUrl: l.source_url,
         highValueOptions: l.highValueOptions,
-        daysOnMarket: Math.floor(
-          (now.getTime() - new Date(l.scraped_at || l.created_at).getTime()) / (1000 * 60 * 60 * 24)
-        ),
+        daysOnMarket: l.list_date && l.sold_date
+          ? Math.max(0, Math.floor((new Date(l.sold_date).getTime() - new Date(l.list_date).getTime()) / (1000 * 60 * 60 * 24)))
+          : null,
         generation: getGeneration(l.year || 0, modelName),
         premiumPercent: ((l.price - averagePrice) / averagePrice) * 100
       }));
@@ -520,9 +715,9 @@ export async function GET(
         mileage: l.mileage || 0,
         color: l.exterior_color || 'Unknown',
         dealer: l.dealer_name || 'Private Party',
-        daysOnMarket: Math.floor(
-          (now.getTime() - new Date(l.scraped_at || l.created_at).getTime()) / (1000 * 60 * 60 * 24)
-        ),
+        daysOnMarket: l.list_date && l.sold_date
+          ? Math.max(0, Math.floor((new Date(l.sold_date).getTime() - new Date(l.list_date).getTime()) / (1000 * 60 * 60 * 24)))
+          : null,
         generation: getGeneration(l.year || 0, modelName)
       }));
 
@@ -548,6 +743,81 @@ export async function GET(
         };
       });
 
+    // Historical sales data for the scatter plot
+    const salesData = filteredListings
+      .filter(l => l.price > 0 && l.sold_date)
+      .map(l => ({
+        date: l.sold_date,
+        price: l.price,
+        generation: getGeneration(l.year || 0, modelName),
+        mileage: l.mileage || undefined,
+        year: l.year || undefined
+      }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Seasonality Analysis - Calculate average prices and sales volume by season
+    const seasonalityAnalysis = (() => {
+      const seasons = {
+        'Winter': { months: [12, 1, 2], sales: [], prices: [] },
+        'Spring': { months: [3, 4, 5], sales: [], prices: [] },
+        'Summer': { months: [6, 7, 8], sales: [], prices: [] },
+        'Fall': { months: [9, 10, 11], sales: [], prices: [] }
+      };
+      
+      // Group listings by season based on sold_date
+      filteredListings.forEach(listing => {
+        if (listing.sold_date && listing.price > 0) {
+          const soldDate = new Date(listing.sold_date);
+          const month = soldDate.getMonth() + 1; // getMonth() returns 0-11
+          
+          // Find which season this month belongs to
+          Object.entries(seasons).forEach(([seasonName, seasonData]) => {
+            if (seasonData.months.includes(month)) {
+              seasonData.sales.push(listing);
+              seasonData.prices.push(listing.price);
+            }
+          });
+        }
+      });
+      
+      // Calculate statistics for each season
+      const seasonStats = Object.entries(seasons).map(([season, data]) => {
+        // Sort prices to get median
+        const sortedPrices = [...data.prices].sort((a, b) => a - b);
+        const seasonMedianPrice = sortedPrices.length > 0
+          ? sortedPrices[Math.floor(sortedPrices.length / 2)]
+          : 0;
+        
+        // Calculate average for additional context
+        const avgPrice = data.prices.length > 0
+          ? data.prices.reduce((a, b) => a + b, 0) / data.prices.length
+          : 0;
+        
+        // Calculate price premium/discount relative to overall median
+        const priceDiff = seasonMedianPrice - medianPrice;
+        const priceImpact = medianPrice > 0 ? (priceDiff / medianPrice) * 100 : 0;
+        
+        return {
+          season,
+          salesVolume: data.sales.length,
+          avgPrice,
+          medianPrice: seasonMedianPrice,
+          priceImpact, // Percentage difference from overall median
+          volumePercent: (data.sales.length / filteredListings.length) * 100,
+          priceRange: {
+            min: Math.min(...data.prices) || 0,
+            max: Math.max(...data.prices) || 0
+          }
+        };
+      });
+      
+      // Sort by season order (Winter, Spring, Summer, Fall)
+      const seasonOrder = ['Winter', 'Spring', 'Summer', 'Fall'];
+      seasonStats.sort((a, b) => seasonOrder.indexOf(a.season) - seasonOrder.indexOf(b.season));
+      
+      return seasonStats;
+    })();
+
     // Only use real data points, no synthetic data
 
     return NextResponse.json({
@@ -559,11 +829,17 @@ export async function GET(
       priceRange,
       averageMileage,
       yearOverYearAppreciation,
+      priceChangePercent,
+      listingsChangePercent,
+      mileageChangePercent,
       generations,
       marketTrends,
+      salesData,
+      seasonalityAnalysis,
       colorAnalysis,
       mileageDistribution,
       depreciationByYear,
+      multiAxisDepreciation,
       generationComparison,
       optionsAnalysis,
       premiumExamples,

@@ -1,4 +1,4 @@
-PorscheTrends.com: The Complete MVP Launch Plan
+PorscheStats.com: The Complete MVP Launch Plan
 Version: 1.0
 Date: September 5, 2025
 Author: Gemini
@@ -15,7 +15,7 @@ Prospective Sellers: Aiming to maximize asset value and optimize their listing s
 Collectors & Investors: Requiring portfolio tracking, market intelligence, and appreciation forecasting.
 
 1.3 The Core Problem & Solution
-The high-value used Porsche market is opaque, emotional, and fragmented. Buyers fear overpaying, sellers struggle with pricing, and investors lack specialized analytical tools. PorscheTrends will solve this by ingesting, cleaning, and visualizing comprehensive market data to provide actionable, unbiased insights.
+The high-value used Porsche market is opaque, emotional, and fragmented. Buyers fear overpaying, sellers struggle with pricing, and investors lack specialized analytical tools. PorscheStats will solve this by ingesting, cleaning, and visualizing comprehensive market data to provide actionable, unbiased insights.
 
 1.4 Minimum Viable Product (MVP) Feature Set
 The initial launch will focus exclusively on delivering the core "Don't Overpay" value proposition.

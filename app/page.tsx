@@ -159,7 +159,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Why PorscheTrends?
+              Why PorscheStats?
             </h2>
             <p className="text-lg text-gray-600">
               The most comprehensive Porsche market intelligence platform
@@ -256,7 +256,7 @@ export default function HomePage() {
             Ready to Find Your Perfect Porsche?
           </h2>
           <p className="text-xl text-blue-100 mb-8">
-            Join thousands of enthusiasts using PorscheTrends to make smarter decisions
+            Join thousands of enthusiasts using PorscheStats to make smarter decisions
           </p>
           <Link
             href="/signup"

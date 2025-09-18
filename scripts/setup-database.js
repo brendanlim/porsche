@@ -68,7 +68,7 @@ async function runSQL(sqlContent, description) {
 
 async function main() {
   console.log('========================================');
-  console.log('    PorscheTrends Database Setup');
+  console.log('    PorscheStats Database Setup');
   console.log('========================================');
   
   try {

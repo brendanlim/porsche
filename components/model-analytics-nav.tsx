@@ -24,7 +24,7 @@ export function ModelAnalyticsNav() {
           <div className="flex items-center space-x-8">
             <Link href="/" className="flex items-center space-x-2">
               <BarChart3 className="h-6 w-6" />
-              <span className="font-bold text-xl">PorscheTrends</span>
+              <span className="font-bold text-xl">PorscheStats</span>
             </Link>
             
             <div className="hidden md:flex items-center space-x-1">

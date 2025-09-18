@@ -195,6 +195,16 @@ async function saveListings(listings: ScrapedListing[], source: string): Promise
         }
       }
       
+      // First check if this listing already exists
+      const { data: existingListing } = await supabase
+        .from('listings')
+        .select('id, created_at, scraped_at, vin, price, mileage')
+        .eq('source_url', listing.source_url)
+        .single();
+      
+      const isExisting = !!existingListing;
+      let operation = isExisting ? '🔄 UPDATE' : '✨ INSERT';
+      
       // Use upsert to insert or update based on source_url
       const { data: upsertedListing, error } = await supabase
         .from('listings')
@@ -225,22 +235,22 @@ async function saveListings(listings: ScrapedListing[], source: string): Promise
         .single();
       
       if (!error && upsertedListing) {
-        // Check if this was an update or insert
-        const { data: existingCheck } = await supabase
-          .from('listings')
-          .select('created_at, scraped_at')
-          .eq('id', upsertedListing.id)
-          .single();
+        const carInfo = `${parsed.year || ''} ${parsed.model || ''} ${parsed.trim || ''}`.trim();
+        const vinInfo = listing.vin ? ` VIN: ${listing.vin}` : '';
         
-        const isNew = existingCheck && 
-          (new Date(existingCheck.scraped_at).getTime() - new Date(existingCheck.created_at).getTime() < 5000);
-        
-        if (isNew) {
-          savedCount++;
-          console.log(`   ✅ NEW: ${parsed.year || ''} ${parsed.model || ''} ${parsed.trim || ''} - ${listing.title?.substring(0, 50) || 'Unknown'}`);
-        } else {
+        if (isExisting) {
           updatedCount++;
-          console.log(`   🔄 EXISTING: ${parsed.year || ''} ${parsed.model || ''} ${parsed.trim || ''} - Updated`);
+          // Show what changed
+          const changes = [];
+          if (existingListing.price !== listing.price) changes.push(`price: $${existingListing.price} → $${listing.price}`);
+          if (existingListing.mileage !== listing.mileage) changes.push(`miles: ${existingListing.mileage} → ${listing.mileage}`);
+          if (!existingListing.vin && listing.vin) changes.push(`added VIN: ${listing.vin}`);
+          
+          const changesStr = changes.length > 0 ? ` | Changes: ${changes.join(', ')}` : '';
+          console.log(`   ${operation}: ${carInfo}${vinInfo}${changesStr}`);
+        } else {
+          savedCount++;
+          console.log(`   ${operation}: ${carInfo}${vinInfo} | Price: $${listing.price} | Miles: ${listing.mileage || 'N/A'}`);
         }
         
         // Process options for the listing

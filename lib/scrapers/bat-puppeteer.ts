@@ -160,7 +160,7 @@ export class BaTScraperPuppeteer extends BaseScraper {
     
     // Process each model/trim combination
     for (const modelConfig of modelsToScrape) {
-      console.log(`\n📊 Processing ${modelConfig.name} ${modelConfig.trim || ''}`);
+      console.log(`\n📊 Processing ${modelConfig.name} ${modelConfig.trim || ''} (${modelConfig.generation || 'all generations'})`);
       console.log(`URL: ${modelConfig.searchUrl}`);
       
       try {
@@ -179,8 +179,8 @@ export class BaTScraperPuppeteer extends BaseScraper {
           url: modelConfig.searchUrl,
           html: result.html,
           type: 'search',
-          model: modelConfig.name,
-          trim: modelConfig.trim,
+          model: modelConfig.name || 'unknown',
+          trim: modelConfig.trim || 'unknown',
           metadata: { generation: modelConfig.generation }
         });
         if (storageResult) {
@@ -299,8 +299,8 @@ export class BaTScraperPuppeteer extends BaseScraper {
                 title: domListing.title || 'Unknown',
                 price: finalPrice,  // Use price with buyer fee included
                 status: 'sold',
-                model: modelConfig.name,
-                trim: modelConfig.trim,
+                model: modelConfig.name || domListing.model,
+                trim: modelConfig.trim || domListing.trim,
                 // Store fee metadata
                 buyer_fee_amount: buyerFee,
                 buyer_fee_applied: true,
@@ -341,23 +341,23 @@ export class BaTScraperPuppeteer extends BaseScraper {
       for (let i = 0; i < detailsToFetch.length; i++) {
         const listing = detailsToFetch[i];
         try {
-          console.log(`[${i + 1}/${detailsToFetch.length}] Fetching: ${listing.url}`);
+          console.log(`[${i + 1}/${detailsToFetch.length}] Fetching detail for ${listing.model || 'Unknown'} ${listing.trim || ''}: ${listing.url}`);
           
           // Fetch the listing page with Puppeteer
           const listingData = await this.puppeteerScraper.scrapeListingPage(listing.url);
           
           if (listingData.html) {
-            // Store the detail page HTML
+            // Store the detail page HTML - ensure we have model/trim from modelConfig
             const storageResult = await this.htmlStorage.storeScrapedHTML({
               source: 'bring-a-trailer',
               url: listing.url,
               html: listingData.html,
               type: 'detail',
-              model: listing.model,
-              trim: listing.trim,
+              model: listing.model || modelConfig.name,
+              trim: listing.trim || modelConfig.trim,
             });
             if (storageResult) {
-              console.log(`  ✓ Stored detail page: ${storageResult.path}`);
+              console.log(`  ✓ Stored HTML for listing ${listing.model || modelConfig.name} ${listing.trim || modelConfig.trim || ''}: ${storageResult.path} (${listingData.html.length} bytes)`);
             }
             
             // Parse the detail page for full data

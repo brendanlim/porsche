@@ -177,7 +177,12 @@ export class HTMLStorageService {
           .eq('id', listingId);
       }
       
-      console.log(`Stored HTML for listing ${listingId}: ${storagePath} (${fileSize} bytes)`);
+      const descriptor = type === 'search' 
+        ? `${model || 'unknown'} ${trim || ''} search page`
+        : listingId 
+          ? `listing ${listingId}`
+          : `${model || 'unknown'} ${trim || ''} detail page`;
+      console.log(`Stored HTML for ${descriptor}: ${storagePath} (${fileSize} bytes)`);
       
       return {
         path: storagePath,

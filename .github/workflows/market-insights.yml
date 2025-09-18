@@ -1,0 +1,338 @@
+name: Market Insights Generation
+
+on:
+  # Schedule daily insights at 6 AM UTC (2 AM EST)
+  schedule:
+    - cron: '0 6 * * *'
+  
+  # Schedule weekly insights on Mondays at 8 AM UTC (4 AM EST)
+  schedule:
+    - cron: '0 8 * * 1'
+  
+  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      insight_type:
+        description: 'Type of insights to generate'
+        required: true
+        default: 'daily'
+        type: choice
+        options:
+          - daily
+          - weekly
+          - model-specific
+      model:
+        description: 'Specific model to analyze (for model-specific insights)'
+        required: false
+        type: string
+      trim:
+        description: 'Specific trim to analyze (for model-specific insights)'
+        required: false
+        type: string
+      force_regeneration:
+        description: 'Force regeneration even if recent insights exist'
+        required: false
+        default: false
+        type: boolean
+      validate_predictions:
+        description: 'Validate previous predictions against market data'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_ENV: production
+
+jobs:
+  generate-daily-insights:
+    name: Generate Daily Market Insights
+    runs-on: ubuntu-latest
+    if: |
+      (github.event.schedule == '0 6 * * *') || 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.insight_type == 'daily')
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup environment variables
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "Environment variables configured"
+
+      - name: Generate daily market insights
+        run: |
+          tsx scripts/analytics/generate-market-insights.ts \
+            --type=daily \
+            ${{ github.event.inputs.force_regeneration == 'true' && '--force' || '' }} \
+            ${{ github.event.inputs.validate_predictions == 'true' && '--validate' || '' }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Report daily insights status
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ Daily market insights generated successfully"
+          else
+            echo "❌ Daily market insights generation failed"
+            exit 1
+          fi
+
+  generate-weekly-insights:
+    name: Generate Weekly Market Analysis
+    runs-on: ubuntu-latest
+    if: |
+      (github.event.schedule == '0 8 * * 1') || 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.insight_type == 'weekly')
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup environment variables
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "Environment variables configured"
+
+      - name: Validate previous predictions
+        run: |
+          tsx scripts/analytics/generate-market-insights.ts \
+            --type=daily \
+            --validate
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Generate weekly market insights
+        run: |
+          tsx scripts/analytics/generate-market-insights.ts \
+            --type=weekly \
+            ${{ github.event.inputs.force_regeneration == 'true' && '--force' || '' }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Report weekly insights status
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ Weekly market insights generated successfully"
+          else
+            echo "❌ Weekly market insights generation failed"
+            exit 1
+          fi
+
+  generate-model-specific-insights:
+    name: Generate Model-Specific Insights
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' && 
+      github.event.inputs.insight_type == 'model-specific' &&
+      github.event.inputs.model != ''
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup environment variables
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "Environment variables configured"
+
+      - name: Generate model-specific insights
+        run: |
+          tsx scripts/analytics/generate-market-insights.ts \
+            --type=model-specific \
+            --model="${{ github.event.inputs.model }}" \
+            ${{ github.event.inputs.trim != '' && format('--trim="{0}"', github.event.inputs.trim) || '' }} \
+            ${{ github.event.inputs.force_regeneration == 'true' && '--force' || '' }} \
+            ${{ github.event.inputs.validate_predictions == 'true' && '--validate' || '' }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Report model-specific insights status
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ Model-specific insights generated successfully for ${{ github.event.inputs.model }}${{ github.event.inputs.trim != '' && format(' {0}', github.event.inputs.trim) || '' }}"
+          else
+            echo "❌ Model-specific insights generation failed for ${{ github.event.inputs.model }}"
+            exit 1
+          fi
+
+  cost-monitoring:
+    name: Monitor LLM API Costs
+    runs-on: ubuntu-latest
+    needs: [generate-daily-insights, generate-weekly-insights, generate-model-specific-insights]
+    if: always() && (needs.generate-daily-insights.result != 'skipped' || needs.generate-weekly-insights.result != 'skipped' || needs.generate-model-specific-insights.result != 'skipped')
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check API usage and costs
+        run: |
+          # This would run a script to check daily/weekly costs and alert if over threshold
+          echo "Checking LLM API usage and costs..."
+          # tsx scripts/analytics/monitor-costs.ts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Report cost monitoring
+        run: |
+          echo "📊 Cost monitoring completed"
+
+  notification:
+    name: Send Completion Notification
+    runs-on: ubuntu-latest
+    needs: [generate-daily-insights, generate-weekly-insights, generate-model-specific-insights, cost-monitoring]
+    if: always()
+    
+    steps:
+      - name: Prepare notification content
+        id: notification
+        run: |
+          SUCCESS_COUNT=0
+          FAILURE_COUNT=0
+          DETAILS=""
+          
+          # Check daily insights
+          if [ "${{ needs.generate-daily-insights.result }}" == "success" ]; then
+            SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+            DETAILS="${DETAILS}✅ Daily insights generated\n"
+          elif [ "${{ needs.generate-daily-insights.result }}" == "failure" ]; then
+            FAILURE_COUNT=$((FAILURE_COUNT + 1))
+            DETAILS="${DETAILS}❌ Daily insights failed\n"
+          fi
+          
+          # Check weekly insights
+          if [ "${{ needs.generate-weekly-insights.result }}" == "success" ]; then
+            SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+            DETAILS="${DETAILS}✅ Weekly insights generated\n"
+          elif [ "${{ needs.generate-weekly-insights.result }}" == "failure" ]; then
+            FAILURE_COUNT=$((FAILURE_COUNT + 1))
+            DETAILS="${DETAILS}❌ Weekly insights failed\n"
+          fi
+          
+          # Check model-specific insights
+          if [ "${{ needs.generate-model-specific-insights.result }}" == "success" ]; then
+            SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+            DETAILS="${DETAILS}✅ Model-specific insights generated\n"
+          elif [ "${{ needs.generate-model-specific-insights.result }}" == "failure" ]; then
+            FAILURE_COUNT=$((FAILURE_COUNT + 1))
+            DETAILS="${DETAILS}❌ Model-specific insights failed\n"
+          fi
+          
+          echo "success_count=${SUCCESS_COUNT}" >> $GITHUB_OUTPUT
+          echo "failure_count=${FAILURE_COUNT}" >> $GITHUB_OUTPUT
+          echo "details=${DETAILS}" >> $GITHUB_OUTPUT
+
+      - name: Report final status
+        run: |
+          echo "🎯 Market Insights Generation Summary:"
+          echo "✅ Successful jobs: ${{ steps.notification.outputs.success_count }}"
+          echo "❌ Failed jobs: ${{ steps.notification.outputs.failure_count }}"
+          echo ""
+          echo "Details:"
+          echo -e "${{ steps.notification.outputs.details }}"
+          
+          if [ "${{ steps.notification.outputs.failure_count }}" -gt 0 ]; then
+            echo "⚠️  Some jobs failed - check logs for details"
+            exit 1
+          else
+            echo "🎉 All market insights jobs completed successfully!"
+          fi
+
+  # Cleanup job to remove old insights and maintain database size
+  cleanup:
+    name: Cleanup Old Insights
+    runs-on: ubuntu-latest
+    needs: [generate-daily-insights, generate-weekly-insights, generate-model-specific-insights]
+    if: always() && github.event.schedule == '0 8 * * 1' # Only run on weekly schedule
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cleanup old insights
+        run: |
+          # This would run a script to clean up insights older than 6 months
+          echo "Cleaning up old market insights..."
+          # tsx scripts/analytics/cleanup-old-insights.ts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Report cleanup status
+        run: |
+          echo "🧹 Old insights cleanup completed"

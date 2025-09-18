@@ -10,7 +10,13 @@ import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
 
 export default function HomePage() {
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<{
+    count: number;
+    medianPrice: number;
+    avgPrice: number;
+    minPrice: number;
+    maxPrice: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [selectedModel, setSelectedModel] = useState('911');
@@ -290,7 +296,7 @@ export default function HomePage() {
               </div>
               <h3 className="text-lg font-semibold mb-2">Fast Movers</h3>
               <p className="text-gray-600 text-sm">
-                Spot undervalued listings before they're gone
+                Spot undervalued listings before they&apos;re gone
               </p>
             </div>
           </div>

@@ -84,6 +84,23 @@ export class CarsScraper extends SharedScraper {
         }
       }
       
+      // Check if listing is sold (Cars.com marks sold vehicles)
+      const isSold = $('.sold-badge').length > 0 || 
+                     $('[class*="sold"]').length > 0 ||
+                     bodyText.toLowerCase().includes('sold');
+      
+      // Get listing date if available
+      const listingDate = $('[data-testid="listed-date"]').text().trim() ||
+                         $('.listing-date').text().trim();
+      
+      // Get exterior color
+      let exteriorColor: string | undefined;
+      $('dt').each((i, el) => {
+        if ($(el).text().includes('Exterior')) {
+          exteriorColor = $(el).next('dd').text().trim();
+        }
+      });
+      
       return {
         title,
         price: price || 0,
@@ -96,7 +113,10 @@ export class CarsScraper extends SharedScraper {
         source_id: `cars_${vin || url.split('/').slice(-2)[0]}`,
         dealer_name: dealer,
         is_dealer: !!dealer,
-        raw_data: { title, price: priceText, mileage }
+        status: isSold ? 'sold' : 'active',
+        listing_date: listingDate,
+        exterior_color: exteriorColor,
+        raw_data: { title, price: priceText, mileage, status: isSold ? 'sold' : 'active' }
       };
     } catch (error) {
       console.error('Error scraping Cars.com detail:', error);

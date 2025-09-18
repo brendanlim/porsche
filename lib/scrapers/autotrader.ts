@@ -1,36 +1,189 @@
-import { SharedScraper } from './shared-scraper';
+import * as cheerio from 'cheerio';
+import { BaseScraper, ScraperOptions, ScraperResult } from './base';
+import { BrightDataFetcher } from './bright-data';
 
-export class AutotraderScraper extends SharedScraper {
-  constructor() {
-    super({
-      name: 'Autotrader',
-      source: 'autotrader',
-      baseUrl: 'https://www.autotrader.com',
-      searchPaths: [
-        // GT models - HIGH PRIORITY
-        '/cars-for-sale/porsche/911?searchRadius=0&trimCodeList=911%7CGT3,911%7CGT3%20RS,911%7CGT2%20RS',
-        // Regular sports cars
-        '/cars-for-sale/porsche/911',
-        '/cars-for-sale/porsche/718-cayman',
-        '/cars-for-sale/porsche/718-boxster'
-      ],
-      selectors: {
-        listings: '.inventory-listing, .listing-card, a[href*="/cars-for-sale/vehicledetails"]',
-        title: 'h1, .vehicle-title, .listing-title',
-        price: '.price, .vehicle-price, .listing-price',
-        vin: '.vin, [data-vin]',
-        year: '.year, [data-year]',
-        mileage: '.mileage, .vehicle-mileage',
-        location: '.location, .dealer-location',
-        status: '.status, .availability',
-        images: '.gallery img, .vehicle-images img',
-        description: '.description, .vehicle-description'
-      },
-      pagination: {
-        type: 'offset',
-        param: 'firstRecord',
-        increment: 25
+export class AutoTraderScraper extends BaseScraper {
+  constructor(options: ScraperOptions = {}) {
+    super('autotrader', { ...options });
+    this.fetcher = new BrightDataFetcher();
+  }
+
+  async scrapeListings(model: string, trim?: string, onlySold: boolean = false): Promise<ScraperResult[]> {
+    const results: ScraperResult[] = [];
+    
+    // AutoTrader doesn't have sold listings - it's for active inventory only
+    if (onlySold) {
+      console.log('AutoTrader only provides active listings');
+      return results;
+    }
+
+    try {
+      // Build search URL for AutoTrader
+      const baseUrl = 'https://www.autotrader.com/cars-for-sale/all-cars/porsche';
+      const modelPath = model.toLowerCase().replace(' ', '-');
+      const searchUrl = `${baseUrl}/${modelPath}/los-angeles-ca?searchRadius=500&marketExtension=include&showAccelerateBanner=false&sortBy=relevance&numRecords=100`;
+
+      console.log(`🔍 Scraping AutoTrader for ${model} ${trim || ''}`);
+      
+      const html = await this.fetchWithRetry(searchUrl, 'search');
+      const $ = cheerio.load(html);
+
+      // Find all listing cards
+      const listings = $('[data-testid="inventory-listing"], .inventory-listing, article[data-listing-id]');
+      
+      console.log(`Found ${listings.length} listings on AutoTrader`);
+
+      for (let i = 0; i < listings.length; i++) {
+        const listing = listings.eq(i);
+        
+        try {
+          // Extract basic info from listing card
+          const title = listing.find('h2, .listing-title').text().trim();
+          const priceText = listing.find('[data-testid="price"], .price-main').text().trim();
+          const price = this.extractPrice(priceText);
+          
+          // Extract year from title
+          const year = this.extractYear(title);
+          
+          // Extract mileage
+          const mileageText = listing.find('[data-testid="mileage"], .item:contains("miles")').text().trim();
+          const mileage = this.extractMileage(mileageText);
+          
+          // Get detail URL
+          const detailLink = listing.find('a[href*="/detail/"]').attr('href') ||
+                           listing.find('a').first().attr('href');
+          
+          if (!detailLink) continue;
+          
+          const detailUrl = detailLink.startsWith('http') ? 
+                           detailLink : 
+                           `https://www.autotrader.com${detailLink}`;
+          
+          // Extract VIN if available on listing card
+          let vin: string | undefined;
+          const vinText = listing.find('[data-testid="vin"], .vin').text().trim();
+          if (vinText && vinText.length === 17) {
+            vin = vinText;
+          }
+          
+          // Get dealer info
+          const dealer = listing.find('[data-testid="dealer-name"], .dealer-name').text().trim();
+          const location = listing.find('[data-testid="location"], .location').text().trim();
+          
+          // Extract trim from title
+          let modelName = model;
+          let trimName = trim;
+          
+          if (!trimName) {
+            const trimPatterns = ['GT4 RS', 'GT4', 'GT3 RS', 'GT3', 'GT2 RS', 'Turbo S', 'Turbo', 'GTS', 'Carrera'];
+            for (const pattern of trimPatterns) {
+              if (title.includes(pattern)) {
+                trimName = pattern;
+                break;
+              }
+            }
+          }
+          
+          // Get more details from the detail page if needed
+          if (!vin && detailUrl) {
+            const detailResult = await this.scrapeDetailPage(detailUrl);
+            if (detailResult) {
+              vin = detailResult.vin;
+            }
+          }
+          
+          const result: ScraperResult = {
+            source_url: detailUrl,
+            source_id: `autotrader_${vin || detailUrl.split('/').pop()}`,
+            title,
+            price: price || 0,
+            year,
+            model: modelName,
+            trim: trimName,
+            mileage,
+            vin,
+            dealer_name: dealer,
+            location,
+            is_dealer: true, // AutoTrader is primarily dealers
+            status: 'active', // All AutoTrader listings are active
+            listing_date: new Date().toISOString(),
+            raw_data: {
+              title,
+              price: priceText,
+              mileage: mileageText,
+              dealer,
+              location
+            }
+          };
+          
+          results.push(result);
+          
+        } catch (error) {
+          console.error(`Error parsing AutoTrader listing ${i}:`, error);
+        }
       }
-    });
+
+      // Check for pagination
+      const nextButton = $('a[aria-label="Next"], .pagination-next');
+      if (nextButton.length > 0 && results.length > 0) {
+        console.log('More pages available on AutoTrader');
+      }
+      
+    } catch (error) {
+      console.error('Error scraping AutoTrader:', error);
+    }
+
+    console.log(`✅ Scraped ${results.length} active listings from AutoTrader`);
+    return results;
+  }
+
+  private async scrapeDetailPage(url: string): Promise<Partial<ScraperResult> | null> {
+    try {
+      const html = await this.fetchWithRetry(url, 'detail');
+      const $ = cheerio.load(html);
+      
+      // Extract VIN from detail page
+      const vinElement = $('[data-testid="vin"], .vin-value, dt:contains("VIN") + dd');
+      const vin = vinElement.text().trim();
+      
+      // Extract color
+      const colorElement = $('dt:contains("Exterior") + dd, [data-testid="exterior-color"]');
+      const exteriorColor = colorElement.text().trim();
+      
+      // Extract interior color
+      const interiorElement = $('dt:contains("Interior") + dd, [data-testid="interior-color"]');
+      const interiorColor = interiorElement.text().trim();
+      
+      // Extract options text
+      const optionsText = $('.features-list, .options-list').text().trim();
+      
+      return {
+        vin: vin.length === 17 ? vin : undefined,
+        exterior_color: exteriorColor,
+        interior_color: interiorColor,
+        options_text: optionsText
+      };
+      
+    } catch (error) {
+      console.error('Error scraping AutoTrader detail page:', error);
+      return null;
+    }
+  }
+
+  private extractYear(text: string): number {
+    const match = text.match(/\b(19|20)\d{2}\b/);
+    return match ? parseInt(match[0]) : new Date().getFullYear();
+  }
+
+  private extractMileage(text: string): number | undefined {
+    const cleaned = text.replace(/[^0-9]/g, '');
+    const mileage = parseInt(cleaned);
+    return !isNaN(mileage) && mileage > 0 ? mileage : undefined;
+  }
+
+  private extractPrice(text: string): number | undefined {
+    const cleaned = text.replace(/[^0-9]/g, '');
+    const price = parseInt(cleaned);
+    return !isNaN(price) && price > 0 ? price : undefined;
   }
 }

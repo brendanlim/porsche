@@ -106,23 +106,23 @@ export class EdmundsScraper extends SharedScraper {
     }
   }
 
-  private extractPrice(text: string): number | null {
+  protected extractPrice(text: string): number | null {
     const cleaned = text.replace(/[^0-9]/g, '');
     const price = parseInt(cleaned);
     return isNaN(price) || price < 1000 ? null : price;
   }
 
-  private extractYear(text: string): number | null {
+  protected extractYear(text: string): number | null {
     const yearMatch = text.match(/\b(19|20)\d{2}\b/);
     return yearMatch ? parseInt(yearMatch[0]) : null;
   }
 
-  private extractMileage(text: string): number | null {
+  protected extractMileage(text: string): number | null {
     const mileageMatch = text.match(/(\d{1,3}(?:,\d{3})*)/);
     return mileageMatch ? parseInt(mileageMatch[1].replace(/,/g, '')) : null;
   }
 
-  private extractVinFromText(text: string): string | null {
+  protected extractVinFromText(text: string): string | null {
     const vinMatch = text.match(/\b([A-HJ-NPR-Z0-9]{17})\b/);
     return vinMatch ? vinMatch[1] : null;
   }

@@ -373,7 +373,7 @@ export default function AddCarPage() {
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <h3 className="font-medium text-green-800 mb-2">VIN Found!</h3>
                   <p className="text-green-700 text-sm">
-                    {vinLookupData.summary.year} {vinLookupData.summary.model} {vinLookupData.summary.trim}
+                    {vinLookupData.year} {vinLookupData.model} {vinLookupData.trim}
                   </p>
                 </div>
               )}

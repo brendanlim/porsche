@@ -61,7 +61,7 @@ jobs:
             exit 1
           fi
           echo "Environment variables verified ✓"
-          npx tsx scripts/scrape-and-save.ts --max-pages=$MAX_PAGES
+          npx tsx scripts/scraping/scrape-and-save.ts --max-pages=$MAX_PAGES
           
       - name: Notify on failure
         if: failure()

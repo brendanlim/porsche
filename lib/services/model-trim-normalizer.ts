@@ -152,6 +152,7 @@ function fallbackParsing(title: string): ModelTrimResult {
   // Extract trim - check for specific trims in order of specificity
   const trimPatterns = [
     { pattern: /GT3[\s-]?RS/i, trim: 'GT3 RS' },
+    { pattern: /GT3[\s-]?R(?:\s|$)/i, trim: 'GT3 R' },  // GT3 R (race car) - must not be followed by S
     { pattern: /GT2[\s-]?RS/i, trim: 'GT2 RS' },
     { pattern: /GT4[\s-]?RS/i, trim: 'GT4 RS' },
     { pattern: /Spyder[\s-]?RS/i, trim: 'Spyder RS' },

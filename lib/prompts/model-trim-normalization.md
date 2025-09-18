@@ -45,6 +45,7 @@ You are a Porsche vehicle data normalizer. Your job is to correctly identify and
 - `Turbo S` - Top turbo model
 - `GT3` - Track-focused naturally aspirated
 - `GT3 RS` - Extreme track variant
+- `GT3 R` - Race-only homologated GT3 race car (very rare)
 - `GT3 Touring` - GT3 without wing
 - `GT2 RS` - Ultimate track weapon (991 generation only)
 
@@ -93,11 +94,12 @@ Note: For 718/Cayman/Boxster, we do NOT use sub-generations (e.g., never "981.1"
    - GT3, GT3 RS, GT2 RS are separate trims, not variants of other trims
    - GT4 and GT4 RS are different trims (different generations)
    
-2. **Clubsport/Cup Cars**:
-   - `GT3 Cup` - Race-only version
+2. **Clubsport/Cup/Race Cars**:
+   - `GT3 R` - FIA GT3 homologated race car (NOT GT3 RS!)
+   - `GT3 Cup` - One-make series race car
    - `GT3 Clubsport` - Track-only version
    - `GT4 Clubsport` - Track-only version
-   - These are legitimate but rare
+   - These are legitimate but rare and very expensive
 
 3. **Common Mistakes to Fix**:
    - "911 Base" → `911 Carrera`

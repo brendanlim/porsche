@@ -1,16 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, TrendingDown, DollarSign, Car, Activity, ArrowRight } from 'lucide-react';
+import { TrendingUp, Car, Activity, ArrowRight, ChevronDown, ChevronUp, Info, Calendar } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { Sparkline } from '@/components/ui/sparkline';
 
 interface ModelTrimData {
   model: string;
   trim: string | null;
   display_model: string;
   display_trim: string;
+  original_model?: string; // Track the original model for generation detection
   total_listings: number;
   avg_price: number;
   avg_mileage: number;
@@ -28,7 +30,11 @@ export default function ModelsPage() {
   const [modelData, setModelData] = useState<ModelTrimData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedModels, setExpandedModels] = useState<Set<string>>(new Set());
+  const [allListings, setAllListings] = useState<any[]>([]);
   const supabase = createClient();
+  
+  const INITIAL_TRIMS_TO_SHOW = 10;
 
   useEffect(() => {
     fetchModelData();
@@ -52,6 +58,9 @@ export default function ModelsPage() {
 
       if (listingsError) throw listingsError;
 
+      // Store the raw listings for sparkline data
+      setAllListings(listings || []);
+      
       // Aggregate the data manually
       const aggregated = aggregateListings(listings || []);
       setModelData(aggregated);
@@ -67,26 +76,39 @@ export default function ModelsPage() {
     const modelTrimMap = new Map<string, any>();
     
     listings.forEach(listing => {
-      const key = `${listing.model || 'Unknown'}_${listing.trim || 'Base'}`;
+      // Normalize model names to combine 718-cayman with cayman, 718-boxster with boxster
+      let normalizedModel = listing.model || 'Unknown';
+      if (normalizedModel.toLowerCase() === '718-cayman') {
+        normalizedModel = 'cayman';
+      } else if (normalizedModel.toLowerCase() === '718-boxster') {
+        normalizedModel = 'boxster';
+      }
+      
+      const key = `${normalizedModel}_${listing.trim || 'Base'}`;
       
       if (!modelTrimMap.has(key)) {
         modelTrimMap.set(key, {
-          model: listing.model || 'Unknown',
+          model: normalizedModel,
           trim: listing.trim,
-          display_model: formatModelName(listing.model),
+          display_model: formatModelName(normalizedModel),
           display_trim: listing.trim || 'Base',
+          original_models: [], // Keep track of all original models for this trim
           listings: [],
           recentListings: []
         });
       }
       
       const data = modelTrimMap.get(key);
+      // Track all original models for this trim
+      if (!data.original_models.includes(listing.model)) {
+        data.original_models.push(listing.model);
+      }
       data.listings.push(listing);
       
-      // Check if listing is from last 30 days
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      if (new Date(listing.created_at) > thirtyDaysAgo) {
+      // Check if listing is from last 7 days (one week)
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      if (new Date(listing.created_at) > oneWeekAgo) {
         data.recentListings.push(listing);
       }
     });
@@ -98,11 +120,17 @@ export default function ModelsPage() {
       const mileages = data.listings.map((l: any) => l.mileage).filter((m: any) => m > 0);
       const years = data.listings.map((l: any) => l.year).filter((y: any) => y > 1990 && y <= new Date().getFullYear());
       
+      // Determine the primary original model (prefer 718- versions for generation detection)
+      const primaryOriginalModel = data.original_models.find((m: string) => m.includes('718')) || 
+                                    data.original_models[0] || 
+                                    data.model;
+      
       result.push({
         model: data.model,
         trim: data.trim,
         display_model: data.display_model,
         display_trim: data.display_trim,
+        original_model: primaryOriginalModel,
         total_listings: data.listings.length,
         avg_price: prices.length > 0 ? Math.round(prices.reduce((a: number, b: number) => a + b, 0) / prices.length) : 0,
         avg_mileage: mileages.length > 0 ? Math.round(mileages.reduce((a: number, b: number) => a + b, 0) / mileages.length) : 0,
@@ -112,17 +140,44 @@ export default function ModelsPage() {
         max_year: years.length > 0 ? Math.max(...years) : undefined,
         price_trend: 0, // Would need historical data to calculate
         volume_trend: 0, // Would need historical data to calculate
-        last_30_days_listings: data.recentListings.length,
+        last_30_days_listings: data.recentListings.length, // Actually last 7 days now
         median_days_on_market: 0 // Would need sold_date to calculate
       });
     });
 
     return result.sort((a, b) => {
-      // Sort by model first, then by trim
+      // Sort by model first
       if (a.model !== b.model) {
         return a.model.localeCompare(b.model);
       }
-      return (a.trim || '').localeCompare(b.trim || '');
+      
+      // Within each model, create priority tiers
+      const getPriority = (trim: string | null) => {
+        if (!trim) return 999;
+        const t = trim.toUpperCase();
+        
+        // GT cars get highest priority (lower number = higher priority)
+        if (t.includes('GT3 RS')) return 1;
+        if (t.includes('GT3')) return 2;
+        if (t.includes('GT2 RS')) return 3;
+        if (t.includes('GT2')) return 4;
+        if (t.includes('GT4 RS')) return 5;
+        if (t.includes('GT4')) return 6;
+        if (t.includes('TURBO S')) return 7;
+        if (t.includes('TURBO')) return 8;
+        if (t.includes('GTS')) return 9;
+        return 999; // Everything else
+      };
+      
+      const aPriority = getPriority(a.trim);
+      const bPriority = getPriority(b.trim);
+      
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority;
+      }
+      
+      // If same priority tier, sort by average price (descending)
+      return b.avg_price - a.avg_price;
     });
   };
 
@@ -131,9 +186,11 @@ export default function ModelsPage() {
     
     const modelMap: Record<string, string> = {
       '911': '911',
-      '718-cayman': '718 Cayman',
-      '718-boxster': '718 Boxster',
-      '718-spyder': '718 Spyder',
+      '718-cayman': 'Cayman',  // Group under Cayman
+      '718-boxster': 'Boxster', // Group under Boxster
+      'cayman': 'Cayman',
+      'boxster': 'Boxster',
+      '718-spyder': 'Boxster Spyder',
       'taycan': 'Taycan',
       'panamera': 'Panamera',
       'cayenne': 'Cayenne',
@@ -141,6 +198,16 @@ export default function ModelsPage() {
     };
     
     return modelMap[model.toLowerCase()] || model;
+  };
+  
+  const getGenerationLabel = (originalModel: string | null): string => {
+    if (!originalModel) return '';
+    const m = originalModel.toLowerCase();
+    
+    // Determine generation based on original model name (before normalization)
+    if (m.includes('718')) return '718 (982)';
+    if (m === 'cayman' || m === 'boxster') return '981/987';
+    return '';
   };
 
   const formatPrice = (price: number): string => {
@@ -164,24 +231,18 @@ export default function ModelsPage() {
     return `/models/${modelSlug}/${trimSlug}/analytics`;
   };
 
-  const getTrendIcon = (trend: number) => {
-    if (trend > 0) {
-      return <TrendingUp className="h-4 w-4 text-green-500" />;
-    } else if (trend < 0) {
-      return <TrendingDown className="h-4 w-4 text-red-500" />;
-    }
-    return <Activity className="h-4 w-4 text-gray-400" />;
-  };
 
-  const getTrendColor = (trend: number) => {
-    if (trend > 0) return 'text-green-600';
-    if (trend < 0) return 'text-red-600';
-    return 'text-gray-600';
-  };
-
-  // Group models by base model
+  // Group models by base model (normalize 718-Cayman/718-Boxster to Cayman/Boxster)
   const groupedModels = modelData.reduce((acc, item) => {
-    const baseModel = item.display_model;
+    let baseModel = item.display_model;
+    
+    // Normalize display model names for grouping
+    if (baseModel === '718 Cayman') {
+      baseModel = 'Cayman';
+    } else if (baseModel === '718 Boxster') {
+      baseModel = 'Boxster';
+    }
+    
     if (!acc[baseModel]) {
       acc[baseModel] = [];
     }
@@ -216,7 +277,7 @@ export default function ModelsPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Porsche Models Analytics</h1>
-        <p className="text-gray-600">Market overview and analytics for all Porsche models and trims</p>
+        <p className="text-gray-600">Model and trim specific Porsche analytics</p>
       </div>
 
       {/* Summary Stats */}
@@ -225,10 +286,18 @@ export default function ModelsPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Models</p>
-                <p className="text-2xl font-bold">{Object.keys(groupedModels).length}</p>
+                <p className="text-sm text-gray-600">Last Updated</p>
+                <p className="text-xl font-bold">
+                  {allListings.length > 0 
+                    ? new Date(Math.max(...allListings.map(l => new Date(l.created_at).getTime()))).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })
+                    : '—'}
+                </p>
               </div>
-              <Car className="h-8 w-8 text-blue-500" />
+              <Calendar className="h-8 w-8 text-blue-500" />
             </div>
           </CardContent>
         </Card>
@@ -237,7 +306,7 @@ export default function ModelsPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Variants</p>
+                <p className="text-sm text-gray-600">Total Trims</p>
                 <p className="text-2xl font-bold">{modelData.length}</p>
               </div>
               <Activity className="h-8 w-8 text-green-500" />
@@ -249,12 +318,12 @@ export default function ModelsPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Active Listings</p>
+                <p className="text-sm text-gray-600">VINs Tracked</p>
                 <p className="text-2xl font-bold">
                   {modelData.reduce((sum, m) => sum + m.total_listings, 0).toLocaleString()}
                 </p>
               </div>
-              <DollarSign className="h-8 w-8 text-purple-500" />
+              <Car className="h-8 w-8 text-purple-500" />
             </div>
           </CardContent>
         </Card>
@@ -278,11 +347,43 @@ export default function ModelsPage() {
 
       {/* Models Table List */}
       <div className="space-y-8">
-        {Object.entries(groupedModels).map(([modelName, trims]) => (
+        {Object.entries(groupedModels)
+          .sort(([a], [b]) => {
+            // Fixed ordering: 911, Cayman, Boxster, then alphabetical
+            const order: Record<string, number> = {
+              '911': 1,
+              'Cayman': 2,
+              'Boxster': 3
+            };
+            const orderA = order[a] || 999;
+            const orderB = order[b] || 999;
+            if (orderA !== orderB) return orderA - orderB;
+            return a.localeCompare(b);
+          })
+          .map(([modelName, trims]) => {
+          const isExpanded = expandedModels.has(modelName);
+          const shouldShowButton = trims.length > INITIAL_TRIMS_TO_SHOW;
+          const displayedTrims = isExpanded ? trims : trims.slice(0, INITIAL_TRIMS_TO_SHOW);
+          
+          // Group by generation for Cayman and Boxster
+          let generationGroups: Record<string, typeof trims> = {};
+          
+          if (modelName === 'Cayman' || modelName === 'Boxster') {
+            trims.forEach(trim => {
+              // Use original_model (before normalization) to determine generation
+              const gen = getGenerationLabel(trim.original_model || trim.model);
+              if (!generationGroups[gen]) {
+                generationGroups[gen] = [];
+              }
+              generationGroups[gen].push(trim);
+            });
+          }
+          
+          return (
           <div key={modelName}>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">{modelName}</h2>
-            <div className="bg-white rounded-lg shadow-sm overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+            <div className="bg-white rounded-lg shadow-sm overflow-x-auto relative">
+              <table className="min-w-full divide-y divide-gray-200 relative">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -301,7 +402,15 @@ export default function ModelsPage() {
                       Avg Mileage
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Trends
+                      <div className="flex items-center gap-1">
+                        <span>Trends</span>
+                        <span className="relative group inline-block">
+                          <Info className="h-3 w-3 text-gray-400 cursor-help" />
+                          <span className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[9999]">
+                            Price trend from last 10 sales
+                          </span>
+                        </span>
+                      </div>
                     </th>
                     <th className="relative px-6 py-3">
                       <span className="sr-only">View</span>
@@ -309,7 +418,25 @@ export default function ModelsPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {trims.map((trim) => (
+                  {(modelName === 'Cayman' || modelName === 'Boxster') ? (
+                    // Render with generation separators (718 first, then 981/987)
+                    Object.entries(generationGroups)
+                      .sort((a, b) => {
+                        // Ensure 718 (982) comes before 981/987
+                        if (a[0].includes('718')) return -1;
+                        if (b[0].includes('718')) return 1;
+                        return b[0].localeCompare(a[0]);
+                      })
+                      .map(([generation, genTrims]) => (
+                        <React.Fragment key={generation}>
+                          {/* Generation separator row */}
+                          <tr className="bg-gray-100">
+                            <td colSpan={7} className="px-6 py-2 text-sm font-medium text-gray-700">
+                              {generation}
+                            </td>
+                          </tr>
+                          {/* Trims for this generation */}
+                          {(isExpanded ? genTrims : genTrims.slice(0, INITIAL_TRIMS_TO_SHOW / 2)).map((trim) => (
                     <tr 
                       key={`${trim.model}_${trim.trim}`}
                       className="hover:bg-gray-50 cursor-pointer transition-colors"
@@ -358,34 +485,173 @@ export default function ModelsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-3">
-                          {trim.price_trend !== 0 && (
-                            <div className="flex items-center gap-1">
-                              {getTrendIcon(trim.price_trend)}
-                              <span className={`text-xs ${getTrendColor(trim.price_trend)}`}>
-                                {Math.abs(trim.price_trend)}%
-                              </span>
-                            </div>
-                          )}
-                          {trim.volume_trend !== 0 && (
-                            <div className="flex items-center gap-1">
-                              {getTrendIcon(trim.volume_trend)}
-                              <span className={`text-xs ${getTrendColor(trim.volume_trend)}`}>
-                                {Math.abs(trim.volume_trend)}% vol
-                              </span>
-                            </div>
-                          )}
+                          {/* Show recent sales as a simple trend line */}
+                          {(() => {
+                            // Get recent sales for this trim (last 10 sales)
+                            const trimListings = (allListings || [])
+                              .filter((l: any) => l.model === trim.model && l.trim === trim.trim && l.price > 0)
+                              .sort((a: any, b: any) => new Date(b.sold_date || b.created_at).getTime() - new Date(a.sold_date || a.created_at).getTime())
+                              .slice(0, 10);
+                            
+                            if (trimListings.length >= 3) {
+                              // Use actual recent prices (normalized to show trend)
+                              const prices = trimListings.map((l: any) => l.price).reverse();
+                              const normalizedPrices = prices.map(p => p / 1000); // Scale for display
+                              const trend = ((prices[prices.length - 1] - prices[0]) / prices[0]) * 100;
+                              
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <Sparkline data={normalizedPrices} width={50} height={20} />
+                                  <span className={`text-xs ${trend > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {trend > 0 ? '+' : ''}{trend.toFixed(1)}%
+                                  </span>
+                                </div>
+                              );
+                            } else {
+                              // Not enough data for a trend
+                              return (
+                                <span className="text-xs text-gray-400">
+                                  Insufficient data
+                                </span>
+                              );
+                            }
+                          })()}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <ArrowRight className="h-5 w-5 text-gray-400" />
                       </td>
                     </tr>
-                  ))}
+                          ))}
+                        </React.Fragment>
+                      ))
+                  ) : (
+                    // Regular rendering for non-Cayman/Boxster models
+                    displayedTrims.map((trim) => (
+                      <tr 
+                        key={`${trim.model}_${trim.trim}`}
+                        className="hover:bg-gray-50 cursor-pointer transition-colors"
+                        onClick={() => window.location.href = getModelUrl(trim.model, trim.trim)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {trim.display_trim}
+                            </div>
+                            {trim.min_year && trim.max_year && (
+                              <div className="text-sm text-gray-500">
+                                {trim.min_year === trim.max_year 
+                                  ? trim.min_year 
+                                  : `${trim.min_year}-${trim.max_year}`}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {formatPrice(trim.min_price)} - {formatPrice(trim.max_price)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-semibold text-gray-900">
+                            {formatPrice(trim.avg_price)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm text-gray-900">
+                              {trim.total_listings}
+                            </div>
+                            {trim.last_30_days_listings > 0 && (
+                              <div className="text-xs text-gray-500">
+                                +{trim.last_30_days_listings} new
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {formatMileage(trim.avg_mileage)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-3">
+                            {/* Show recent sales as a simple trend line */}
+                            {(() => {
+                              // Get recent sales for this trim (last 10 sales)
+                              const trimListings = (allListings || [])
+                                .filter((l: any) => l.model === trim.model && l.trim === trim.trim && l.price > 0)
+                                .sort((a: any, b: any) => new Date(b.sold_date || b.created_at).getTime() - new Date(a.sold_date || a.created_at).getTime())
+                                .slice(0, 10);
+                              
+                              if (trimListings.length >= 3) {
+                                // Use actual recent prices (normalized to show trend)
+                                const prices = trimListings.map((l: any) => l.price).reverse();
+                                const normalizedPrices = prices.map(p => p / 1000); // Scale for display
+                                const trend = ((prices[prices.length - 1] - prices[0]) / prices[0]) * 100;
+                                
+                                return (
+                                  <div className="flex items-center gap-2">
+                                    <Sparkline data={normalizedPrices} width={50} height={20} />
+                                    <span className={`text-xs ${trend > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {trend > 0 ? '+' : ''}{trend.toFixed(1)}%
+                                    </span>
+                                  </div>
+                                );
+                              } else {
+                                // Not enough data for a trend
+                                return (
+                                  <span className="text-xs text-gray-400">
+                                    Insufficient data
+                                  </span>
+                                );
+                              }
+                            })()}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <ArrowRight className="h-5 w-5 text-gray-400" />
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
+              {shouldShowButton && (
+                <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedModels(prev => {
+                        const newSet = new Set(prev);
+                        if (newSet.has(modelName)) {
+                          newSet.delete(modelName);
+                        } else {
+                          newSet.add(modelName);
+                        }
+                        return newSet;
+                      });
+                    }}
+                    className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    {isExpanded ? (
+                      <>
+                        <ChevronUp className="h-4 w-4" />
+                        Show Less
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-4 w-4" />
+                        Show All {trims.length} Trims
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {modelData.length === 0 && (

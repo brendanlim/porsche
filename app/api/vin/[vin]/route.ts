@@ -24,56 +24,58 @@ export async function GET(
       .select(`
         id,
         vin,
-        title,
+        model,
+        trim,
+        year,
         price,
         mileage,
         source,
         source_url,
-        status,
+        list_date,
         sold_date,
-        sold_price,
-        first_seen_at,
-        last_seen_at,
-        removed_at,
-        model_years (
-          year,
-          models (name),
-          trims (name)
-        ),
-        colors (name, is_pts)
+        created_at,
+        scraped_at,
+        options_text
       `)
       .eq('vin', vin.toUpperCase())
-      .order('first_seen_at', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (listingsError) throw listingsError;
 
-    // Get price history for this VIN
-    const { data: priceHistory, error: historyError } = await supabase
-      .from('price_history')
-      .select('*')
-      .eq('vin', vin.toUpperCase())
-      .order('observed_at', { ascending: true });
-
-    if (historyError) throw historyError;
+    // Build price history from listings (we don't have a separate price_history table)
+    const priceHistory = listings?.map(listing => ({
+      id: listing.id,
+      price: listing.price,
+      observed_at: listing.created_at,
+      source: listing.source
+    })).filter(p => p.price > 0) || [];
 
     // Format response
+    const soldListing = listings?.find(l => l.sold_date);
+    const mostRecent = listings?.[0];
+    const oldest = listings?.[listings.length - 1];
+    
     const response = {
       vin: vin.toUpperCase(),
       listings: listings || [],
       priceHistory: priceHistory || [],
       summary: {
-        firstSeen: listings?.[0]?.first_seen_at,
-        lastSeen: listings?.[0]?.last_seen_at,
+        model: mostRecent?.model,
+        trim: mostRecent?.trim,
+        year: mostRecent?.year,
+        firstSeen: oldest?.created_at,
+        lastSeen: mostRecent?.created_at,
         lowestPrice: priceHistory?.length > 0 
           ? Math.min(...priceHistory.map(p => p.price))
           : null,
         highestPrice: priceHistory?.length > 0
           ? Math.max(...priceHistory.map(p => p.price))
           : null,
-        currentPrice: listings?.[0]?.price,
-        sold: listings?.some(l => l.status === 'sold'),
-        soldPrice: listings?.find(l => l.status === 'sold')?.sold_price,
-        soldDate: listings?.find(l => l.status === 'sold')?.sold_date,
+        currentPrice: mostRecent?.price,
+        sold: !!soldListing,
+        soldPrice: soldListing?.price,
+        soldDate: soldListing?.sold_date,
+        totalListings: listings?.length || 0
       }
     };
 

@@ -121,7 +121,9 @@ export default function VINPage() {
           <div className="space-y-8">
             {/* Summary Card */}
             <div className="bg-white rounded-xl shadow-lg p-6">
-              <h2 className="text-2xl font-bold mb-6">Vehicle Summary</h2>
+              <h2 className="text-2xl font-bold mb-6">
+                {vinData.summary.year} {vinData.summary.model} {vinData.summary.trim || 'Base'}
+              </h2>
               
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div>
@@ -150,15 +152,12 @@ export default function VINPage() {
                 </div>
                 
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Days on Market</p>
+                  <p className="text-sm text-gray-600 mb-1">Times Listed</p>
                   <p className="text-lg font-semibold">
-                    {vinData.summary.firstSeen && vinData.summary.lastSeen
-                      ? Math.round(
-                          (new Date(vinData.summary.lastSeen).getTime() - 
-                           new Date(vinData.summary.firstSeen).getTime()) / 
-                          (1000 * 60 * 60 * 24)
-                        )
-                      : 'N/A'}
+                    {vinData.summary.totalListings || 1}
+                    {vinData.summary.totalListings > 1 && (
+                      <span className="text-sm text-orange-600 ml-1">(Relisted)</span>
+                    )}
                   </p>
                 </div>
               </div>
@@ -191,16 +190,12 @@ export default function VINPage() {
                     <div className="flex justify-between items-start">
                       <div>
                         <h3 className="font-semibold text-lg">
-                          {listing.title || `${listing.model_years?.year} ${listing.model_years?.models?.name}`}
+                          {listing.year} {listing.model} {listing.trim || 'Base'}
                         </h3>
                         <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
                           <span className="flex items-center">
                             <Calendar className="w-4 h-4 mr-1" />
-                            {new Date(listing.first_seen_at).toLocaleDateString()}
-                          </span>
-                          <span className="flex items-center">
-                            <MapPin className="w-4 h-4 mr-1" />
-                            {listing.city ? `${listing.city}, ${listing.state}` : 'Location unknown'}
+                            {new Date(listing.created_at || listing.scraped_at).toLocaleDateString()}
                           </span>
                           <span>
                             {formatMileage(listing.mileage || 0)} miles
@@ -224,7 +219,7 @@ export default function VINPage() {
                       </div>
                     </div>
                     
-                    {listing.status === 'sold' && (
+                    {listing.sold_date && (
                       <div className="mt-2 inline-block px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full">
                         Sold on {new Date(listing.sold_date).toLocaleDateString()}
                       </div>
@@ -276,20 +271,29 @@ export default function VINPage() {
         {/* Example VINs */}
         <div className="mt-12 text-center">
           <p className="text-sm text-gray-600 mb-2">
-            Don&apos;t have a VIN? Try these examples:
+            Don&apos;t have a VIN? Try these high-value GT cars:
           </p>
           <div className="flex justify-center gap-4 flex-wrap">
             <button
-              onClick={() => setVin('WP0AB2A74JL201234')}
+              onClick={() => setVin('WP0AF2A96BS785577')}
               className="text-blue-600 hover:underline text-sm"
+              title="2011 911 GT3 RS"
             >
-              WP0AB2A74JL201234
+              2011 GT3 RS - WP0AF2A96BS785577
             </button>
             <button
-              onClick={() => setVin('WP0CB2A92KS136789')}
+              onClick={() => setVin('WP0ZZZ99ZKS199508')}
               className="text-blue-600 hover:underline text-sm"
+              title="2019 911 GT3 R - FIA GT3 Race Car"
             >
-              WP0CB2A92KS136789
+              2019 GT3 R (Race Car) - WP0ZZZ99ZKS199508
+            </button>
+            <button
+              onClick={() => setVin('WP0CA2A89SK212302')}
+              className="text-blue-600 hover:underline text-sm"
+              title="2025 718 Boxster"
+            >
+              2025 Boxster - WP0CA2A89SK212302
             </button>
           </div>
         </div>

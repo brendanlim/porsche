@@ -9,28 +9,23 @@ export class CarsAndBidsScraper extends SharedScraper {
       source: 'carsandbids',
       baseUrl: 'https://carsandbids.com',
       searchPaths: [
-        // GT models - HIGH PRIORITY for Cars and Bids
-        '/past-auctions?make=Porsche&keyword=GT3',
-        '/past-auctions?make=Porsche&keyword=GT3%20RS',
-        '/past-auctions?make=Porsche&keyword=GT2',
-        '/past-auctions?make=Porsche&keyword=GT4',
-        // Regular sports cars
-        '/past-auctions?make=Porsche&model=911',
-        '/past-auctions?make=Porsche&model=718%20Cayman',
-        '/past-auctions?make=Porsche&model=718%20Boxster',
-        '/past-auctions?make=Porsche&model=718%20Spyder'
+        // Focus on past auctions for sold data - broader search to start
+        '/past-auctions?make=Porsche',
+        '/past-auctions?make=Porsche&page=2',
+        '/past-auctions?make=Porsche&page=3'
       ],
       selectors: {
-        listings: '.auction-card, .listing-card, a[href*="/auctions/"]',
-        title: 'h1, .auction-title, .listing-title',
-        price: '.winning-bid, .sold-price, .final-bid',
-        vin: '.vin, [data-vin]',
-        year: '.year, [data-year]',
-        mileage: '.mileage, .auction-mileage',
+        // Updated selectors for current CarsAndBids structure
+        listings: '.auction-result, .auction-tile, .listing-tile, a[href*="/auctions/"]',
+        title: 'h2, .auction-title, .listing-title',
+        price: '.sold-for, .winning-bid, .final-price',
+        vin: '.vin-number, [data-vin]',
+        year: '[data-year]',
+        mileage: '.mileage, .vehicle-mileage',
         location: '.location, .seller-location',
-        status: '.status, .auction-status',
-        images: '.gallery img, .auction-images img',
-        description: '.description, .auction-description'
+        status: '.auction-status',
+        images: '.auction-image img, .listing-image img',
+        description: '.auction-description'
       },
       pagination: {
         type: 'page',
@@ -45,6 +40,74 @@ export class CarsAndBidsScraper extends SharedScraper {
     // Cars and Bids uses past-auctions endpoint for sold listings
     const baseUrl = `${this.baseUrl}${path}`;
     return page > 1 ? `${baseUrl}&page=${page}` : baseUrl;
+  }
+
+  // Override scrapeListings to add debugging and better extraction
+  async scrapeListings(params?: { 
+    model?: string; 
+    maxPages?: number;
+    onlySold?: boolean;
+  }): Promise<any[]> {
+    const results: any[] = [];
+    const processedUrls = new Set<string>();
+    const maxPages = params?.maxPages || 3;
+    
+    try {
+      await this.startIngestion();
+      
+      for (const searchPath of this.config.searchPaths.slice(0, maxPages)) {
+        console.log(`Scraping CarsAndBids: ${this.baseUrl}${searchPath}`);
+        
+        try {
+          const html = await this.fetchUrl(`${this.baseUrl}${searchPath}`, 'search');
+          const $ = cheerio.load(html);
+          
+          // Debug: log HTML structure
+          console.log(`HTML length: ${html.length}`);
+          console.log(`Page title: ${$('title').text()}`);
+          console.log(`Found elements with 'auction': ${$('*:contains("auction")').length}`);
+          console.log(`Found elements with 'Porsche': ${$('*:contains("Porsche")').length}`);
+          
+          // Try multiple listing selectors
+          const possibleSelectors = [
+            '.auction-result',
+            '.auction-tile', 
+            '.listing-tile',
+            'a[href*="/auctions/"]',
+            '.result-item',
+            '.vehicle-card',
+            '[data-auction-id]'
+          ];
+          
+          let foundListings = 0;
+          for (const selector of possibleSelectors) {
+            const elements = $(selector);
+            if (elements.length > 0) {
+              console.log(`Found ${elements.length} elements with selector: ${selector}`);
+              foundListings = Math.max(foundListings, elements.length);
+            }
+          }
+          
+          if (foundListings === 0) {
+            console.log('No listings found with any selector, checking for pagination or messages...');
+            console.log(`Body text snippet: ${$('body').text().substring(0, 500)}`);
+          }
+          
+        } catch (error) {
+          console.error(`Failed to scrape CarsAndBids page:`, error);
+        }
+      }
+      
+      await this.completeIngestion();
+      return results;
+    } catch (error) {
+      console.error(`CarsAndBids scraping failed:`, error);
+      await this.updateIngestion({
+        status: 'failed',
+        error_message: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
   }
 
   // Override scrapeDetail to handle Cars and Bids specific structure
@@ -108,7 +171,6 @@ export class CarsAndBidsScraper extends SharedScraper {
         images: images.slice(0, 10),
         source: this.source,
         seller_type: 'private', // Cars and Bids is mostly enthusiast sellers
-        description,
         scraped_at: new Date()
       };
     } catch (error) {

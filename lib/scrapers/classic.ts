@@ -145,10 +145,11 @@ export class ClassicScraper extends SharedScraper {
       const mileageMatch = bodyText.match(/(\d{1,3}(?:,\d{3})*)\s*(?:miles?|mi\b)/i);
       const mileage = mileageMatch ? this.extractMileage(mileageMatch[0]) : null;
       
-      // Determine status
-      const isSold = bodyText.includes('Sold for') || bodyText.includes('Sale Date');
-      const isAuction = bodyText.includes('Current Bid') || bodyText.includes('Auction');
-      const status = isSold ? 'sold' : (isAuction ? 'auction' : 'available');
+      // Determine status - prioritize sold auctions
+      const isSoldAuction = bodyText.includes('Sold for') || bodyText.includes('Sale Date') || 
+                            bodyText.includes('Final bid') || bodyText.includes('Winning bid');
+      const isActiveAuction = bodyText.includes('Current Bid') || bodyText.includes('Place bid');
+      const status = isSoldAuction ? 'sold' : (isActiveAuction ? 'auction' : 'available');
       
       // Extract location if available
       const locationText = $(this.config.selectors.location).first().text().trim() || '';
@@ -181,7 +182,6 @@ export class ClassicScraper extends SharedScraper {
         images,
         source: this.source,
         seller_type: 'dealer',
-        description: '',
         scraped_at: new Date()
       };
     } catch (error) {

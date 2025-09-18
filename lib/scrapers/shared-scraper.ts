@@ -167,10 +167,15 @@ export class SharedScraper extends BaseScraper {
               try {
                 const detail = await this.scrapeDetail(fullUrl);
                 if (detail) {
-                  // CRITICAL: Skip auction listings
-                  if (detail.status === 'auction') {
+                  // CRITICAL: Skip active auctions (but allow sold auctions from Classic.com)
+                  if (detail.status === 'auction' && this.source !== 'classic') {
                     console.log(`SKIPPING AUCTION: ${detail.title} - Current bid: $${detail.price}`);
                     continue;
+                  }
+                  
+                  // For Classic.com, prioritize sold auctions over active ones
+                  if (this.source === 'classic' && detail.status === 'auction') {
+                    console.log(`ALLOWING CLASSIC AUCTION: ${detail.title} - Current bid: $${detail.price}`);
                   }
                   
                   // Validate prices for specific models
@@ -179,14 +184,17 @@ export class SharedScraper extends BaseScraper {
                   const isGT3RS = detail.title?.toLowerCase().includes('gt3') && 
                                   detail.title?.toLowerCase().includes('rs');
                   
-                  // GT4 RS should be minimum $220k, GT3 RS minimum $300k
-                  if (isGT4RS && detail.price && detail.price < 220000) {
-                    console.log(`SUSPICIOUS GT4 RS PRICE: ${detail.title} - $${detail.price} - likely auction`);
-                    continue;
-                  }
-                  if (isGT3RS && detail.price && detail.price < 300000) {
-                    console.log(`SUSPICIOUS GT3 RS PRICE: ${detail.title} - $${detail.price} - likely auction`);
-                    continue;
+                  // Skip price validation for Classic.com auctions (current bids can be low)
+                  if (this.source !== 'classic') {
+                    // GT4 RS should be minimum $220k, GT3 RS minimum $300k
+                    if (isGT4RS && detail.price && detail.price < 220000) {
+                      console.log(`SUSPICIOUS GT4 RS PRICE: ${detail.title} - $${detail.price} - likely auction`);
+                      continue;
+                    }
+                    if (isGT3RS && detail.price && detail.price < 300000) {
+                      console.log(`SUSPICIOUS GT3 RS PRICE: ${detail.title} - $${detail.price} - likely auction`);
+                      continue;
+                    }
                   }
                   
                   if (!onlySold || detail.status === 'sold') {

@@ -382,7 +382,7 @@ async function main() {
       const classicResults = await classicScraper.scrapeListings({
         model: model || undefined,
         maxPages: maxPagesOverride !== null ? maxPagesOverride : (model && trim ? 2 : 5),
-        onlySold: true
+        onlySold: false  // Classic.com has auctions (status='auction') that we want to include
       });
       results.classic = classicResults.length;
       console.log(`✅ Classic.com: ${classicResults.length} sold listings`);

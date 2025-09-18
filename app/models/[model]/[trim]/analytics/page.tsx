@@ -1151,10 +1151,16 @@ export default function TrimAnalyticsPage() {
                               </div>
                             </div>
                             <div className="text-right">
-                              <div className="text-2xl font-bold text-green-600">
-                                +{(option.premiumPercent || 0).toFixed(1)}%
+                              <div className={`text-2xl font-bold ${
+                                (option.premiumPercent || 0) > 0 ? 'text-green-600' : 
+                                (option.premiumPercent || 0) < 0 ? 'text-red-600' : 'text-gray-600'
+                              }`}>
+                                {(option.premiumPercent || 0) > 0 ? '+' : ''}{(option.premiumPercent || 0).toFixed(1)}%
                               </div>
-                              <div className="text-sm text-gray-600">premium</div>
+                              <div className="text-sm text-gray-600">
+                                {(option.premiumPercent || 0) > 0 ? 'premium' : 
+                                 (option.premiumPercent || 0) < 0 ? 'discount' : 'neutral'}
+                              </div>
                               {option.daysOnMarketDiff !== null && option.daysOnMarketDiff !== undefined && (
                                 <div className="text-xs text-gray-500 mt-1">
                                   {option.daysOnMarketDiff < 0 ? (
@@ -1205,10 +1211,16 @@ export default function TrimAnalyticsPage() {
                               </div>
                             </div>
                             <div className="text-right">
-                              <div className="text-2xl font-bold text-gray-600">
-                                +{(option.premiumPercent || 0).toFixed(1)}%
+                              <div className={`text-2xl font-bold ${
+                                (option.premiumPercent || 0) > 5 ? 'text-green-600' : 
+                                (option.premiumPercent || 0) < -5 ? 'text-red-600' : 'text-gray-600'
+                              }`}>
+                                {(option.premiumPercent || 0) > 0 ? '+' : ''}{(option.premiumPercent || 0).toFixed(1)}%
                               </div>
-                              <div className="text-sm text-gray-500">neutral</div>
+                              <div className="text-sm text-gray-500">
+                                {Math.abs(option.premiumPercent || 0) < 5 ? 'neutral' : 
+                                 (option.premiumPercent || 0) > 0 ? 'premium' : 'discount'}
+                              </div>
                             </div>
                           </div>
                         </div>

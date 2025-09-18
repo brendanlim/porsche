@@ -1,100 +1,149 @@
+import * as cheerio from 'cheerio';
 import { SharedScraper } from './shared-scraper';
-import { CurlFetcher } from './curl-fetcher';
-import { HTMLStorageService } from '@/lib/services/html-storage';
+import { ScrapedListing } from './base';
 
 export class EdmundsScraper extends SharedScraper {
-  private curlFetcher: CurlFetcher;
-  protected htmlStorage: HTMLStorageService;
-  
   constructor() {
     super({
       name: 'Edmunds',
       source: 'edmunds',
       baseUrl: 'https://www.edmunds.com',
       searchPaths: [
-        // GT MODELS - HIGH PRIORITY! Using correct format with inventorytype, radius, and year
-        // GT4 RS (2022+)
-        '/inventory/srp.html?inventorytype=used%2Ccpo%2Cnew&make=porsche&model=porsche%7C718-cayman&radius=6000&year=2022-*&keywords=GT4%20RS',
-        // GT4 (2016+)
-        '/inventory/srp.html?inventorytype=used%2Ccpo%2Cnew&make=porsche&model=porsche%7C718-cayman&radius=6000&year=2016-*&keywords=GT4',
-        // GT3 RS (all years)
-        '/inventory/srp.html?inventorytype=used%2Ccpo%2Cnew&make=porsche&model=porsche%7C911&radius=6000&keywords=GT3%20RS',
-        // GT3 (all years)
-        '/inventory/srp.html?inventorytype=used%2Ccpo%2Cnew&make=porsche&model=porsche%7C911&radius=6000&keywords=GT3',
-        // GT2 RS
-        '/inventory/srp.html?inventorytype=used%2Ccpo%2Cnew&make=porsche&model=porsche%7C911&radius=6000&keywords=GT2%20RS',
-        
-        // Regular sports cars - all years, nationwide (radius=6000)
-        '/inventory/srp.html?inventorytype=used%2Ccpo%2Cnew&make=porsche&model=porsche%7C911&radius=6000',
-        '/inventory/srp.html?inventorytype=used%2Ccpo%2Cnew&make=porsche&model=porsche%7C718-cayman&radius=6000',
-        '/inventory/srp.html?inventorytype=used%2Ccpo%2Cnew&make=porsche&model=porsche%7C718-boxster&radius=6000',
-        '/inventory/srp.html?inventorytype=used%2Ccpo%2Cnew&make=porsche&model=porsche%7Cboxster&radius=6000',
-        '/inventory/srp.html?inventorytype=used%2Ccpo%2Cnew&make=porsche&model=porsche%7Ccayman&radius=6000',
+        // Focus on used inventory - Edmunds is primarily for current for-sale listings
+        '/inventory/srp.html?inventorytype=used%2Ccpo&make=porsche&model=porsche%7C911&radius=6000&page_size=100',
+        '/inventory/srp.html?inventorytype=used%2Ccpo&make=porsche&model=porsche%7C718-cayman&radius=6000&page_size=100',
+        '/inventory/srp.html?inventorytype=used%2Ccpo&make=porsche&model=porsche%7C718-boxster&radius=6000&page_size=100'
       ],
       selectors: {
-        listings: '.inventory-listing, .vehicle-card, a[href*="/inventory/"]',
-        title: 'h1, .vehicle-title, .listing-title',
-        price: '.price, .vehicle-price, .listing-price',
-        vin: '.vin, [data-vin]',
-        year: '.year, [data-year]',
-        mileage: '.mileage, .vehicle-mileage',
-        location: '.location, .dealer-location',
-        status: '.status, .availability',
-        images: '.gallery img, .vehicle-images img',
-        description: '.description, .vehicle-description'
+        // Updated selectors based on current Edmunds structure
+        listings: 'article[data-testid="vehicle-card"], .usurp-inventory-card',
+        title: 'h1, [data-testid="vehicle-card-title"], .usurp-inventory-card-title',
+        price: '[data-testid="vehicle-card-price"], .usurp-inventory-card-price, .vehicle-price',
+        vin: '[data-vin], .vin-number',
+        year: '[data-year]',
+        mileage: '[data-testid="vehicle-card-mileage"], .vehicle-mileage',
+        location: '[data-testid="dealer-name"], .dealer-name',
+        status: '.availability-status',
+        images: 'img[data-testid="vehicle-image"]',
+        description: '.vehicle-description'
       },
       pagination: {
         type: 'page',
-        param: 'pageNum'
+        param: 'page'
       }
     });
-    
-    this.curlFetcher = new CurlFetcher();
-    this.htmlStorage = new HTMLStorageService();
   }
-  
-  // Override fetchUrl to use curl instead of Bright Data
-  protected async fetchUrl(url: string, type: 'search' | 'detail' = 'search'): Promise<string> {
-    console.log(`Fetching Edmunds URL with curl: ${url}`);
-    
-    // Check session cache first
-    if (this.htmlCache.has(url)) {
-      console.log(`Using cached HTML for: ${url}`);
-      return this.htmlCache.get(url)!;
-    }
-    
+
+  // Override scrapeDetail to handle Edmunds-specific data extraction
+  async scrapeDetail(url: string): Promise<ScrapedListing | null> {
     try {
-      // Use curl fetcher with retry logic
-      const html = await this.curlFetcher.fetchWithRetry(url, 3);
+      const html = await this.fetchUrl(url, 'detail');
+      const $ = cheerio.load(html);
       
-      if (!html) {
-        throw new Error(`Failed to fetch ${url} after retries`);
-      }
+      // Edmunds embeds vehicle data in JSON-LD or script tags
+      let vehicleData: any = null;
       
-      // Store HTML immediately after fetching
-      try {
-        await this.htmlStorage.storeScrapedHTML({
-          source: this.source,
-          url,
-          html,
-          type,
-          metadata: {
-            scraper: this.name,
-            timestamp: new Date().toISOString(),
-            htmlLength: html.length,
-            fetchMethod: 'curl'
+      // Look for structured data
+      $('script[type="application/ld+json"]').each((_, script) => {
+        try {
+          const data = JSON.parse($(script).html() || '');
+          if (data['@type'] === 'Car' || data['@type'] === 'Vehicle') {
+            vehicleData = data;
           }
-        });
-      } catch (storageError) {
-        console.error(`Failed to store HTML for ${url}:`, storageError);
-      }
+        } catch (e) {
+          // Continue searching
+        }
+      });
       
-      // Cache for this session
-      this.htmlCache.set(url, html);
-      return html;
+      // Extract from page content if no structured data
+      const title = $('h1').first().text().trim() || 
+                   $('[data-testid="vehicle-title"]').text().trim();
+                   
+      const priceText = $('[data-testid="vehicle-price"]').text().trim() ||
+                       $('.price-display').text().trim() ||
+                       $('.vehicle-price').text().trim();
+      const price = this.extractPrice(priceText);
+      
+      // Extract year from title or structured data
+      const year = vehicleData?.modelYear || this.extractYear(title);
+      
+      // Extract VIN
+      const vin = vehicleData?.vehicleIdentificationNumber ||
+                 $('[data-vin]').attr('data-vin') ||
+                 this.extractVinFromText($('body').text());
+      
+      // Extract mileage
+      const mileageText = $('[data-testid="vehicle-mileage"]').text().trim() ||
+                         $('.vehicle-mileage').text().trim();
+      const mileage = this.extractMileage(mileageText);
+      
+      // Extract dealer/location
+      const dealerName = $('[data-testid="dealer-name"]').text().trim() ||
+                        $('.dealer-name').text().trim();
+      
+      // Extract model and trim from title
+      const { model, trim } = this.parseModelTrim(title);
+      
+      return {
+        url,
+        source_url: url,
+        title,
+        price: price || 0,
+        vin,
+        year,
+        model,
+        trim,
+        mileage,
+        status: 'available', // Edmunds shows current inventory
+        source: this.source,
+        seller_type: 'dealer',
+        scraped_at: new Date(),
+        raw_data: vehicleData
+      };
     } catch (error) {
-      console.error(`Curl fetch failed for Edmunds:`, error);
-      throw error;
+      console.error(`Error scraping Edmunds detail:`, error);
+      return null;
     }
+  }
+
+  private extractPrice(text: string): number | null {
+    const cleaned = text.replace(/[^0-9]/g, '');
+    const price = parseInt(cleaned);
+    return isNaN(price) || price < 1000 ? null : price;
+  }
+
+  private extractYear(text: string): number | null {
+    const yearMatch = text.match(/\b(19|20)\d{2}\b/);
+    return yearMatch ? parseInt(yearMatch[0]) : null;
+  }
+
+  private extractMileage(text: string): number | null {
+    const mileageMatch = text.match(/(\d{1,3}(?:,\d{3})*)/);
+    return mileageMatch ? parseInt(mileageMatch[1].replace(/,/g, '')) : null;
+  }
+
+  private extractVinFromText(text: string): string | null {
+    const vinMatch = text.match(/\b([A-HJ-NPR-Z0-9]{17})\b/);
+    return vinMatch ? vinMatch[1] : null;
+  }
+
+  private parseModelTrim(title: string): { model: string; trim?: string } {
+    let model = '911'; // Default
+    let trim: string | undefined;
+    
+    if (title.includes('718')) {
+      model = title.includes('Cayman') ? '718 Cayman' : '718 Boxster';
+    }
+    
+    // Extract trim
+    const trimPatterns = ['GT4 RS', 'GT4', 'GT3 RS', 'GT3', 'GT2 RS', 'GT2', 'Turbo S', 'Turbo', 'Carrera S', 'Carrera', 'GTS'];
+    for (const pattern of trimPatterns) {
+      if (title.includes(pattern)) {
+        trim = pattern;
+        break;
+      }
+    }
+    
+    return { model, trim };
   }
 }

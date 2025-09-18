@@ -110,7 +110,7 @@ export default function AlertsPage() {
     const criteria = [];
 
     if (alert.model_id || alert.trim_id) {
-      criteria.push(`${alert.models?.name || 'Any Model'} ${alert.trims?.name || ''}`);
+      criteria.push(`${alert.model_id ? 'Specific Model' : 'Any Model'} ${alert.trim_id ? 'Specific Trim' : ''}`);
     }
 
     if (alert.year_min || alert.year_max) {

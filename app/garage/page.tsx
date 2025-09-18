@@ -132,13 +132,23 @@ export default function GaragePage() {
             </p>
           </div>
 
-          <Link
-            href="/garage/add"
-            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Add Car
-          </Link>
+          {!isSubscribed && cars.length >= 1 ? (
+            <Link
+              href="/pricing"
+              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <Crown className="w-5 h-5 mr-2" />
+              Upgrade to Add More Cars
+            </Link>
+          ) : (
+            <Link
+              href="/garage/add"
+              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Add Car
+            </Link>
+          )}
         </div>
 
         {error && (
@@ -164,6 +174,9 @@ export default function GaragePage() {
               <Plus className="w-5 h-5 mr-2" />
               Add Your First Car
             </Link>
+            <p className="text-sm text-gray-500 mt-4">
+              Free accounts can track 1 car with limited stats. <Link href="/pricing" className="text-blue-600 hover:underline">Upgrade for unlimited cars</Link>
+            </p>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -237,14 +250,23 @@ export default function GaragePage() {
                     <div className="border-t pt-4">
                       <div className="flex justify-between items-center mb-2">
                         <span className="text-sm text-gray-600">Current Est. Value</span>
-                        {car.latest_estimated_value && (
-                          <span className="text-lg font-bold text-gray-900">
-                            {formatPrice(car.latest_estimated_value)}
+                        {isSubscribed ? (
+                          car.latest_estimated_value && (
+                            <span className="text-lg font-bold text-gray-900">
+                              {formatPrice(car.latest_estimated_value)}
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-sm text-gray-500 italic">
+                            <Link href="/pricing" className="text-blue-600 hover:underline inline-flex items-center">
+                              <Crown className="w-3 h-3 mr-1" />
+                              Premium only
+                            </Link>
                           </span>
                         )}
                       </div>
 
-                      {valueChange && (
+                      {isSubscribed && valueChange && (
                         <div className="flex items-center text-sm">
                           {valueChange.change >= 0 ? (
                             <TrendingUp className="w-4 h-4 text-green-600 mr-1" />
@@ -258,16 +280,24 @@ export default function GaragePage() {
                         </div>
                       )}
 
-                      {car.recent_sold_avg_price && (
+                      {isSubscribed && car.recent_sold_avg_price && (
                         <div className="text-xs text-gray-500 mt-1">
                           Similar cars avg: {formatPrice(car.recent_sold_avg_price)}
+                        </div>
+                      )}
+
+                      {!isSubscribed && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          <Link href="/pricing" className="text-blue-600 hover:underline">
+                            Upgrade for full valuation data →
+                          </Link>
                         </div>
                       )}
                     </div>
                   </div>
 
                   {/* Market Data */}
-                  {car.similar_active_listings > 0 && (
+                  {isSubscribed && car.similar_active_listings > 0 && (
                     <div className="px-6 pb-4">
                       <div className="text-xs text-gray-500">
                         {car.similar_active_listings} similar car{car.similar_active_listings !== 1 ? 's' : ''} for sale
@@ -286,16 +316,18 @@ export default function GaragePage() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-xl font-bold text-gray-900 mb-2">
-                  Unlock Premium Garage Features
+                  Unlock Full Garage Features
                 </h3>
                 <p className="text-gray-600 mb-4">
-                  Get advanced valuations, price alerts, market predictions, and detailed analytics for your cars
+                  You&apos;re limited to 1 car with basic stats. Upgrade for unlimited cars and full insights.
                 </p>
                 <ul className="text-sm text-gray-600 space-y-1">
-                  <li>• Real-time market value tracking</li>
-                  <li>• Price alerts when similar cars are listed</li>
-                  <li>• Advanced market analytics and trends</li>
-                  <li>• Historical appreciation/depreciation charts</li>
+                  <li>• <strong>Unlimited cars</strong> (currently limited to 1)</li>
+                  <li>• <strong>Real valuations</strong> with confidence scores</li>
+                  <li>• <strong>Market trends</strong> and appreciation tracking</li>
+                  <li>• <strong>Price alerts</strong> when similar cars are listed</li>
+                  <li>• <strong>Historical charts</strong> and detailed analytics</li>
+                  <li>• <strong>Export reports</strong> for insurance/financing</li>
                 </ul>
               </div>
               <div className="ml-8">

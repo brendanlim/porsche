@@ -45,6 +45,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Check if user is subscribed
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('subscription_status')
+      .eq('id', user.id)
+      .single();
+
+    const isSubscribed = profile?.subscription_status === 'premium';
+
+    // Check existing cars count for free users
+    if (!isSubscribed) {
+      const { count, error: countError } = await supabase
+        .from('user_cars')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      if (!countError && count && count >= 1) {
+        return NextResponse.json({
+          error: 'Free accounts are limited to 1 car. Upgrade to premium to add more cars.',
+          requiresUpgrade: true
+        }, { status: 403 });
+      }
+    }
+
     const body = await request.json();
     const { vin, year, model_id, trim_id, generation_id, exterior_color_id, interior_color, mileage, purchase_date, purchase_price, purchase_notes, nickname } = body;
 

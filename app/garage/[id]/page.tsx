@@ -308,41 +308,52 @@ export default function CarDetailPage({ params }: CarDetailPageProps) {
             <div className="bg-white rounded-xl shadow-lg p-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Current Valuation</h2>
 
-              {car.latest_estimated_value ? (
-                <div>
-                  <p className="text-3xl font-bold text-gray-900 mb-2">
-                    {formatPrice(car.latest_estimated_value)}
-                  </p>
+              {isSubscribed ? (
+                car.latest_estimated_value ? (
+                  <div>
+                    <p className="text-3xl font-bold text-gray-900 mb-2">
+                      {formatPrice(car.latest_estimated_value)}
+                    </p>
 
-                  {valueChange && (
-                    <div className="flex items-center text-sm mb-4">
-                      {valueChange.change >= 0 ? (
-                        <TrendingUp className="w-4 h-4 text-green-600 mr-1" />
-                      ) : (
-                        <TrendingDown className="w-4 h-4 text-red-600 mr-1" />
-                      )}
-                      <span className={valueChange.change >= 0 ? 'text-green-600' : 'text-red-600'}>
-                        {valueChange.change >= 0 ? '+' : ''}{formatPrice(valueChange.change)}
-                        ({valueChange.percentChange.toFixed(1)}%)
-                      </span>
-                    </div>
-                  )}
+                    {valueChange && (
+                      <div className="flex items-center text-sm mb-4">
+                        {valueChange.change >= 0 ? (
+                          <TrendingUp className="w-4 h-4 text-green-600 mr-1" />
+                        ) : (
+                          <TrendingDown className="w-4 h-4 text-red-600 mr-1" />
+                        )}
+                        <span className={valueChange.change >= 0 ? 'text-green-600' : 'text-red-600'}>
+                          {valueChange.change >= 0 ? '+' : ''}{formatPrice(valueChange.change)}
+                          ({valueChange.percentChange.toFixed(1)}%)
+                        </span>
+                      </div>
+                    )}
 
-                  <p className="text-xs text-gray-500">
-                    Last updated: {car.last_valuation_date
-                      ? new Date(car.last_valuation_date).toLocaleDateString()
-                      : 'Never'
-                    }
-                  </p>
-                </div>
+                    <p className="text-xs text-gray-500">
+                      Last updated: {car.last_valuation_date
+                        ? new Date(car.last_valuation_date).toLocaleDateString()
+                        : 'Never'
+                      }
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-gray-600">Calculating valuation...</p>
+                  </div>
+                )
               ) : (
                 <div className="text-center py-4">
-                  <p className="text-gray-600 mb-3">No valuation available</p>
-                  {!isSubscribed && (
-                    <p className="text-sm text-blue-600">
-                      Upgrade to Premium for automatic valuations
-                    </p>
-                  )}
+                  <Crown className="w-8 h-8 text-yellow-500 mx-auto mb-3" />
+                  <p className="text-gray-600 mb-3">Premium Feature</p>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Get accurate valuations based on recent market data
+                  </p>
+                  <Link
+                    href="/pricing"
+                    className="text-blue-600 hover:underline text-sm font-medium"
+                  >
+                    Upgrade to see valuation →
+                  </Link>
                 </div>
               )}
             </div>
@@ -351,29 +362,49 @@ export default function CarDetailPage({ params }: CarDetailPageProps) {
             <div className="bg-white rounded-xl shadow-lg p-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Market Context</h2>
 
-              <div className="space-y-3">
-                {car.similar_active_listings > 0 && (
-                  <div>
-                    <p className="text-sm text-gray-600">Similar cars for sale</p>
-                    <p className="text-lg font-semibold">{car.similar_active_listings}</p>
-                  </div>
-                )}
+              {isSubscribed ? (
+                <div className="space-y-3">
+                  {car.similar_active_listings > 0 && (
+                    <div>
+                      <p className="text-sm text-gray-600">Similar cars for sale</p>
+                      <p className="text-lg font-semibold">{car.similar_active_listings}</p>
+                    </div>
+                  )}
 
-                {car.recent_sold_avg_price && (
-                  <div>
-                    <p className="text-sm text-gray-600">Recent sold average</p>
-                    <p className="text-lg font-semibold">{formatPrice(car.recent_sold_avg_price)}</p>
-                  </div>
-                )}
+                  {car.recent_sold_avg_price && (
+                    <div>
+                      <p className="text-sm text-gray-600">Recent sold average</p>
+                      <p className="text-lg font-semibold">{formatPrice(car.recent_sold_avg_price)}</p>
+                    </div>
+                  )}
 
-                <Link
-                  href={`/models/${car.model_name?.toLowerCase()}/${car.trim_name?.toLowerCase().replace(/\s+/g, '-')}/analytics`}
-                  className="inline-flex items-center text-blue-600 hover:text-blue-700 text-sm"
-                >
-                  <Eye className="w-4 h-4 mr-1" />
-                  View market analytics
-                </Link>
-              </div>
+                  <Link
+                    href={`/models/${car.model_name?.toLowerCase()}/${car.trim_name?.toLowerCase().replace(/\s+/g, '-')}/analytics`}
+                    className="inline-flex items-center text-blue-600 hover:text-blue-700 text-sm"
+                  >
+                    <Eye className="w-4 h-4 mr-1" />
+                    View market analytics
+                  </Link>
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <Crown className="w-6 h-6 text-yellow-500 mx-auto mb-3" />
+                  <p className="text-sm text-gray-600 mb-2">
+                    Market data available with Premium
+                  </p>
+                  <ul className="text-xs text-gray-500 space-y-1 mb-4">
+                    <li>• Similar cars for sale</li>
+                    <li>• Recent sold prices</li>
+                    <li>• Market trends</li>
+                  </ul>
+                  <Link
+                    href="/pricing"
+                    className="text-blue-600 hover:underline text-sm font-medium"
+                  >
+                    Upgrade for market data →
+                  </Link>
+                </div>
+              )}
             </div>
 
             {/* Premium Upsell */}
@@ -382,13 +413,18 @@ export default function CarDetailPage({ params }: CarDetailPageProps) {
                 <div className="text-center">
                   <Crown className="w-8 h-8 text-yellow-500 mx-auto mb-3" />
                   <h3 className="text-lg font-bold text-gray-900 mb-2">
-                    Premium Features
+                    Unlock All Features
                   </h3>
-                  <ul className="text-sm text-gray-600 space-y-1 mb-4">
-                    <li>• Automatic valuation updates</li>
-                    <li>• Price drop alerts</li>
-                    <li>• Market trend analysis</li>
-                    <li>• Export reports</li>
+                  <p className="text-sm text-gray-600 mb-3">
+                    You&apos;re on the free plan with 1 car and limited stats
+                  </p>
+                  <ul className="text-sm text-gray-600 space-y-1 mb-4 text-left">
+                    <li>✓ Track unlimited cars</li>
+                    <li>✓ Real-time valuations</li>
+                    <li>✓ Market insights & trends</li>
+                    <li>✓ Price drop alerts</li>
+                    <li>✓ Historical charts</li>
+                    <li>✓ Export reports for insurance</li>
                   </ul>
                   <Link
                     href="/pricing"

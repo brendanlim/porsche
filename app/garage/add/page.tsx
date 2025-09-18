@@ -10,11 +10,7 @@ import {
   Plus,
   AlertCircle,
   CheckCircle,
-  Car,
-  Calendar,
-  Gauge,
-  DollarSign,
-  Hash
+  Crown,
 } from 'lucide-react';
 import { validateVIN } from '@/lib/utils';
 
@@ -55,9 +51,9 @@ export default function AddCarPage() {
   const router = useRouter();
   const [mode, setMode] = useState<'vin' | 'manual'>('vin');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | React.ReactElement | null>(null);
   const [success, setSuccess] = useState(false);
-  const [vinLookupData, setVinLookupData] = useState<any>(null);
+  const [vinLookupData, setVinLookupData] = useState<{model?: string, trim?: string, year?: number} | null>(null);
 
   // Form data
   const [formData, setFormData] = useState<Partial<FormData>>({
@@ -211,6 +207,24 @@ export default function AddCarPage() {
       const data = await response.json();
 
       if (!response.ok) {
+        if (data.requiresUpgrade) {
+          // Show upgrade prompt instead of generic error
+          setError(
+            <div>
+              {data.error}
+              <div className="mt-3">
+                <Link
+                  href="/pricing"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                >
+                  <Crown className="w-4 h-4 mr-2" />
+                  Upgrade to Premium
+                </Link>
+              </div>
+            </div>
+          );
+          return;
+        }
         throw new Error(data.error || 'Failed to add car');
       }
 
@@ -228,7 +242,7 @@ export default function AddCarPage() {
     }
   };
 
-  const updateFormData = (field: keyof FormData, value: any) => {
+  const updateFormData = (field: keyof FormData, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -295,7 +309,7 @@ export default function AddCarPage() {
             Add Car to Garage
           </h1>
           <p className="text-gray-600">
-            Track your Porsche's value and market performance
+            Track your Porsche&apos;s value and market performance
           </p>
         </div>
 

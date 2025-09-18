@@ -4,9 +4,10 @@ import { validateVIN } from '@/lib/utils';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
 
     // Check authentication
@@ -19,7 +20,7 @@ export async function GET(
     const { data: userCar, error } = await supabase
       .from('user_cars_detailed')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id)
       .single();
 
@@ -41,9 +42,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
 
     // Check authentication
@@ -79,7 +81,7 @@ export async function PUT(
     const { data: existingCar, error: checkError } = await supabase
       .from('user_cars')
       .select('id, vin')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id)
       .single();
 
@@ -94,7 +96,7 @@ export async function PUT(
         .select('id')
         .eq('user_id', user.id)
         .eq('vin', vin)
-        .neq('id', params.id)
+        .neq('id', id)
         .single();
 
       if (vinConflict) {
@@ -130,7 +132,7 @@ export async function PUT(
     const { error: updateError } = await supabase
       .from('user_cars')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id);
 
     if (updateError) {
@@ -142,7 +144,7 @@ export async function PUT(
     const { data: updatedCar } = await supabase
       .from('user_cars_detailed')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     return NextResponse.json({
@@ -158,9 +160,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
 
     // Check authentication
@@ -173,7 +176,7 @@ export async function DELETE(
     const { data: existingCar, error: checkError } = await supabase
       .from('user_cars')
       .select('id')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id)
       .single();
 
@@ -185,7 +188,7 @@ export async function DELETE(
     const { error: deleteError } = await supabase
       .from('user_cars')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id);
 
     if (deleteError) {

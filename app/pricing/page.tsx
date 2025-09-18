@@ -20,10 +20,10 @@ export default function PricingPage() {
 
   const features = {
     free: [
-      'Track up to 3 cars',
-      'Basic market data',
+      'Track 1 car',
+      'Limited market stats',
       'VIN lookup',
-      'Price history viewing',
+      'Basic price history',
       'Community access'
     ],
     premium: [

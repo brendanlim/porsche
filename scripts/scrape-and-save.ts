@@ -135,6 +135,10 @@ function parseListingDetails(listing: ScrapedListing): ScrapedListing {
 async function saveListings(listings: ScrapedListing[], source: string): Promise<number> {
   let savedCount = 0;
   let updatedCount = 0;
+  let skippedCount = 0;
+  let errorCount = 0;
+  
+  console.log(`   Processing ${listings.length} listings from ${source}...`);
   
   for (const listing of listings) {
     try {
@@ -221,20 +225,48 @@ async function saveListings(listings: ScrapedListing[], source: string): Promise
         .single();
       
       if (!error && upsertedListing) {
-        savedCount++;
+        // Check if this was an update or insert
+        const { data: existingCheck } = await supabase
+          .from('listings')
+          .select('created_at, scraped_at')
+          .eq('id', upsertedListing.id)
+          .single();
+        
+        const isNew = existingCheck && 
+          (new Date(existingCheck.scraped_at).getTime() - new Date(existingCheck.created_at).getTime() < 5000);
+        
+        if (isNew) {
+          savedCount++;
+          console.log(`   ✅ NEW: ${parsed.year || ''} ${parsed.model || ''} ${parsed.trim || ''} - ${listing.title?.substring(0, 50) || 'Unknown'}`);
+        } else {
+          updatedCount++;
+          console.log(`   🔄 EXISTING: ${parsed.year || ''} ${parsed.model || ''} ${parsed.trim || ''} - Updated`);
+        }
+        
         // Process options for the listing
         if (listing.options_text) {
-          await processListingOptions(upsertedListing.id, listing.options_text);
+          try {
+            await processListingOptions(upsertedListing.id, listing.options_text);
+          } catch (optionsError) {
+            console.error(`   ⚠️  Error processing options: ${optionsError.message}`);
+          }
         }
       } else {
-        console.error(`Failed to save listing: ${error?.message}`);
+        errorCount++;
+        console.error(`   ❌ ERROR: Failed to save listing - ${error?.message}`);
       }
     } catch (err) {
-      console.error('Error saving listing:', err);
+      errorCount++;
+      console.error(`   ❌ EXCEPTION: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      // Log partial listing info for debugging
+      console.error(`      Listing: ${listing.title?.substring(0, 50) || 'Unknown'} - ${listing.source_url || 'No URL'}`);
     }
   }
   
-  console.log(`   📝 Saved ${savedCount} new, updated ${updatedCount} existing listings`);
+  // Summary
+  console.log(`   📊 Summary: ${savedCount} new, ${updatedCount} updated, ${errorCount} errors`);
+  
+  // Return total successful saves/updates
   return savedCount + updatedCount;
 }
 
@@ -458,4 +490,35 @@ async function main() {
   }
 }
 
-main().catch(console.error);
+// Global error handlers for uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('❌ UNCAUGHT EXCEPTION:');
+  console.error(error);
+  console.error('\nAttempting graceful shutdown...');
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ UNHANDLED REJECTION at:', promise);
+  console.error('Reason:', reason);
+  console.error('\nAttempting graceful shutdown...');
+  process.exit(1);
+});
+
+// Handle SIGINT (Ctrl+C) and SIGTERM gracefully
+process.on('SIGINT', () => {
+  console.log('\n⚠️ Received SIGINT, shutting down gracefully...');
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  console.log('\n⚠️ Received SIGTERM, shutting down gracefully...');
+  process.exit(0);
+});
+
+// Run main with error handling
+main().catch((error) => {
+  console.error('❌ FATAL ERROR in main:');
+  console.error(error);
+  process.exit(1);
+});

@@ -11,11 +11,6 @@ import {
   Bell,
   Car,
   BarChart3,
-  Download,
-  Shield,
-  Clock,
-  Users,
-  Zap
 } from 'lucide-react';
 
 export default function PricingPage() {
@@ -280,7 +275,7 @@ export default function PricingPage() {
                     <p className="text-sm text-gray-600">{testimonial.car}</p>
                   </div>
                 </div>
-                <p className="text-gray-700 italic">"{testimonial.quote}"</p>
+                <p className="text-gray-700 italic">&ldquo;{testimonial.quote}&rdquo;</p>
               </div>
             ))}
           </div>
@@ -302,7 +297,7 @@ export default function PricingPage() {
                 Can I cancel my subscription anytime?
               </h3>
               <p className="text-gray-600">
-                Yes, you can cancel your Premium subscription at any time. You'll continue to have access to Premium features until the end of your billing period.
+                Yes, you can cancel your Premium subscription at any time. You&apos;ll continue to have access to Premium features until the end of your billing period.
               </p>
             </div>
 

@@ -227,3 +227,81 @@ export interface ChartDataPoint {
   source?: string;
   url?: string;
 }
+
+// User car management types
+export interface UserCar {
+  id: string;
+  user_id: string;
+  vin?: string;
+  year?: number;
+  model_id?: string;
+  trim_id?: string;
+  generation_id?: string;
+  exterior_color_id?: string;
+  interior_color?: string;
+  mileage?: number;
+  purchase_date?: Date;
+  purchase_price?: number;
+  purchase_notes?: string;
+  last_estimated_value?: number;
+  last_valuation_date?: Date;
+  nickname?: string;
+  is_for_sale: boolean;
+  asking_price?: number;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface UserCarDetailed extends UserCar {
+  model_name?: string;
+  trim_name?: string;
+  generation_name?: string;
+  exterior_color_name?: string;
+  exterior_color_hex?: string;
+  is_paint_to_sample?: boolean;
+  latest_estimated_value?: number;
+  options_count?: number;
+  similar_active_listings?: number;
+  recent_sold_avg_price?: number;
+  options?: Option[];
+}
+
+export interface UserCarValuation {
+  id: string;
+  user_car_id: string;
+  estimated_value: number;
+  confidence_score?: number;
+  valuation_method: 'market_analysis' | 'manual' | 'ml_prediction';
+  market_data_used?: any;
+  created_at: Date;
+}
+
+export interface MarketAlert {
+  id: string;
+  user_id: string;
+  model_id?: string;
+  trim_id?: string;
+  generation_id?: string;
+  year_min?: number;
+  year_max?: number;
+  price_min?: number;
+  price_max?: number;
+  mileage_max?: number;
+  states?: string[];
+  required_options?: string[];
+  alert_name: string;
+  is_active: boolean;
+  notify_email: boolean;
+  notify_frequency: 'immediate' | 'daily' | 'weekly';
+  created_at: Date;
+  updated_at: Date;
+  last_triggered_at?: Date;
+}
+
+export interface AlertMatch {
+  id: string;
+  alert_id: string;
+  listing_id: string;
+  matched_at: Date;
+  notified_at?: Date;
+}

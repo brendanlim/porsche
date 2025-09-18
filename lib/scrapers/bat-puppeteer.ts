@@ -353,11 +353,11 @@ export class BaTScraperPuppeteer extends BaseScraper {
               url: listing.url,
               html: listingData.html,
               type: 'detail',
-              model: listing.model || modelConfig.name,
-              trim: listing.trim || modelConfig.trim,
+              model: listing.model || 'unknown',
+              trim: listing.trim || '',
             });
             if (storageResult) {
-              console.log(`  ✓ Stored HTML for listing ${listing.model || modelConfig.name} ${listing.trim || modelConfig.trim || ''}: ${storageResult.path} (${listingData.html.length} bytes)`);
+              console.log(`  ✓ Stored HTML for listing ${listing.model || 'unknown'} ${listing.trim || ''}: ${storageResult.path} (${listingData.html.length} bytes)`);
             }
             
             // Parse the detail page for full data

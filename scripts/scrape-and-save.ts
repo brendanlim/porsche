@@ -2,11 +2,37 @@
 // Load environment variables BEFORE any imports
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { createClient } from '@supabase/supabase-js';
 import { ScrapedListing } from '../lib/types/scraper';
 import { processListingOptions } from '../lib/services/options-manager';
 
-dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+// Only load .env.local if it exists (for local development)
+const envPath = path.resolve(process.cwd(), '.env.local');
+if (fs.existsSync(envPath)) {
+  dotenv.config({ path: envPath });
+  console.log('Loaded environment variables from .env.local');
+} else {
+  console.log('Using environment variables from system/GitHub Actions');
+}
+
+// Validate required environment variables
+const requiredEnvVars = {
+  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+};
+
+const missingVars = Object.entries(requiredEnvVars)
+  .filter(([_, value]) => !value)
+  .map(([key]) => key);
+
+if (missingVars.length > 0) {
+  console.error('❌ Missing required environment variables:');
+  missingVars.forEach(key => console.error(`   - ${key}`));
+  console.error('\nPlease set these in GitHub Secrets or .env.local');
+  process.exit(1);
+}
 
 // Create Supabase client
 const supabase = createClient(

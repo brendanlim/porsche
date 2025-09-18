@@ -23,7 +23,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '20'
           
       - name: Install dependencies
         run: npm ci
@@ -34,12 +34,32 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          BRIGHT_DATA_CUSTOMER_ID: ${{ secrets.BRIGHT_DATA_CUSTOMER_ID }}
+          BRIGHT_DATA_PASSWORD: ${{ secrets.BRIGHT_DATA_PASSWORD }}
+          BRIGHT_DATA_ZONE: ${{ secrets.BRIGHT_DATA_ZONE }}
           BRIGHTDATA_USERNAME: ${{ secrets.BRIGHTDATA_USERNAME }}
           BRIGHTDATA_PASSWORD: ${{ secrets.BRIGHTDATA_PASSWORD }}
           BRIGHTDATA_SCRAPING_BROWSER_PASSWORD: ${{ secrets.BRIGHTDATA_SCRAPING_BROWSER_PASSWORD }}
         run: |
           MAX_PAGES="${{ github.event.inputs.max_pages || '2' }}"
           echo "Running scraper with max-pages=$MAX_PAGES"
+          echo "Verifying environment variables..."
+          if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ]; then
+            echo "ERROR: NEXT_PUBLIC_SUPABASE_URL is not set!"
+            echo "Please add NEXT_PUBLIC_SUPABASE_URL to GitHub Secrets"
+            exit 1
+          fi
+          if [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ]; then
+            echo "ERROR: NEXT_PUBLIC_SUPABASE_ANON_KEY is not set!"
+            echo "Please add NEXT_PUBLIC_SUPABASE_ANON_KEY to GitHub Secrets"
+            exit 1
+          fi
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "ERROR: SUPABASE_SERVICE_ROLE_KEY is not set!"
+            echo "Please add SUPABASE_SERVICE_ROLE_KEY to GitHub Secrets"
+            exit 1
+          fi
+          echo "Environment variables verified ✓"
           npx tsx scripts/scrape-and-save.ts --max-pages=$MAX_PAGES
           
       - name: Notify on failure

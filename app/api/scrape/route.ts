@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     if (process.env.GITHUB_TOKEN) {
       try {
         const response = await fetch(
-          'https://api.github.com/repos/brendan-lim/porschetrends/actions/workflows/daily-scrape.yml/dispatches',
+          'https://api.github.com/repos/brendanlim/porsche/actions/workflows/daily-scrape.yml/dispatches',
           {
             method: 'POST',
             headers: {

@@ -48,7 +48,7 @@ async function checkGitHubActionsActivity() {
       console.log('⚠️ Last scrape was over 24 hours ago - check GitHub Actions status');
     } else {
       console.log('❌ No recent scraping activity - GitHub Actions may not be running');
-      console.log('   Check: https://github.com/[your-username]/porschetrends/actions');
+      console.log('   Check: https://github.com/brendanlim/porsche/actions');
     }
     
     console.log(`\nLast scrape: ${hoursSinceLastScrape.toFixed(1)} hours ago`);

@@ -50,7 +50,7 @@ Before you begin, you'll need:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/porschetrends.git
+git clone https://github.com/brendanlim/porsche.git
 cd porschetrends
 
 # Install dependencies

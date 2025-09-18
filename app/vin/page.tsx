@@ -10,6 +10,9 @@ interface VINData {
   listings: any[];
   priceHistory: any[];
   summary: {
+    model?: string;
+    trim?: string;
+    year?: number;
     firstSeen?: string;
     lastSeen?: string;
     lowestPrice?: number;
@@ -18,6 +21,7 @@ interface VINData {
     sold: boolean;
     soldPrice?: number;
     soldDate?: string;
+    totalListings?: number;
   };
 }
 

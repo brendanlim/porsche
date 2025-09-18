@@ -382,7 +382,7 @@ export default function ModelsPage() {
           return (
           <div key={modelName}>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">{modelName}</h2>
-            <div className="bg-white rounded-lg shadow-sm overflow-x-auto relative overflow-y-visible">
+            <div className="bg-white rounded-lg shadow-sm overflow-x-auto relative">
               <table className="min-w-full divide-y divide-gray-200 relative">
                 <thead className="bg-gray-50 relative">
                   <tr>
@@ -404,12 +404,9 @@ export default function ModelsPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       <div className="flex items-center gap-1">
                         <span>Trends</span>
-                        <span className="relative group inline-block">
+                        <div className="relative group inline-block" title="Price trend from last 10 sales">
                           <Info className="h-3 w-3 text-gray-400 cursor-help" />
-                          <span className="absolute -top-10 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[99999] shadow-lg">
-                            Price trend from last 10 sales
-                          </span>
-                        </span>
+                        </div>
                       </div>
                     </th>
                     <th className="relative px-6 py-3">

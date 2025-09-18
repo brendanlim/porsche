@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useUser, useProfile } from '@/lib/auth/hooks';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -33,18 +33,7 @@ export default function CarDetailPage({ params }: CarDetailPageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (userLoading) return;
-
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-
-    fetchCarDetails();
-  }, [user, userLoading, router, params.id]);
-
-  const fetchCarDetails = async () => {
+  const fetchCarDetails = useCallback(async () => {
     try {
       const response = await fetch(`/api/user-cars/${params.id}`);
       const data = await response.json();
@@ -61,7 +50,18 @@ export default function CarDetailPage({ params }: CarDetailPageProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.id]);
+
+  useEffect(() => {
+    if (userLoading) return;
+
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    fetchCarDetails();
+  }, [user, userLoading, router, params.id, fetchCarDetails]);
 
   const deleteCar = async () => {
     if (!confirm('Are you sure you want to remove this car from your garage?')) {
@@ -135,7 +135,7 @@ export default function CarDetailPage({ params }: CarDetailPageProps) {
               {error || 'Car not found'}
             </h2>
             <p className="text-gray-600 mb-6">
-              The car you're looking for doesn't exist or you don't have access to it.
+              The car you&apos;re looking for doesn&apos;t exist or you don&apos;t have access to it.
             </p>
             <Link
               href="/garage"

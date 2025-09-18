@@ -16,8 +16,9 @@ export class BrightDataPuppeteer {
    * Scrape BaT auction results with real browser rendering
    * @param modelUrl - The URL to scrape
    * @param existingUrls - Set of URLs we've already saved (for duplicate detection)
+   * @param maxPages - Maximum number of "pages" to load (each Show More click loads ~35 items)
    */
-  async scrapeBaTResults(modelUrl: string, existingUrls: Set<string> = new Set()): Promise<any> {
+  async scrapeBaTResults(modelUrl: string, existingUrls: Set<string> = new Set(), maxPages: number = 2): Promise<any> {
     console.log(`🌐 Connecting to Bright Data browser for: ${modelUrl}`);
     
     let browser;
@@ -60,7 +61,8 @@ export class BrightDataPuppeteer {
       
       // Click "Show More" button repeatedly until all listings are loaded
       let clickCount = 0;
-      const maxClicks = 50; // Safety limit
+      // Each "Show More" click loads about 35-40 items, so maxPages * 35 gives us a reasonable approximation
+      const maxClicks = Math.min(maxPages, 50); // Use maxPages but cap at 50 for safety
       const clicksToCheck = 3; // Check duplicates after every N clicks
       const itemsPerLoad = 20; // Approximate items loaded per click
       const duplicateThreshold = 0.8; // Stop if 80% of recent items are duplicates

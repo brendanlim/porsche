@@ -165,7 +165,8 @@ export class BaTScraperPuppeteer extends BaseScraper {
       
       try {
         // Use Puppeteer to get the page with all listings loaded, passing existing URLs for duplicate detection
-        const result = await this.puppeteerScraper.scrapeBaTResults(modelConfig.searchUrl, existingUrls);
+        // Pass maxPages to control how many "Show More" clicks we do
+        const result = await this.puppeteerScraper.scrapeBaTResults(modelConfig.searchUrl, existingUrls, maxPages);
         
         if (!result || !result.html) {
           console.log('❌ No HTML returned from scraper');

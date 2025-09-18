@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
-function getGeneration(year: number, model?: string): string {
+function getGeneration(year: number, model?: string, trim?: string): string {
   const modelLower = model?.toLowerCase() || '';
+  const trimLower = trim?.toLowerCase() || '';
   
   // 718 Cayman/Boxster generations
   if (modelLower.includes('718') || modelLower.includes('cayman') || modelLower.includes('boxster')) {
+    // GT4 and GT4 RS were only introduced with 718 generation (982) in 2015
+    // Never assign 987 generation to GT4 variants
+    if (trimLower.includes('gt4')) {
+      if (year >= 2017) return '982';
+      // For GT4 before 2017, still return 982 as GT4 was introduced in 2015 with 718 generation
+      return '982';
+    }
+    
     if (year >= 2017) return '982';
     if (year >= 2012) return '981';
     return '987';
@@ -138,7 +147,7 @@ export async function GET(
     if (generationFilter && generationFilter !== 'all') {
       filteredListings = filteredListings.filter(l => {
         const year = l.year;
-        const generation = getGeneration(year, modelName);
+        const generation = getGeneration(year, modelName, trim);
         return generation === generationFilter;
       });
     }
@@ -184,7 +193,7 @@ export async function GET(
 
     // Get unique generations
     const generations = Array.from(new Set(
-      filteredListings.map(l => getGeneration(l.year || 0, modelName)).filter(g => g !== null && g !== undefined)
+      filteredListings.map(l => getGeneration(l.year || 0, modelName, trim)).filter(g => g !== null && g !== undefined)
     )).sort();
 
     // Calculate month-over-month changes
@@ -430,7 +439,7 @@ export async function GET(
           avgPrice,
           avgMileage,
           costPer1000Mi,
-          generation: getGeneration(year, modelName)
+          generation: getGeneration(year, modelName, trim)
         };
       })
       .sort((a, b) => b.year - a.year);
@@ -502,7 +511,7 @@ export async function GET(
     const genData = new Map();
     generations.forEach(gen => {
       const genListings = filteredListings.filter(l => 
-        getGeneration(l.model_years?.year || 0, modelName) === gen
+        getGeneration(l.model_years?.year || 0, modelName, trim) === gen
       );
       
       const genPrices = genListings.map(l => l.price).filter(p => p > 0);
@@ -699,7 +708,7 @@ export async function GET(
         daysOnMarket: l.list_date && l.sold_date
           ? Math.max(0, Math.floor((new Date(l.sold_date).getTime() - new Date(l.list_date).getTime()) / (1000 * 60 * 60 * 24)))
           : null,
-        generation: getGeneration(l.year || 0, modelName),
+        generation: getGeneration(l.year || 0, modelName, trim),
         premiumPercent: ((l.price - averagePrice) / averagePrice) * 100
       }));
 
@@ -718,7 +727,7 @@ export async function GET(
         daysOnMarket: l.list_date && l.sold_date
           ? Math.max(0, Math.floor((new Date(l.sold_date).getTime() - new Date(l.list_date).getTime()) / (1000 * 60 * 60 * 24)))
           : null,
-        generation: getGeneration(l.year || 0, modelName)
+        generation: getGeneration(l.year || 0, modelName, trim)
       }));
 
     // Price vs Mileage scatter data - IMPORTANT!
@@ -739,7 +748,7 @@ export async function GET(
           price: l.price,
           year: year,
           color: l.exterior_color || 'Unknown',
-          generation: getGeneration(year, modelName)
+          generation: getGeneration(year, modelName, trim)
         };
       });
 
@@ -749,7 +758,7 @@ export async function GET(
       .map(l => ({
         date: l.sold_date,
         price: l.price,
-        generation: getGeneration(l.year || 0, modelName),
+        generation: getGeneration(l.year || 0, modelName, trim),
         mileage: l.mileage || undefined,
         year: l.year || undefined
       }))

@@ -3,7 +3,6 @@ import { createClient } from '@/lib/supabase/server';
 import {
   decodePorscheVIN,
   formatDecodedVIN,
-  getModelDisplay,
   getTrimFromVIN
 } from '@/lib/utils/porsche-vin-decoder';
 
@@ -27,7 +26,7 @@ export async function GET(
     // Decode VIN using our Porsche decoder
     const decodedVIN = decodePorscheVIN(vin);
     const formattedVIN = formatDecodedVIN(decodedVIN);
-    const modelDisplay = getModelDisplay(decodedVIN);
+    // const modelDisplay = getModelDisplay(decodedVIN);
     const trimDisplay = getTrimFromVIN(decodedVIN);
 
     // Get all listings for this VIN

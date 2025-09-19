@@ -30,10 +30,10 @@ export class DataNormalizer {
     vin?: string;
     exterior_color?: string;
     options_text?: string;
-    raw_data?: any;
+    raw_data?: Record<string, unknown>;
   }): Promise<NormalizationResult> {
     const validation_errors: string[] = [];
-    let result: NormalizationResult = {
+    const result: NormalizationResult = {
       options: [],
       validation_errors
     };

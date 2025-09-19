@@ -41,36 +41,102 @@ async function main() {
   console.log(`  • Estimated time: 5-10 minutes`);
   console.log('─'.repeat(70));
 
-  // Import the appropriate scraper
-  const { BaTScraperPuppeteer } = await import('../../lib/scrapers/bat-puppeteer');
-
   if (source === 'bat') {
-    const scraper = new BaTScraperPuppeteer();
+    // Use the simpler BAT scraper that can quickly get URLs from search pages
+    const { BaTScraper } = await import('../../lib/scrapers/bat');
+    const scraper = new BaTScraper();
 
-    // Modify the scraper to only get URLs, not fetch details
     console.log('\n🔍 Collecting listing URLs from Bring a Trailer...\n');
 
-    // We'll need to modify the scraper to support URL-only mode
-    // For now, let's collect with maxPages=1 to keep it fast
-    const listings = await scraper.scrapeListings({
-      maxPages: 1,  // Just get first page for speed
-      onlySold: true
-    });
+    // Get search pages for all models and extract URLs
+    const allUrls: Array<{url: string, title: string, model: string, trim: string}> = [];
 
-    console.log(`\n✅ Found ${listings.length} listing URLs`);
+    // Define the models to scrape (simplified list for quick collection)
+    const modelsToCheck = [
+      { model: '911', trim: 'GT3', url: 'https://bringatrailer.com/porsche/996-gt3/' },
+      { model: '911', trim: 'GT3', url: 'https://bringatrailer.com/porsche/997-gt3/' },
+      { model: '911', trim: 'GT3', url: 'https://bringatrailer.com/porsche/991-gt3/' },
+      { model: '911', trim: 'GT3', url: 'https://bringatrailer.com/porsche/992-gt3/' },
+      { model: '718 Cayman', trim: 'GT4', url: 'https://bringatrailer.com/porsche/cayman-gt4/' },
+      { model: '911', trim: 'Turbo', url: 'https://bringatrailer.com/porsche/996-turbo/' },
+      { model: '911', trim: 'Turbo', url: 'https://bringatrailer.com/porsche/997-turbo/' },
+      { model: '911', trim: 'Turbo', url: 'https://bringatrailer.com/porsche/991-turbo/' },
+      { model: '911', trim: 'Turbo', url: 'https://bringatrailer.com/porsche/992-turbo/' }
+    ];
+
+    for (const modelConfig of modelsToCheck) {
+      try {
+        console.log(`📄 Fetching ${modelConfig.model} ${modelConfig.trim}...`);
+
+        // Fetch the search page HTML
+        const response = await fetch(modelConfig.url);
+        const html = await response.text();
+
+        // Extract URLs from the HTML using cheerio
+        const { default: cheerio } = await import('cheerio');
+        const $ = cheerio.load(html);
+
+        // Find all auction links
+        $('.auctions-item-title a').each((_, elem) => {
+          const href = $(elem).attr('href');
+          const title = $(elem).text().trim();
+          if (href && href.includes('bringatrailer.com/listing/')) {
+            allUrls.push({
+              url: href.startsWith('http') ? href : `https://bringatrailer.com${href}`,
+              title,
+              model: modelConfig.model,
+              trim: modelConfig.trim
+            });
+          }
+        });
+
+        // Also check for data in script tags (BaT embeds JSON)
+        $('script').each((_, elem) => {
+          const scriptText = $(elem).html() || '';
+          if (scriptText.includes('window.auctions')) {
+            try {
+              const match = scriptText.match(/window\.auctions\s*=\s*(\[[\s\S]*?\]);/);
+              if (match) {
+                const auctions = JSON.parse(match[1]);
+                auctions.forEach((auction: any) => {
+                  if (auction.url) {
+                    allUrls.push({
+                      url: auction.url,
+                      title: auction.title || '',
+                      model: modelConfig.model,
+                      trim: modelConfig.trim
+                    });
+                  }
+                });
+              }
+            } catch (e) {
+              // Ignore JSON parse errors
+            }
+          }
+        });
+
+      } catch (error) {
+        console.error(`❌ Error fetching ${modelConfig.model} ${modelConfig.trim}:`, error);
+      }
+    }
+
+    console.log(`\n✅ Found ${allUrls.length} listing URLs`);
 
     // Store URLs in queue table
-    if (listings.length > 0) {
+    if (allUrls.length > 0) {
       console.log('\n📥 Saving URLs to queue...');
 
-      const queueItems = listings.map(listing => ({
+      // Remove duplicates
+      const uniqueUrls = Array.from(new Map(allUrls.map(item => [item.url, item])).values());
+
+      const queueItems = uniqueUrls.map(item => ({
         source: 'bring-a-trailer',
-        url: listing.source_url || listing.url,
-        title: listing.title,
-        model: listing.model,
-        trim: listing.trim,
+        url: item.url,
+        title: item.title,
+        model: item.model,
+        trim: item.trim,
         status: 'pending',
-        priority: listing.price && listing.price > 200000 ? 1 : 2, // High-value cars get priority
+        priority: 2, // Normal priority
         created_at: new Date().toISOString()
       }));
 

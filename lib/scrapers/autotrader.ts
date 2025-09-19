@@ -1,9 +1,22 @@
 import * as cheerio from 'cheerio';
-import { BaseScraper, ScraperResult } from './base';
+import { SharedScraper } from './shared-scraper';
+import { ScraperResult } from './base';
 
-export class AutoTraderScraper extends BaseScraper {
+export class AutoTraderScraper extends SharedScraper {
   constructor() {
-    super('autotrader');
+    super('autotrader', {
+      baseUrl: 'https://www.autotrader.com',
+      name: 'AutoTrader',
+      selectors: {
+        listings: '[data-testid="inventory-listing"], .inventory-listing, article[data-listing-id]',
+        title: 'h2, .listing-title',
+        price: '[data-testid="price"], .price-main',
+        mileage: '[data-testid="mileage"], .item:contains("miles")',
+        vin: '[data-testid="vin"], .vin',
+        dealer: '[data-testid="dealer-name"], .dealer-name',
+        location: '[data-testid="location"], .location'
+      }
+    });
   }
 
   async scrapeListings(model: string, trim?: string, onlySold: boolean = false): Promise<ScraperResult[]> {
@@ -84,7 +97,7 @@ export class AutoTraderScraper extends BaseScraper {
           
           // Get more details from the detail page if needed
           if (!vin && detailUrl) {
-            const detailResult = await this.scrapeDetailPage(detailUrl);
+            const detailResult = await this.scrapeDetail(detailUrl);
             if (detailResult) {
               vin = detailResult.vin;
             }

@@ -183,7 +183,7 @@ export default function AddCarPage() {
       } else {
         setError('No data found for this VIN. You can still add it manually.');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to lookup VIN. You can still add the car manually.');
     } finally {
       setLoading(false);

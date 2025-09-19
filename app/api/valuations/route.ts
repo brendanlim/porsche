@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     const isPremium = profile?.subscription_status === 'premium';
 
     const body: ValuationRequest = await request.json();
-    const { year, model_id, trim_id, mileage, exterior_color_id, options, generation_id } = body;
+    const { year, model_id, trim_id, mileage, exterior_color_id, options } = body;
 
     // Validate required fields
     if (!year || !model_id || !trim_id || mileage === undefined) {
@@ -117,15 +117,15 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function calculateBasicValuation(listings: any[], targetMileage: number): number {
+function calculateBasicValuation(listings: { mileage: number; price: number }[], targetMileage: number): number {
   // Simple mileage-adjusted average
-  const weights = listings.map((listing: any) => {
+  const weights = listings.map((listing) => {
     const mileageDiff = Math.abs(listing.mileage - targetMileage);
     return Math.max(0.1, 1 - (mileageDiff / 100000)); // Weight decreases with mileage difference
   });
 
   const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
-  const weightedSum = listings.reduce((sum: number, listing: any, index: number) => {
+  const weightedSum = listings.reduce((sum: number, listing, index: number) => {
     return sum + (listing.price * weights[index]);
   }, 0);
 
@@ -133,14 +133,14 @@ function calculateBasicValuation(listings: any[], targetMileage: number): number
 }
 
 function calculateAdvancedValuation(
-  listings: any[],
+  listings: { mileage: number; price: number; listing_options?: { option_id: string }[] }[],
   vehicle: { year: number; mileage: number; exterior_color_id?: string; options: string[] }
 ): number {
   // Advanced valuation considering multiple factors
   let baseValue = 0;
   let totalWeight = 0;
 
-  listings.forEach((listing: any) => {
+  listings.forEach((listing) => {
     let weight = 1;
 
     // Mileage adjustment
@@ -157,7 +157,7 @@ function calculateAdvancedValuation(
     }
 
     // Options matching
-    const listingOptions = listing.listing_options?.map((lo: any) => lo.option_id) || [];
+    const listingOptions = listing.listing_options?.map((lo) => lo.option_id) || [];
     const commonOptions = vehicle.options.filter(opt => listingOptions.includes(opt));
     const optionsBonus = commonOptions.length * 0.05; // 5% bonus per matching option
     weight *= (1 + optionsBonus);
@@ -173,25 +173,25 @@ function calculateAdvancedValuation(
   return totalWeight > 0 ? baseValue / totalWeight : 0;
 }
 
-function calculateConfidenceScore(listings: any[], targetMileage: number): number {
+function calculateConfidenceScore(listings: { mileage: number; price: number }[]): number {
   if (listings.length === 0) return 0;
 
   // Base confidence on number of comparables
   const confidence = Math.min(0.9, listings.length / 25);
 
   // Adjust for mileage spread
-  const mileages = listings.map((l: any) => l.mileage);
+  const mileages = listings.map((l) => l.mileage);
   const mileageSpread = Math.max(...mileages) - Math.min(...mileages);
   const mileageConfidence = Math.max(0.5, 1 - (mileageSpread / 200000));
 
   // Adjust for recency of sales
-  const daysSinceNewest = (Date.now() - new Date(Math.max(...listings.map((l: any) => new Date(l.sold_date).getTime()))).getTime()) / (24 * 60 * 60 * 1000);
+  const daysSinceNewest = (Date.now() - new Date(Math.max(...listings.map((l: { sold_date: string }) => new Date(l.sold_date).getTime()))).getTime()) / (24 * 60 * 60 * 1000);
   const recencyConfidence = Math.max(0.6, 1 - (daysSinceNewest / 180));
 
   return confidence * mileageConfidence * recencyConfidence;
 }
 
-async function calculateMarketTrend(supabase: any, modelId: string, trimId: string, year: number) {
+async function calculateMarketTrend(supabase: { from: (...args: unknown[]) => unknown }, modelId: string, trimId: string, year: number) {
   // Get price trends over the last 6 months
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
@@ -223,8 +223,8 @@ async function calculateMarketTrend(supabase: any, modelId: string, trimId: stri
   const firstThird = recentSales.slice(0, Math.floor(recentSales.length / 3));
   const lastThird = recentSales.slice(-Math.floor(recentSales.length / 3));
 
-  const avgEarly = firstThird.reduce((sum: number, sale: any) => sum + sale.price, 0) / firstThird.length;
-  const avgRecent = lastThird.reduce((sum: number, sale: any) => sum + sale.price, 0) / lastThird.length;
+  const avgEarly = firstThird.reduce((sum: number, sale) => sum + sale.price, 0) / firstThird.length;
+  const avgRecent = lastThird.reduce((sum: number, sale) => sum + sale.price, 0) / lastThird.length;
 
   const changePercent = ((avgRecent - avgEarly) / avgEarly) * 100;
 

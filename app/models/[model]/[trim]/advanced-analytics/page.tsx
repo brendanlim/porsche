@@ -4,15 +4,15 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
-  ResponsiveContainer, ScatterChart, Scatter, AreaChart, Area, PieChart, Pie, Cell,
+import {
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell,
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ComposedChart,
-  ReferenceLine, Brush, RadialBarChart, RadialBar
+  ReferenceLine, Brush
 } from 'recharts';
-import { 
-  TrendingUp, TrendingDown, DollarSign, Calendar, Activity, 
-  BarChart3, PieChartIcon, Clock, Package, Gauge, AlertCircle 
+import {
+  TrendingUp, TrendingDown, Activity,
+  Gauge, AlertCircle
 } from 'lucide-react';
 
 interface AdvancedAnalytics {

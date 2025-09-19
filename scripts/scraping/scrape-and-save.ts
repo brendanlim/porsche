@@ -424,7 +424,7 @@ async function main() {
         const batScraper = new BaTScraperPuppeteer();
         const batResults = await batScraper.scrapeListings({
           model: model || undefined,
-          maxPages: maxPagesOverride !== null ? maxPagesOverride : (model && trim ? 1 : 5),  // Use override if provided
+          maxPages: maxPagesOverride !== null ? maxPagesOverride : 1,  // Default to 1 for daily scraper
           onlySold: true
         });
         results.bat = batResults.length;
@@ -449,7 +449,7 @@ async function main() {
       const classicScraper = new ClassicScraper();
       const classicResults = await classicScraper.scrapeListings({
         model: model || undefined,
-        maxPages: maxPagesOverride !== null ? maxPagesOverride : (model && trim ? 2 : 5),
+        maxPages: maxPagesOverride !== null ? maxPagesOverride : 1,  // Default to 1 for daily scraper
         onlySold: false  // Classic.com has auctions (status='auction') that we want to include
       });
       results.classic = classicResults.length;
@@ -475,7 +475,7 @@ async function main() {
       const carsAndBidsScraper = new CarsAndBidsScraper();
       const carsAndBidsResults = await carsAndBidsScraper.scrapeListings({
         model: model || undefined,
-        maxPages: maxPagesOverride !== null ? maxPagesOverride : (model && trim ? 2 : 5),
+        maxPages: maxPagesOverride !== null ? maxPagesOverride : 1,  // Default to 1 for daily scraper
         onlySold: true
       });
       results.carsAndBids = carsAndBidsResults.length;
@@ -500,7 +500,7 @@ async function main() {
       const edmundsScraper = new EdmundsScraper();
       const edmundsResults = await edmundsScraper.scrapeListings({
         model: model || undefined,
-        maxPages: maxPagesOverride !== null ? maxPagesOverride : (model && trim ? 2 : 5),
+        maxPages: maxPagesOverride !== null ? maxPagesOverride : 1,  // Default to 1 for daily scraper
         onlySold: true
       });
       results.edmunds = edmundsResults.length;
@@ -526,7 +526,7 @@ async function main() {
       const carsScraper = new CarsScraper();
       const carsResults = await carsScraper.scrapeListings({
         model: model || undefined,
-        maxPages: maxPagesOverride !== null ? maxPagesOverride : (model && trim ? 2 : 5),
+        maxPages: maxPagesOverride !== null ? maxPagesOverride : 1,  // Default to 1 for daily scraper
         onlySold: true
       });
       results.cars = carsResults.length;

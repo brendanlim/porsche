@@ -513,10 +513,10 @@ export class BaTScraper extends BaseScraper {
   }
 
   private extractSoldDate($: cheerio.CheerioAPI, pageText: string): Date | undefined {
-    // Current date for validation (no sold dates should be in the future)
-    const today = new Date();
-    const maxValidDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1); // Allow today + 1 for timezone issues
+    // Date validation - BaT started around 2007
+    // Note: Don't validate against "current" date as AI models may have incorrect dates
     const minValidDate = new Date(2010, 0, 1); // BaT started around 2007, but most sales after 2010
+    const maxValidDate = new Date(2030, 0, 1); // Allow dates up to 2030 to be safe
 
     // Helper to parse date with 2-digit year handling
     const parseDate = (dateStr: string): Date | null => {
@@ -539,14 +539,7 @@ export class BaTScraper extends BaseScraper {
           year = 1900 + year;
         }
 
-        // If the resulting date is in the future, it's probably wrong century
-        // e.g., "25" should be 2024 not 2025 if we're in 2024
-        const tempDate = new Date(year, month, day);
-        const currentYear = new Date().getFullYear();
-        if (tempDate.getFullYear() > currentYear) {
-          year = year - 1;  // Try previous year
-          console.log(`    Adjusted year from ${year + 1} to ${year} (was future date)`);
-        }
+        // No need to adjust for "future" dates - just validate reasonableness
 
         date = new Date(year, month, day);
       }
@@ -554,11 +547,13 @@ export class BaTScraper extends BaseScraper {
       return date;
     };
 
-    // Helper to validate date
+    // Helper to validate date - just check it's reasonable
     const isValidSoldDate = (date: Date): boolean => {
       return !isNaN(date.getTime()) &&
              date <= maxValidDate &&
-             date >= minValidDate;
+             date >= minValidDate &&
+             date.getFullYear() >= 2007 && // BaT started ~2007
+             date.getFullYear() <= 2029;    // Reasonable upper bound
     };
 
     // First try to extract from specific BaT elements

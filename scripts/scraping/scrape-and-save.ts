@@ -366,33 +366,26 @@ async function main() {
   }
   
   // Display configuration
-  console.log('='.repeat(80));
-  console.log('PORSCHE TRENDS - COMPREHENSIVE SCRAPER WITH DATABASE SAVE');
-  console.log('='.repeat(80));
+  console.log('\n' + '█'.repeat(80));
+  console.log(' '.repeat(10) + 'PORSCHE TRENDS - COMPREHENSIVE SCRAPER WITH DATABASE SAVE');
+  console.log('█'.repeat(80));
+  console.log('\n📋 CONFIGURATION:');
+  console.log('─'.repeat(40));
   if (source) {
-    console.log(`Source filter: ${source}`);
+    console.log(`  • Source filter: ${source}`);
   } else {
-    const sources = type === 'active' 
+    const sources = type === 'active'
       ? 'Cars.com, AutoTrader'
       : type === 'sold'
       ? 'BaT, Classic, Cars&Bids'
-      : 'All (BaT, Classic, Cars&Bids, Cars.com, AutoTrader)';
-    console.log(`Sources: ${sources}`);
+      : 'All sources';
+    console.log(`  • Sources: ${sources}`);
   }
-  console.log(`Listing type: ${type.toUpperCase()} (sold/active/both)`);
-  if (model) {
-    console.log(`Model filter: ${model}`);
-  }
-  if (trim) {
-    console.log(`Trim filter: ${trim}`);
-  }
-  if (maxPagesOverride) {
-    console.log(`Max pages override: ${maxPagesOverride} (for all scrapers)`);
-  }
-  console.log('='.repeat(80));
-  console.log('Golden Rule: Storage is cheap, scraping is not');
-  console.log('Organization: source/model/trim/date/type/');
-  console.log('='.repeat(80) + '\n');
+  console.log(`  • Listing type: ${type.toUpperCase()}`);
+  if (model) console.log(`  • Model filter: ${model}`);
+  if (trim) console.log(`  • Trim filter: ${trim}`);
+  if (maxPagesOverride) console.log(`  • Max pages: ${maxPagesOverride}`);
+  console.log('─'.repeat(40));
   
   // Import scrapers after dotenv is loaded
   const { BaTScraperPuppeteer } = await import('../../lib/scrapers/bat-puppeteer');
@@ -415,13 +408,16 @@ async function main() {
 
   // SOLD LISTINGS SCRAPERS
   if (type === 'sold' || type === 'both') {
-    console.log('\n📋 SCRAPING SOLD LISTINGS\n');
+    console.log('\n' + '▓'.repeat(80));
+    console.log(' '.repeat(25) + '📋 SCRAPING SOLD LISTINGS');
+    console.log('▓'.repeat(80));
     
     // Run only specific source if specified
     if (source === 'bat' || (!source && type !== 'active')) {
       // Run Bring a Trailer scraper (PRIORITY - best data)
-      console.log('\n🎯 [1/6] Bring a Trailer (Puppeteer)');
-      console.log('─'.repeat(50));
+      console.log('\n' + '═'.repeat(60));
+      console.log('🎯 [1/6] BRING A TRAILER');
+      console.log('═'.repeat(60));
 
       try {
         // Use Puppeteer version for BaT to handle dynamic loading
@@ -445,8 +441,9 @@ async function main() {
 
     if (source === 'classic' || (!source && type !== 'active')) {
       // Run Classic.com scraper
-      console.log('\n🎯 [2/6] Classic.com');
-      console.log('─'.repeat(50));
+      console.log('\n' + '═'.repeat(60));
+      console.log('🎯 [2/6] CLASSIC.COM');
+      console.log('═'.repeat(60));
 
       try {
       const classicScraper = new ClassicScraper();
@@ -470,8 +467,9 @@ async function main() {
 
     if (source === 'carsandbids' || !source) {
       // Run Cars and Bids scraper
-      console.log('\n🎯 [3/6] Cars and Bids');
-      console.log('─'.repeat(50));
+      console.log('\n' + '═'.repeat(60));
+      console.log('🎯 [3/6] CARS AND BIDS');
+      console.log('═'.repeat(60));
 
       try {
       const carsAndBidsScraper = new CarsAndBidsScraper();
@@ -548,7 +546,9 @@ async function main() {
   
   // ACTIVE LISTINGS SCRAPERS
   if (type === 'active' || type === 'both') {
-    console.log('\n📋 SCRAPING ACTIVE LISTINGS\n');
+    console.log('\n' + '▓'.repeat(80));
+    console.log(' '.repeat(25) + '📋 SCRAPING ACTIVE LISTINGS');
+    console.log('▓'.repeat(80));
     
     // Cars.com (Active listings)
     if (source === 'cars' || (!source && type !== 'sold')) {
@@ -605,25 +605,28 @@ async function main() {
 
   // Summary
   results.total = results.bat + results.classic + results.carsAndBids + results.edmunds + results.cars + results.autotrader;
-  
-  console.log('='.repeat(50));
-  console.log('SCRAPING COMPLETE');
-  console.log('='.repeat(50));
-  console.log(`Total listings scraped: ${results.total}`);
+
+  console.log('\n' + '█'.repeat(80));
+  console.log(' '.repeat(30) + '🏁 SCRAPING COMPLETE');
+  console.log('█'.repeat(80));
+  console.log('\n📊 FINAL SUMMARY:');
+  console.log('─'.repeat(40));
+  console.log(`  Total listings scraped: ${results.total}`);
   if (type === 'sold' || type === 'both') {
-    console.log('\nSold Listings:');
-    console.log(`  - Bring a Trailer: ${results.bat}`);
-    console.log(`  - Classic.com: ${results.classic}`);
-    console.log(`  - Cars and Bids: ${results.carsAndBids}`);
-    console.log(`  - Edmunds: ${results.edmunds}`);
+    console.log('\n  Sold Listings:');
+    if (results.bat > 0) console.log(`    • Bring a Trailer: ${results.bat}`);
+    if (results.classic > 0) console.log(`    • Classic.com: ${results.classic}`);
+    if (results.carsAndBids > 0) console.log(`    • Cars and Bids: ${results.carsAndBids}`);
+    if (results.edmunds > 0) console.log(`    • Edmunds: ${results.edmunds}`);
   }
   if (type === 'active' || type === 'both') {
-    console.log('\nActive Listings:');
-    console.log(`  - Cars.com: ${results.cars}`);
-    console.log(`  - AutoTrader: ${results.autotrader}`);
+    console.log('\n  Active Listings:');
+    if (results.cars > 0) console.log(`    • Cars.com: ${results.cars}`);
+    if (results.autotrader > 0) console.log(`    • AutoTrader: ${results.autotrader}`);
   }
-  console.log('\nDatabase Summary:');
-  console.log(`  ✅ Total saved/updated: ${results.saved}`);
+  console.log('\n  Database:');
+  console.log(`    ✅ Total saved/updated: ${results.saved}`);
+  console.log('─'.repeat(40));
   
   if (results.total === 0) {
     console.log('\n⚠️ No listings were scraped. Check scraper configurations.');

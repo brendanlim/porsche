@@ -19,28 +19,28 @@ export class BrightDataPuppeteer {
    * @param maxPages - Maximum number of "pages" to load (each Show More click loads ~35 items)
    */
   async scrapeBaTResults(modelUrl: string, existingUrls: Set<string> = new Set(), maxPages: number = 2): Promise<any> {
-    console.log(`🌐 Connecting to Bright Data browser for: ${modelUrl}`);
-    
+    console.log(`\n🌐 Connecting to Bright Data...`);
+
     let browser;
     try {
       // Connect to Bright Data's browser
       browser = await puppeteer.connect({
         browserWSEndpoint: this.browserWSEndpoint,
       });
-      
+
       const page = await browser.newPage();
-      
+
       // Set viewport and user agent
       await page.setViewport({ width: 1920, height: 1080 });
       await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-      
-      console.log('📄 Navigating to page...');
+
+      console.log('📄 Loading page...');
       await page.goto(modelUrl, {
         waitUntil: 'networkidle2',
         timeout: 60000,
       });
-      
-      console.log('⏳ Page loaded, looking for auction results section...');
+
+      console.log('⏳ Finding auction results...');
       
       // First, scroll down to load the auction results section
       await page.evaluate(() => {
@@ -128,8 +128,8 @@ export class BrightDataPuppeteer {
           }
           
           clickCount++;
-          console.log(`📋 Clicking "Show More" button (click #${clickCount})...`);
-          
+          console.log(`🔄 Loading more listings... (${clickCount}/${maxClicks})`);
+
           await showMoreButton.click();
           
           // Wait for content to load
@@ -142,7 +142,7 @@ export class BrightDataPuppeteer {
       }
       
       if (clickCount === maxClicks) {
-        console.log('⚠️ Reached maximum click limit');
+        console.log('✓ Reached pagination limit');
       }
       
       // Extract sold listings after all content is loaded
@@ -207,7 +207,7 @@ export class BrightDataPuppeteer {
         return listings;
       });
       
-      console.log(`✅ Found ${soldListings.length} sold listings`);
+      console.log(`📦 Extracted ${soldListings.length} sold listings from page`);
       
       // Get the full HTML for storage
       const html = await page.content();
@@ -217,7 +217,10 @@ export class BrightDataPuppeteer {
       return { listings: soldListings, html };
       
     } catch (error: any) {
-      console.error('❌ Browser error:', error.message);
+      const errorMsg = error.message.includes('timeout')
+        ? 'Page load timeout (60s)'
+        : error.message;
+      console.error(`❌ Browser error: ${errorMsg}`);
       if (browser) {
         await browser.close();
       }

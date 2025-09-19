@@ -163,14 +163,16 @@ export class BaTScraperPuppeteer extends BaseScraper {
       });
     }
     
-    console.log('='.repeat(50));
-    console.log('BRING A TRAILER SCRAPER - PUPPETEER VERSION');
-    console.log('='.repeat(50));
-    console.log(`Models to scrape: ${modelsToScrape.length} (filtered from ${BAT_MODELS.length})`);
-    if (model) console.log(`Model filter: ${model}`);
-    if (trim) console.log(`Trim filter: ${trim}`);
-    console.log(`Using Bright Data Scraping Browser to handle dynamic content`);
-    console.log('='.repeat(50) + '\n');
+    console.log('\n' + '█'.repeat(70));
+    console.log(' '.repeat(15) + 'BRING A TRAILER SCRAPER - PUPPETEER VERSION');
+    console.log('█'.repeat(70));
+    console.log(`\n📋 Configuration:`);
+    console.log(`   • Models to scrape: ${modelsToScrape.length}/${BAT_MODELS.length}`);
+    if (model) console.log(`   • Model filter: ${model}`);
+    if (trim) console.log(`   • Trim filter: ${trim}`);
+    console.log(`   • Max pages per model: ${maxPages}`);
+    console.log(`   • Using Bright Data Scraping Browser`);
+    console.log('─'.repeat(70));
     
     // Fetch existing URLs from database to detect duplicates
     console.log('📊 Fetching existing BaT URLs from database...');
@@ -183,10 +185,15 @@ export class BaTScraperPuppeteer extends BaseScraper {
     console.log(`Found ${existingUrls.size} existing BaT listings in database`);
     
     // Process each model/trim combination
-    for (const modelConfig of modelsToScrape) {
-      console.log(`\n📊 Processing ${modelConfig.name} ${modelConfig.trim || ''} (${modelConfig.generation || 'all generations'})`);
-      console.log(`URL: ${modelConfig.searchUrl}`);
-      
+    for (let configIdx = 0; configIdx < modelsToScrape.length; configIdx++) {
+      const modelConfig = modelsToScrape[configIdx];
+
+      // Add separator between models
+      console.log('\n' + '═'.repeat(70));
+      console.log(`📊 [${configIdx + 1}/${modelsToScrape.length}] ${modelConfig.name} ${modelConfig.trim || ''} (${modelConfig.generation || 'all'})`);
+      console.log('─'.repeat(70));
+      console.log(`🔗 ${modelConfig.searchUrl}`);
+
       try {
         // Use Puppeteer to get the page with all listings loaded, passing existing URLs for duplicate detection
         // Pass maxPages to control how many "Show More" clicks we do
@@ -340,20 +347,23 @@ export class BaTScraperPuppeteer extends BaseScraper {
         
         // Rate limit between models
         await new Promise(resolve => setTimeout(resolve, 3000));
-        
+
       } catch (error: any) {
-        console.error(`❌ Error processing ${modelConfig.name}: ${error.message}`);
+        console.error(`\n❌ Error processing ${modelConfig.name}: ${error.message}`);
+        console.log('─'.repeat(70));
       }
     }
     
-    console.log('\n' + '='.repeat(50));
-    console.log(`SCRAPING COMPLETE - Found ${allListings.length} total listings`);
-    console.log('='.repeat(50));
+    console.log('\n' + '═'.repeat(70));
+    console.log(`✅ SEARCH COMPLETE - Found ${allListings.length} total listings`);
+    console.log('═'.repeat(70));
     
     // Now fetch individual listing pages
     if (allListings.length > 0) {
-      console.log('\n📥 Fetching individual listing pages...\n');
-      console.log(`  Total listings to fetch details: ${allListings.length}`);
+      console.log('\n' + '▓'.repeat(70));
+      console.log('📥 FETCHING INDIVIDUAL LISTING DETAILS');
+      console.log('▓'.repeat(70));
+      console.log(`\n📊 Total listings to process: ${allListings.length}`);
 
       // Process in batches to avoid memory issues
       const batchSize = 50;
@@ -366,7 +376,9 @@ export class BaTScraperPuppeteer extends BaseScraper {
         const endIdx = Math.min(startIdx + batchSize, allListings.length);
         const batch = allListings.slice(startIdx, endIdx);
 
-        console.log(`\n  📦 Processing batch ${batchNum + 1}/${totalBatches} (${batch.length} listings)`);
+        console.log('\n' + '·'.repeat(60));
+        console.log(`📦 Batch ${batchNum + 1}/${totalBatches} (items ${startIdx + 1}-${endIdx})`);
+        console.log('·'.repeat(60));
 
         for (let i = 0; i < batch.length; i++) {
           const listing = batch[i];
@@ -382,8 +394,6 @@ export class BaTScraperPuppeteer extends BaseScraper {
           try {
             const carInfo = `${listing.model || 'Unknown'} ${listing.trim || ''}`.trim();
             console.log(`\n  [${globalIdx}/${allListings.length}] ${carInfo}`);
-
-            // Add timeout wrapper with retry
             let listingData = null;
             let retries = 2;
 
@@ -476,7 +486,9 @@ export class BaTScraperPuppeteer extends BaseScraper {
         if (totalErrors >= 5) break;
       }
 
-      console.log(`\n  📊 Detail fetch complete: ${totalFetched}/${allListings.length} successfully processed`);
+      console.log('\n' + '═'.repeat(70));
+      console.log(`📊 DETAIL FETCH COMPLETE: ${totalFetched}/${allListings.length} successfully processed`);
+      console.log('═'.repeat(70));
     }
     
     return allListings;

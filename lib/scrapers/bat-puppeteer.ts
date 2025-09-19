@@ -23,14 +23,48 @@ const BAT_MODELS: BaTModel[] = [
   { name: '911', slug: '911', trim: 'GT3 RS', generation: '997', searchUrl: 'https://bringatrailer.com/porsche/997-gt3/' },
   { name: '911', slug: '911', trim: 'GT3 RS', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-gt3/' },
   { name: '911', slug: '911', trim: 'GT3 RS', generation: '992', searchUrl: 'https://bringatrailer.com/porsche/992-gt3/' },
-  // 911 Base/Carrera Models
+  // 911 Base/Carrera Models - All variants use the generation URL
+  // 964 Carrera variants (just /964/)
+  { name: '911', slug: '911', trim: 'Carrera', generation: '964', searchUrl: 'https://bringatrailer.com/porsche/964/' },
+  { name: '911', slug: '911', trim: 'Carrera 2', generation: '964', searchUrl: 'https://bringatrailer.com/porsche/964/' },
+  { name: '911', slug: '911', trim: 'Carrera 4', generation: '964', searchUrl: 'https://bringatrailer.com/porsche/964/' },
+  { name: '911', slug: '911', trim: 'Carrera RS', generation: '964', searchUrl: 'https://bringatrailer.com/porsche/964/' },
+
+  // 993 Carrera variants (just /993/)
+  { name: '911', slug: '911', trim: 'Carrera', generation: '993', searchUrl: 'https://bringatrailer.com/porsche/993/' },
+  { name: '911', slug: '911', trim: 'Carrera S', generation: '993', searchUrl: 'https://bringatrailer.com/porsche/993/' },
+  { name: '911', slug: '911', trim: 'Carrera 4', generation: '993', searchUrl: 'https://bringatrailer.com/porsche/993/' },
+  { name: '911', slug: '911', trim: 'Carrera 4S', generation: '993', searchUrl: 'https://bringatrailer.com/porsche/993/' },
+  { name: '911', slug: '911', trim: 'Carrera RS', generation: '993', searchUrl: 'https://bringatrailer.com/porsche/993/' },
+
+  // 996 Carrera variants
   { name: '911', slug: '911', trim: 'Carrera', generation: '996', searchUrl: 'https://bringatrailer.com/porsche/996-911/' },
+  { name: '911', slug: '911', trim: 'Carrera S', generation: '996', searchUrl: 'https://bringatrailer.com/porsche/996-911/' },
+  { name: '911', slug: '911', trim: 'Carrera 4', generation: '996', searchUrl: 'https://bringatrailer.com/porsche/996-911/' },
+  { name: '911', slug: '911', trim: 'Carrera 4S', generation: '996', searchUrl: 'https://bringatrailer.com/porsche/996-911/' },
+
+  // 997 Carrera variants
   { name: '911', slug: '911', trim: 'Carrera', generation: '997', searchUrl: 'https://bringatrailer.com/porsche/997-911/' },
+  { name: '911', slug: '911', trim: 'Carrera S', generation: '997', searchUrl: 'https://bringatrailer.com/porsche/997-911/' },
+  { name: '911', slug: '911', trim: 'Carrera 4', generation: '997', searchUrl: 'https://bringatrailer.com/porsche/997-911/' },
+  { name: '911', slug: '911', trim: 'Carrera 4S', generation: '997', searchUrl: 'https://bringatrailer.com/porsche/997-911/' },
+  { name: '911', slug: '911', trim: 'Carrera GTS', generation: '997', searchUrl: 'https://bringatrailer.com/porsche/997-911/' },
+
+  // 991 Carrera variants
   { name: '911', slug: '911', trim: 'Carrera', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-911/' },
+  { name: '911', slug: '911', trim: 'Carrera S', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-911/' },
+  { name: '911', slug: '911', trim: 'Carrera 4', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-911/' },
+  { name: '911', slug: '911', trim: 'Carrera 4S', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-911/' },
+  { name: '911', slug: '911', trim: 'Carrera GTS', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-911/' },
+  { name: '911', slug: '911', trim: 'Carrera 4 GTS', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-911/' },
+
+  // 992 Carrera variants
   { name: '911', slug: '911', trim: 'Carrera', generation: '992', searchUrl: 'https://bringatrailer.com/porsche/992-911/' },
-  { name: '911', slug: '911', trim: 'Carrera S', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-carrera-s/' },
-  { name: '911', slug: '911', trim: 'Carrera 4S', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-carrera-4s/' },
-  { name: '911', slug: '911', trim: 'Carrera GTS', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-carrera-gts/' },
+  { name: '911', slug: '911', trim: 'Carrera S', generation: '992', searchUrl: 'https://bringatrailer.com/porsche/992-911/' },
+  { name: '911', slug: '911', trim: 'Carrera 4', generation: '992', searchUrl: 'https://bringatrailer.com/porsche/992-911/' },
+  { name: '911', slug: '911', trim: 'Carrera 4S', generation: '992', searchUrl: 'https://bringatrailer.com/porsche/992-911/' },
+  { name: '911', slug: '911', trim: 'Carrera GTS', generation: '992', searchUrl: 'https://bringatrailer.com/porsche/992-911/' },
+  { name: '911', slug: '911', trim: 'Carrera 4 GTS', generation: '992', searchUrl: 'https://bringatrailer.com/porsche/992-911/' },
 
   // 911 Turbo Models (all generations)
   { name: '911', slug: '911', trim: 'Turbo', generation: '930', searchUrl: 'https://bringatrailer.com/porsche/930-turbo/' },

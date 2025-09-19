@@ -590,6 +590,7 @@ class MarketInsightsGenerator {
     const { data, error } = await supabaseAdmin
       .from('market_insights')
       .select('id')
+      .eq('insight_type', type)  // Filter by insight type
       .gte('created_at', cutoff.toISOString())
       .limit(1);
 

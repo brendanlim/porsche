@@ -261,22 +261,45 @@ class MarketInsightsGenerator {
     try {
       console.log('  📈 Analyzing trending models...');
       
-      // Get models with high recent activity
-      const { data: trendingData } = await supabaseAdmin
+      // Get recent listings to analyze trends
+      const { data: recentListings } = await supabaseAdmin
         .from('listings')
-        .select('model, trim, COUNT(*) as listing_count, AVG(price) as avg_price')
+        .select('model, trim, price')
         .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
         .not('model', 'is', null)
         .not('trim', 'is', null)
-        .group('model, trim')
-        .order('listing_count', { ascending: false })
-        .limit(10);
+        .order('created_at', { ascending: false });
 
-      if (trendingData && trendingData.length > 0) {
-        console.log(`  ✅ Analyzed ${trendingData.length} trending model/trim combinations`);
+      if (recentListings && recentListings.length > 0) {
+        // Group by model/trim manually
+        const trendingModels = new Map<string, { count: number; avgPrice: number; prices: number[] }>();
+        
+        for (const listing of recentListings) {
+          const key = `${listing.model}|${listing.trim}`;
+          const existing = trendingModels.get(key) || { count: 0, avgPrice: 0, prices: [] };
+          existing.count++;
+          if (listing.price) {
+            existing.prices.push(listing.price);
+          }
+          trendingModels.set(key, existing);
+        }
+        
+        // Calculate averages and sort by count
+        const sortedTrends = Array.from(trendingModels.entries())
+          .map(([key, data]) => {
+            const [model, trim] = key.split('|');
+            const avgPrice = data.prices.length > 0 
+              ? data.prices.reduce((a, b) => a + b, 0) / data.prices.length 
+              : 0;
+            return { model, trim, count: data.count, avgPrice };
+          })
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 10);
+        
+        console.log(`  ✅ Analyzed ${sortedTrends.length} trending model/trim combinations`);
         
         // Generate insights for top trending models
-        for (const trend of trendingData.slice(0, 3)) {
+        for (const trend of sortedTrends.slice(0, 3)) {
           await this.predictor.generateMarketInsights(
             'trend_analysis',
             trend.model,

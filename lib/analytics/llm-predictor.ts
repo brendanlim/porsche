@@ -786,33 +786,93 @@ class CacheManager {
   }
 }
 
-class PromptManager {
-  async getPrompt(type: string, version?: string): Promise<PromptTemplate> {
-    const { data } = await supabaseAdmin
-      .from('llm_prompts')
-      .select('*')
-      .eq('prompt_type', type)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+import * as fs from 'fs';
+import * as path from 'path';
 
-    if (!data) {
+class PromptManager {
+  private prompts: Map<string, PromptTemplate> = new Map();
+  private promptsDir = path.join(process.cwd(), 'lib', 'prompts');
+  
+  constructor() {
+    this.loadPrompts();
+  }
+  
+  private loadPrompts() {
+    // Map of prompt types to their file names
+    const promptFiles: Record<string, { file: string, modelConfig?: Partial<PromptTemplate> }> = {
+      'market_market_summary': { 
+        file: 'market-summary.md',
+        modelConfig: {
+          modelProvider: 'openai',
+          modelName: 'gpt-4-turbo-preview',
+          temperature: 0.7,
+          maxTokens: 1000
+        }
+      },
+      'anomaly_detection': { 
+        file: 'anomaly-detection.md',
+        modelConfig: {
+          modelProvider: 'openai',
+          modelName: 'gpt-4-turbo-preview',
+          temperature: 0.3,
+          maxTokens: 800
+        }
+      },
+      'price_prediction': { 
+        file: 'price-prediction.md',
+        modelConfig: {
+          modelProvider: 'openai',
+          modelName: 'gpt-4-turbo-preview',
+          temperature: 0.5,
+          maxTokens: 600
+        }
+      }
+    };
+    
+    for (const [type, config] of Object.entries(promptFiles)) {
+      try {
+        const filePath = path.join(this.promptsDir, config.file);
+        if (fs.existsSync(filePath)) {
+          const content = fs.readFileSync(filePath, 'utf-8');
+          const { systemPrompt, userPrompt } = this.parsePromptFile(content);
+          
+          this.prompts.set(type, {
+            id: type,
+            type: type,
+            version: '1.0',
+            systemPrompt,
+            userPromptTemplate: userPrompt,
+            modelProvider: config.modelConfig?.modelProvider || 'openai',
+            modelName: config.modelConfig?.modelName || 'gpt-4-turbo-preview',
+            temperature: config.modelConfig?.temperature || 0.7,
+            maxTokens: config.modelConfig?.maxTokens || 1000,
+            isActive: true
+          });
+        }
+      } catch (error) {
+        console.warn(`Failed to load prompt ${type}:`, error);
+      }
+    }
+  }
+  
+  private parsePromptFile(content: string): { systemPrompt: string; userPrompt: string } {
+    const systemMatch = content.match(/## System Prompt\n([\s\S]*?)(?=##|$)/);
+    const userMatch = content.match(/## User Prompt\n([\s\S]*?)(?=##|$)/);
+    
+    return {
+      systemPrompt: systemMatch ? systemMatch[1].trim() : '',
+      userPrompt: userMatch ? userMatch[1].trim() : ''
+    };
+  }
+  
+  async getPrompt(type: string, version?: string): Promise<PromptTemplate> {
+    const prompt = this.prompts.get(type);
+    
+    if (!prompt) {
       throw new Error(`No active prompt found for type: ${type}`);
     }
-
-    return {
-      id: data.id,
-      type: data.prompt_type,
-      version: data.version,
-      systemPrompt: data.system_prompt,
-      userPromptTemplate: data.user_prompt_template,
-      modelProvider: data.model_provider,
-      modelName: data.model_name,
-      temperature: data.temperature,
-      maxTokens: data.max_tokens,
-      isActive: data.is_active
-    };
+    
+    return prompt;
   }
 }
 

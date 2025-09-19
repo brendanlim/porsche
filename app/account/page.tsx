@@ -67,9 +67,9 @@ export default function AccountPage() {
 
       if (data.success) {
         const cars = data.data;
-        const totalValue = cars.reduce((sum: number, car: any) =>
+        const totalValue = cars.reduce((sum: number, car: { latest_estimated_value?: number }) =>
           sum + (car.latest_estimated_value || 0), 0);
-        const totalPurchasePrice = cars.reduce((sum: number, car: any) =>
+        const totalPurchasePrice = cars.reduce((sum: number, car: { purchase_price?: number }) =>
           sum + (car.purchase_price || 0), 0);
 
         setStats({

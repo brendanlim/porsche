@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
-export async function GET(_request: NextRequest) {
+export async function GET() {
   try {
     // Fetch all trims with their models and listing counts
     const { data: trims, error: trimsError } = await supabaseAdmin
@@ -26,7 +26,7 @@ export async function GET(_request: NextRequest) {
     // Get listing stats for each trim
     const trimStats = await Promise.all(
       trims.map(async (trim) => {
-        const modelYearIds = trim.model_years?.map((my: any) => my.id) || [];
+        const modelYearIds = trim.model_years?.map((my: { id: string }) => my.id) || [];
         
         if (modelYearIds.length === 0) {
           return {

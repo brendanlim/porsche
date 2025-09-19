@@ -780,7 +780,7 @@ export async function GET(
           const month = soldDate.getMonth() + 1; // getMonth() returns 0-11
           
           // Find which season this month belongs to
-          Object.entries(seasons).forEach(([seasonName, seasonData]) => {
+          Object.entries(seasons).forEach(([, seasonData]) => {
             if (seasonData.months.includes(month)) {
               seasonData.sales.push(listing);
               seasonData.prices.push(listing.price);

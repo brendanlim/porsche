@@ -13,17 +13,14 @@ import {
   Trash2,
   Eye,
   Crown,
-  Calendar,
-  Gauge,
-  DollarSign,
-  MapPin
+  Gauge
 } from 'lucide-react';
 import { formatPrice, formatMileage } from '@/lib/utils';
 import { UserCarDetailed } from '@/lib/types/database';
 
 export default function GaragePage() {
   const { user, loading: userLoading } = useUser();
-  const { profile, isSubscribed } = useProfile();
+  const { isSubscribed } = useProfile();
   const router = useRouter();
   const [cars, setCars] = useState<UserCarDetailed[]>([]);
   const [loading, setLoading] = useState(true);

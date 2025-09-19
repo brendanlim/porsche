@@ -31,7 +31,7 @@ const BAT_MODELS: BaTModel[] = [
   { name: '911', slug: '911', trim: 'Carrera S', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-carrera-s/' },
   { name: '911', slug: '911', trim: 'Carrera 4S', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-carrera-4s/' },
   { name: '911', slug: '911', trim: 'Carrera GTS', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-carrera-gts/' },
-  
+
   // 911 Turbo Models (all generations)
   { name: '911', slug: '911', trim: 'Turbo', generation: '930', searchUrl: 'https://bringatrailer.com/porsche/930-turbo/' },
   { name: '911', slug: '911', trim: 'Turbo', generation: '964', searchUrl: 'https://bringatrailer.com/porsche/964-turbo/' },
@@ -45,29 +45,53 @@ const BAT_MODELS: BaTModel[] = [
   { name: '911', slug: '911', trim: 'Turbo S', generation: '997', searchUrl: 'https://bringatrailer.com/porsche/997-turbo/' }, // Turbo S shares page with Turbo
   { name: '911', slug: '911', trim: 'Turbo S', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-turbo-s/' },
   { name: '911', slug: '911', trim: 'Turbo S', generation: '992', searchUrl: 'https://bringatrailer.com/porsche/992-turbo-s/' },
-  
+
   // 911 Targa Models
   { name: '911', slug: '911', trim: 'Targa', generation: '991', searchUrl: 'https://bringatrailer.com/porsche/991-targa/' },
   { name: '911', slug: '911', trim: 'Targa', generation: '992', searchUrl: 'https://bringatrailer.com/porsche/992-targa/' },
-  
-  // 718/Cayman/Boxster Models
+
+  // 718/Cayman/Boxster Models - FIXED URLs per generation
+  // Cayman GT4 (special - includes all GT4/GT4 RS/GT4 Clubsport)
   { name: '718 Cayman', slug: '718-cayman', trim: 'GT4', searchUrl: 'https://bringatrailer.com/porsche/cayman-gt4/' },
-  { name: '718 Cayman', slug: '718-cayman', trim: 'GT4 RS', searchUrl: 'https://bringatrailer.com/porsche/cayman-gt4/' },  // GT4 RS included in GT4 page
-  { name: '718 Cayman', slug: '718-cayman', trim: 'GTS', searchUrl: 'https://bringatrailer.com/porsche/718-cayman-gts/' },
-  { name: '718 Cayman', slug: '718-cayman', trim: 'GTS 4.0', searchUrl: 'https://bringatrailer.com/porsche/718-cayman-gts-4-0/' },
-  { name: '718 Cayman', slug: '718-cayman', trim: 'S', searchUrl: 'https://bringatrailer.com/porsche/718-cayman-s/' },
-  { name: '718 Cayman', slug: '718-cayman', trim: 'Base', searchUrl: 'https://bringatrailer.com/porsche/718-cayman/' },
-  { name: 'Cayman', slug: 'cayman', trim: 'Base', searchUrl: 'https://bringatrailer.com/porsche/981-cayman/' },
-  { name: 'Cayman', slug: 'cayman', trim: 'S', searchUrl: 'https://bringatrailer.com/porsche/981-cayman-s/' },
-  { name: 'Cayman', slug: 'cayman', trim: 'GTS', searchUrl: 'https://bringatrailer.com/porsche/981-cayman-gts/' },
-  { name: '718 Boxster', slug: '718-boxster', trim: 'Spyder', searchUrl: 'https://bringatrailer.com/porsche/718-spyder/' },
-  { name: '718 Boxster', slug: '718-boxster', trim: 'GTS', searchUrl: 'https://bringatrailer.com/porsche/718-boxster-gts/' },
-  { name: '718 Boxster', slug: '718-boxster', trim: 'S', searchUrl: 'https://bringatrailer.com/porsche/718-boxster-s/' },
-  { name: '718 Boxster', slug: '718-boxster', trim: 'Base', searchUrl: 'https://bringatrailer.com/porsche/718-boxster/' },
-  { name: 'Boxster', slug: 'boxster', trim: 'Base', searchUrl: 'https://bringatrailer.com/porsche/981-boxster/' },
-  { name: 'Boxster', slug: 'boxster', trim: 'S', searchUrl: 'https://bringatrailer.com/porsche/981-boxster-s/' },
-  { name: 'Boxster', slug: 'boxster', trim: 'GTS', searchUrl: 'https://bringatrailer.com/porsche/981-boxster-gts/' },
-  { name: 'Boxster', slug: 'boxster', trim: 'Spyder', searchUrl: 'https://bringatrailer.com/porsche/981-spyder/' },
+  { name: '718 Cayman', slug: '718-cayman', trim: 'GT4 RS', searchUrl: 'https://bringatrailer.com/porsche/cayman-gt4/' },
+  { name: '718 Cayman', slug: '718-cayman', trim: 'GT4 Clubsport', searchUrl: 'https://bringatrailer.com/porsche/cayman-gt4/' },
+
+  // 982 Cayman (718 generation 2016+)
+  { name: '718 Cayman', slug: '718-cayman', trim: 'Base', generation: '982', searchUrl: 'https://bringatrailer.com/porsche/982-718-cayman/' },
+  { name: '718 Cayman', slug: '718-cayman', trim: 'S', generation: '982', searchUrl: 'https://bringatrailer.com/porsche/982-718-cayman/' },
+  { name: '718 Cayman', slug: '718-cayman', trim: 'GTS', generation: '982', searchUrl: 'https://bringatrailer.com/porsche/982-718-cayman/' },
+  { name: '718 Cayman', slug: '718-cayman', trim: 'GTS 4.0', generation: '982', searchUrl: 'https://bringatrailer.com/porsche/982-718-cayman/' },
+
+  // 981 Cayman (2013-2016)
+  { name: 'Cayman', slug: 'cayman', trim: 'Base', generation: '981', searchUrl: 'https://bringatrailer.com/porsche/981-cayman/' },
+  { name: 'Cayman', slug: 'cayman', trim: 'S', generation: '981', searchUrl: 'https://bringatrailer.com/porsche/981-cayman/' },
+  { name: 'Cayman', slug: 'cayman', trim: 'GTS', generation: '981', searchUrl: 'https://bringatrailer.com/porsche/981-cayman/' },
+
+  // 987 Cayman (2006-2012)
+  { name: 'Cayman', slug: 'cayman', trim: 'Base', generation: '987', searchUrl: 'https://bringatrailer.com/porsche/987-cayman/' },
+  { name: 'Cayman', slug: 'cayman', trim: 'S', generation: '987', searchUrl: 'https://bringatrailer.com/porsche/987-cayman/' },
+  { name: 'Cayman', slug: 'cayman', trim: 'R', generation: '987', searchUrl: 'https://bringatrailer.com/porsche/987-cayman/' },
+
+  // 982 Boxster (718 generation 2016+)
+  { name: '718 Boxster', slug: '718-boxster', trim: 'Base', generation: '982', searchUrl: 'https://bringatrailer.com/porsche/982-718-boxster/' },
+  { name: '718 Boxster', slug: '718-boxster', trim: 'S', generation: '982', searchUrl: 'https://bringatrailer.com/porsche/982-718-boxster/' },
+  { name: '718 Boxster', slug: '718-boxster', trim: 'GTS', generation: '982', searchUrl: 'https://bringatrailer.com/porsche/982-718-boxster/' },
+  { name: '718 Boxster', slug: '718-boxster', trim: 'Spyder', generation: '982', searchUrl: 'https://bringatrailer.com/porsche/982-718-boxster/' },
+
+  // 981 Boxster (2013-2016)
+  { name: 'Boxster', slug: 'boxster', trim: 'Base', generation: '981', searchUrl: 'https://bringatrailer.com/porsche/981-boxster/' },
+  { name: 'Boxster', slug: 'boxster', trim: 'S', generation: '981', searchUrl: 'https://bringatrailer.com/porsche/981-boxster/' },
+  { name: 'Boxster', slug: 'boxster', trim: 'GTS', generation: '981', searchUrl: 'https://bringatrailer.com/porsche/981-boxster/' },
+  { name: 'Boxster', slug: 'boxster', trim: 'Spyder', generation: '981', searchUrl: 'https://bringatrailer.com/porsche/981-boxster/' },
+
+  // 987 Boxster (2005-2012)
+  { name: 'Boxster', slug: 'boxster', trim: 'Base', generation: '987', searchUrl: 'https://bringatrailer.com/porsche/987-boxster/' },
+  { name: 'Boxster', slug: 'boxster', trim: 'S', generation: '987', searchUrl: 'https://bringatrailer.com/porsche/987-boxster/' },
+  { name: 'Boxster', slug: 'boxster', trim: 'Spyder', generation: '987', searchUrl: 'https://bringatrailer.com/porsche/987-boxster/' },
+
+  // 986 Boxster (1997-2004)
+  { name: 'Boxster', slug: 'boxster', trim: 'Base', generation: '986', searchUrl: 'https://bringatrailer.com/porsche/986-boxster/' },
+  { name: 'Boxster', slug: 'boxster', trim: 'S', generation: '986', searchUrl: 'https://bringatrailer.com/porsche/986-boxster/' },
 ];
 
 /**
@@ -114,7 +138,7 @@ export class BaTScraperPuppeteer extends BaseScraper {
     maxPages?: number;
     onlySold?: boolean;
   } = {}): Promise<ScrapedListing[]> {
-    const { model, trim, maxPages = 5, onlySold = true } = options;
+    const { model, trim, maxPages = 5 } = options;
     const allListings: ScrapedListing[] = [];
     
     // Filter models based on provided parameters
@@ -329,61 +353,130 @@ export class BaTScraperPuppeteer extends BaseScraper {
     // Now fetch individual listing pages
     if (allListings.length > 0) {
       console.log('\n📥 Fetching individual listing pages...\n');
-      
-      // Limit detail fetching based on maxPages to avoid timeouts
-      // With maxPages=2, fetch up to 100 detail pages (50 per page)
-      const maxDetailsToFetch = (options.maxPages || 5) * 50;
-      const detailsToFetch = allListings.slice(0, maxDetailsToFetch);
-      
-      console.log(`  Will fetch ${detailsToFetch.length} of ${allListings.length} detail pages`);
-      console.log(`  (Limited by maxPages=${options.maxPages} * 50 to avoid timeouts)`);
-      
-      for (let i = 0; i < detailsToFetch.length; i++) {
-        const listing = detailsToFetch[i];
-        try {
-          console.log(`[${i + 1}/${detailsToFetch.length}] Fetching detail for ${listing.model || 'Unknown'} ${listing.trim || ''}: ${listing.url}`);
-          
-          // Fetch the listing page with Puppeteer
-          const listingData = await this.puppeteerScraper.scrapeListingPage(listing.url);
-          
-          if (listingData.html) {
-            // Store the detail page HTML - ensure we have model/trim from modelConfig
-            const storageResult = await this.htmlStorage.storeScrapedHTML({
-              source: 'bring-a-trailer',
-              url: listing.url,
-              html: listingData.html,
-              type: 'detail',
-              model: listing.model || 'unknown',
-              trim: listing.trim || '',
-            });
-            if (storageResult) {
-              console.log(`  ✓ Stored HTML for listing ${listing.model || 'unknown'} ${listing.trim || ''}: ${storageResult.path} (${listingData.html.length} bytes)`);
-            }
-            
-            // Parse the detail page for full data
-            const parsed = await this.parseListing(listingData.html, listing.url);
-            if (parsed) {
-              // Merge the parsed data with the listing, but preserve the price we already have
-              const existingPrice = listing.price;
-              Object.assign(listing, parsed);
-              
-              // If we didn't find a price in the detail page, use the one from search results
-              if ((!parsed.price || parsed.price === 0) && existingPrice > 0) {
-                listing.price = existingPrice;
+      console.log(`  Total listings to fetch details: ${allListings.length}`);
+
+      // Process in batches to avoid memory issues
+      const batchSize = 50;
+      const totalBatches = Math.ceil(allListings.length / batchSize);
+      let totalFetched = 0;
+      let totalErrors = 0;
+
+      for (let batchNum = 0; batchNum < totalBatches; batchNum++) {
+        const startIdx = batchNum * batchSize;
+        const endIdx = Math.min(startIdx + batchSize, allListings.length);
+        const batch = allListings.slice(startIdx, endIdx);
+
+        console.log(`\n  📦 Processing batch ${batchNum + 1}/${totalBatches} (${batch.length} listings)`);
+
+        for (let i = 0; i < batch.length; i++) {
+          const listing = batch[i];
+          const globalIdx = startIdx + i + 1;
+
+          // Skip if we've had too many consecutive errors
+          if (totalErrors >= 5) {
+            console.error('\n  ⚠️ Too many consecutive errors, stopping detail fetching');
+            console.error('  This may be due to rate limiting or network issues');
+            break;
+          }
+
+          try {
+            const carInfo = `${listing.model || 'Unknown'} ${listing.trim || ''}`.trim();
+            console.log(`\n  [${globalIdx}/${allListings.length}] ${carInfo}`);
+
+            // Add timeout wrapper with retry
+            let listingData = null;
+            let retries = 2;
+
+            while (retries > 0 && !listingData) {
+              try {
+                // Create a timeout promise
+                const timeoutPromise = new Promise((_, reject) =>
+                  setTimeout(() => reject(new Error('Fetch timeout after 30s')), 30000)
+                );
+
+                // Race between fetch and timeout
+                listingData = await Promise.race([
+                  this.puppeteerScraper.scrapeListingPage(listing.url),
+                  timeoutPromise
+                ]);
+
+                totalErrors = 0; // Reset error counter on success
+              } catch (timeoutError: any) {
+                retries--;
+                if (retries > 0) {
+                  console.log(`    ⚠️ Timeout/error, retrying... (${retries} attempts left)`);
+                  await new Promise(resolve => setTimeout(resolve, 3000));
+                } else {
+                  throw timeoutError;
+                }
               }
-              
-              // Save to database
-              await this.saveListing(listing);
+            }
+
+            if (listingData && listingData.html) {
+              // Store the detail page HTML
+              const storageResult = await this.htmlStorage.storeScrapedHTML({
+                source: 'bring-a-trailer',
+                url: listing.url,
+                html: listingData.html,
+                type: 'detail',
+                model: listing.model || 'unknown',
+                trim: listing.trim || '',
+              });
+
+              if (storageResult) {
+                const sizeKB = Math.round(listingData.html.length / 1024);
+                console.log(`    ✓ Stored HTML (${sizeKB}KB)`);
+              }
+
+              // Parse the detail page for full data
+              const parsed = await this.parseListing(listingData.html, listing.url);
+              if (parsed) {
+                // Merge the parsed data with the listing
+                const existingPrice = listing.price;
+                Object.assign(listing, parsed);
+
+                // Preserve price if not found in detail
+                if ((!parsed.price || parsed.price === 0) && existingPrice > 0) {
+                  listing.price = existingPrice;
+                }
+
+                // Log key extracted data
+                const details = [];
+                if (parsed.vin) details.push(`VIN: ${parsed.vin}`);
+                if (parsed.mileage) details.push(`${parsed.mileage.toLocaleString()} mi`);
+                if (parsed.sold_date) details.push(`Sold: ${new Date(parsed.sold_date).toLocaleDateString()}`);
+                if (details.length > 0) {
+                  console.log(`    📊 ${details.join(' | ')}`);
+                }
+
+                totalFetched++;
+              }
+            }
+
+            // Rate limit between requests
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+          } catch (error: any) {
+            totalErrors++;
+            const errorMsg = error.message === 'The operation was canceled.'
+              ? 'Operation canceled (likely timeout or memory issue)'
+              : error.message;
+            console.error(`    ❌ Error: ${errorMsg}`);
+
+            // If operation was canceled, it might be a memory issue
+            if (error.message === 'The operation was canceled.') {
+              console.log('    💡 Tip: This often happens with memory/timeout issues');
+              console.log('    Waiting 5s before continuing...');
+              await new Promise(resolve => setTimeout(resolve, 5000));
             }
           }
-          
-          // Rate limit
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-        } catch (error: any) {
-          console.error(`  ❌ Error fetching detail: ${error.message}`);
         }
+
+        // Break if we've had too many errors
+        if (totalErrors >= 5) break;
       }
+
+      console.log(`\n  📊 Detail fetch complete: ${totalFetched}/${allListings.length} successfully processed`);
     }
     
     return allListings;
@@ -399,8 +492,8 @@ export class BaTScraperPuppeteer extends BaseScraper {
       const $ = cheerio.load(html);
       const pageText = $('body').text();
       
-      // Extract listing ID from URL
-      const sourceId = url.split('/').pop()?.replace(/[^a-zA-Z0-9-]/g, '') || '';
+      // Extract listing ID from URL (unused but kept for potential future use)
+      // const sourceId = url.split('/').pop()?.replace(/[^a-zA-Z0-9-]/g, '') || '';
       
       // Get title
       const title = $('h1.listing-title').first().text().trim() || 

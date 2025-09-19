@@ -229,14 +229,13 @@ export class BrightDataPuppeteer {
    * Scrape a single BaT listing page
    */
   async scrapeListingPage(url: string): Promise<any> {
-    console.log(`🌐 Fetching listing: ${url}`);
-    
+    // Silent operation - don't log every listing fetch
     let browser;
     try {
       browser = await puppeteer.connect({
         browserWSEndpoint: this.browserWSEndpoint,
       });
-      
+
       const page = await browser.newPage();
       await page.goto(url, {
         waitUntil: 'networkidle2',
@@ -277,7 +276,7 @@ export class BrightDataPuppeteer {
       return { ...listingData, html };
       
     } catch (error: any) {
-      console.error('❌ Error scraping listing:', error.message);
+      // Silent error - will be logged by calling function
       if (browser) {
         await browser.close();
       }

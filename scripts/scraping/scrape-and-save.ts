@@ -137,14 +137,15 @@ async function saveListings(listings: ScrapedListing[], source: string): Promise
   let updatedCount = 0;
   let skippedCount = 0;
   let errorCount = 0;
-  
-  console.log(`   Processing ${listings.length} listings from ${source}...`);
-  
+
+  console.log(`\n📊 Processing ${listings.length} listings from ${source}`);
+  console.log('─'.repeat(60));
+
   for (const listing of listings) {
     try {
       // Parse listing details
       const parsed = parseListingDetails(listing);
-      
+
       // If VIN exists, check for duplicates
       if (listing.vin) {
         const { data: existingWithVin } = await supabase
@@ -152,45 +153,76 @@ async function saveListings(listings: ScrapedListing[], source: string): Promise
           .select('id, source_url, sold_date, price, mileage, options_text')
           .eq('vin', listing.vin)
           .single();
-        
-        if (existingWithVin && existingWithVin.source_url !== listing.source_url) {
-          // Check if it's the same sale (same sold_date) or a relisting
-          const isSameSale = existingWithVin.sold_date && listing.sold_date && 
-            new Date(existingWithVin.sold_date).toDateString() === new Date(listing.sold_date).toDateString();
-          
-          if (isSameSale) {
-            console.log(`   ⚠️  VIN ${listing.vin} - same sold date, merging duplicate listings`);
-            
-            // Merge data into the existing listing, preferring non-null values
-            const mergedUpdates: any = {};
-            if (!existingWithVin.price && listing.price) mergedUpdates.price = listing.price;
-            if (!existingWithVin.mileage && listing.mileage) mergedUpdates.mileage = listing.mileage;
-            if (!existingWithVin.options_text && listing.options_text) mergedUpdates.options_text = listing.options_text;
-            if (listing.exterior_color) mergedUpdates.exterior_color = listing.exterior_color;
-            if (listing.interior_color) mergedUpdates.interior_color = listing.interior_color;
-            
-            if (Object.keys(mergedUpdates).length > 0) {
+
+        if (existingWithVin) {
+          if (existingWithVin.source_url === listing.source_url) {
+            // Same URL, this is an update to existing listing
+            // Continue to the upsert below which will update it
+          } else {
+            // Different URL but same VIN - this is either a duplicate or relisted car
+            const isSameSale = existingWithVin.sold_date && listing.sold_date &&
+              new Date(existingWithVin.sold_date).toDateString() === new Date(listing.sold_date).toDateString();
+
+            if (isSameSale) {
+              // Same VIN, same sold date, different URL = duplicate listing of same sale
+              // Merge data into existing listing
+              const mergedUpdates: any = {};
+              if (!existingWithVin.price && listing.price) mergedUpdates.price = listing.price;
+              if (!existingWithVin.mileage && listing.mileage) mergedUpdates.mileage = listing.mileage;
+              if (!existingWithVin.options_text && listing.options_text) mergedUpdates.options_text = listing.options_text;
+              if (listing.exterior_color) mergedUpdates.exterior_color = listing.exterior_color;
+              if (listing.interior_color) mergedUpdates.interior_color = listing.interior_color;
+
+              if (Object.keys(mergedUpdates).length > 0) {
+                const { error: updateError } = await supabase
+                  .from('listings')
+                  .update({
+                    ...mergedUpdates,
+                    scraped_at: new Date().toISOString()
+                  })
+                  .eq('id', existingWithVin.id);
+
+                if (!updateError) {
+                  updatedCount++;
+                  console.log(`  🔀 MERGE: VIN ${listing.vin.slice(-8)} (duplicate listing)`);
+                  // Process options if we just added them
+                  if (mergedUpdates.options_text) {
+                    await processListingOptions(existingWithVin.id, mergedUpdates.options_text);
+                  }
+                }
+              } else {
+                skippedCount++;
+                console.log(`  ⏭️  SKIP: VIN ${listing.vin.slice(-8)} (duplicate, no new data)`);
+              }
+              continue; // Skip the upsert below since we handled the duplicate
+            } else {
+              // Different sold dates = relisted car
+              // Update the existing record with the new listing URL and data
               const { error: updateError } = await supabase
                 .from('listings')
                 .update({
-                  ...mergedUpdates,
+                  source_url: listing.source_url,
+                  price: listing.price,
+                  sold_date: listing.sold_date,
+                  mileage: listing.mileage || existingWithVin.mileage,
+                  options_text: listing.options_text || existingWithVin.options_text,
+                  exterior_color: listing.exterior_color,
+                  interior_color: listing.interior_color,
                   scraped_at: new Date().toISOString()
                 })
-                .eq('id', existingWithVin.id);
-              
+                .eq('vin', listing.vin);
+
               if (!updateError) {
                 updatedCount++;
-                console.log(`   ✓ Merged data into existing listing`);
-                // Process options if we just added them
-                if (mergedUpdates.options_text) {
-                  await processListingOptions(existingWithVin.id, mergedUpdates.options_text);
-                }
+                const priceDiff = listing.price - existingWithVin.price;
+                const priceChange = priceDiff > 0 ? `+$${priceDiff.toLocaleString()}` : `-$${Math.abs(priceDiff).toLocaleString()}`;
+                console.log(`  🔄 RELIST: VIN ${listing.vin.slice(-8)} | ${priceChange}`);
+              } else {
+                errorCount++;
+                console.error(`  ❌ ERROR: Failed to update relisted VIN ${listing.vin.slice(-8)}`);
               }
+              continue; // Skip the upsert below since we handled the relisting
             }
-            continue; // Skip the upsert below since we're merging
-          } else {
-            console.log(`   ⚠️  VIN ${listing.vin} - different sold dates, this is a relisted car`);
-            // Continue with normal upsert, which will handle the duplicate VIN constraint
           }
         }
       }
@@ -233,37 +265,59 @@ async function saveListings(listings: ScrapedListing[], source: string): Promise
         })
         .select('id')
         .single();
-      
+
       if (!error && upsertedListing) {
         const carInfo = `${parsed.year || ''} ${parsed.model || ''} ${parsed.trim || ''}`.trim();
-        const vinInfo = listing.vin ? ` VIN: ${listing.vin}` : '';
-        
+        const vinDisplay = listing.vin ? listing.vin.slice(-8) : 'NO-VIN';
+
         if (isExisting) {
           updatedCount++;
-          // Show what changed
+          // Only show significant changes
           const changes = [];
-          if (existingListing.price !== listing.price) changes.push(`price: $${existingListing.price} → $${listing.price}`);
-          if (existingListing.mileage !== listing.mileage) changes.push(`miles: ${existingListing.mileage} → ${listing.mileage}`);
-          if (!existingListing.vin && listing.vin) changes.push(`added VIN: ${listing.vin}`);
-          
-          const changesStr = changes.length > 0 ? ` | Changes: ${changes.join(', ')}` : '';
-          console.log(`   ${operation}: ${carInfo}${vinInfo}${changesStr}`);
+          if (existingListing.price !== listing.price && listing.price) {
+            const priceDiff = Math.abs(listing.price - existingListing.price);
+            if (priceDiff > 100) { // Only show price changes > $100
+              changes.push(`$${existingListing.price?.toLocaleString() || '0'}→$${listing.price.toLocaleString()}`);
+            }
+          }
+          if (!existingListing.vin && listing.vin) changes.push(`+VIN`);
+          if (existingListing.mileage !== listing.mileage && listing.mileage) {
+            const mileDiff = Math.abs((listing.mileage || 0) - (existingListing.mileage || 0));
+            if (mileDiff > 10) { // Only show mile changes > 10
+              changes.push(`${existingListing.mileage?.toLocaleString() || '?'}→${listing.mileage.toLocaleString()}mi`);
+            }
+          }
+
+          if (changes.length > 0) {
+            console.log(`  🔄 UPDATE: ${carInfo} [${vinDisplay}] | ${changes.join(', ')}`);
+          } else {
+            // Silent update if no significant changes
+            updatedCount--; // Don't count as an update if nothing changed
+            skippedCount++;
+          }
         } else {
           savedCount++;
-          console.log(`   ${operation}: ${carInfo}${vinInfo} | Price: $${listing.price} | Miles: ${listing.mileage || 'N/A'}`);
+          const details = [];
+          if (listing.price) details.push(`$${listing.price.toLocaleString()}`);
+          if (listing.mileage) details.push(`${listing.mileage.toLocaleString()}mi`);
+          console.log(`  ✅ NEW: ${carInfo} [${vinDisplay}] | ${details.join(' | ')}`);
         }
-        
+
         // Process options for the listing
         if (listing.options_text) {
           try {
             await processListingOptions(upsertedListing.id, listing.options_text);
+            // Silent success - don't log unless there's an error
           } catch (optionsError) {
-            console.error(`   ⚠️  Error processing options: ${optionsError.message}`);
+            console.error(`     ⚠️  Options error: ${optionsError.message}`);
           }
         }
       } else {
         errorCount++;
-        console.error(`   ❌ ERROR: Failed to save listing - ${error?.message}`);
+        const errorMsg = error?.message?.includes('duplicate key')
+          ? 'Duplicate VIN conflict'
+          : error?.message || 'Unknown error';
+        console.error(`  ❌ ERROR: ${errorMsg}`);
       }
     } catch (err) {
       errorCount++;
@@ -274,8 +328,14 @@ async function saveListings(listings: ScrapedListing[], source: string): Promise
   }
   
   // Summary
-  console.log(`   📊 Summary: ${savedCount} new, ${updatedCount} updated, ${errorCount} errors`);
-  
+  console.log('─'.repeat(60));
+  const totalProcessed = savedCount + updatedCount + skippedCount;
+  console.log(`📊 Summary: ${savedCount} new | ${updatedCount} updated | ${skippedCount} skipped | ${errorCount} errors`);
+  if (totalProcessed > 0) {
+    const successRate = Math.round(((savedCount + updatedCount) / totalProcessed) * 100);
+    console.log(`✨ Success rate: ${successRate}% (${savedCount + updatedCount}/${totalProcessed} processed)`);
+  }
+
   // Return total successful saves/updates
   return savedCount + updatedCount;
 }
@@ -360,38 +420,35 @@ async function main() {
     // Run only specific source if specified
     if (source === 'bat' || (!source && type !== 'active')) {
       // Run Bring a Trailer scraper (PRIORITY - best data)
-      console.log('='.repeat(50));
-      console.log('1. Scraping Bring a Trailer (Priority Source)...');
-      console.log('   Using Puppeteer to click "Show More" button');
-      console.log('='.repeat(50));
-    try {
-      // Use Puppeteer version for BaT to handle dynamic loading
-      const batScraper = new BaTScraperPuppeteer();
-      const batResults = await batScraper.scrapeListings({
-        model: model || undefined,
-        maxPages: maxPagesOverride !== null ? maxPagesOverride : (model && trim ? 1 : 5),  // Use override if provided
-        onlySold: true
-      });
-      results.bat = batResults.length;
-      console.log(`✅ Bring a Trailer: ${batResults.length} sold listings`);
-      
-      // Save to database
-      if (batResults.length > 0) {
-        const saved = await saveListings(batResults, 'bring-a-trailer');
-        results.saved += saved;
+      console.log('\n🎯 [1/6] Bring a Trailer (Puppeteer)');
+      console.log('─'.repeat(50));
+
+      try {
+        // Use Puppeteer version for BaT to handle dynamic loading
+        const batScraper = new BaTScraperPuppeteer();
+        const batResults = await batScraper.scrapeListings({
+          model: model || undefined,
+          maxPages: maxPagesOverride !== null ? maxPagesOverride : (model && trim ? 1 : 5),  // Use override if provided
+          onlySold: true
+        });
+        results.bat = batResults.length;
+
+        // Save to database
+        if (batResults.length > 0) {
+          const saved = await saveListings(batResults, 'bring-a-trailer');
+          results.saved += saved;
+        }
+      } catch (error) {
+        console.error('❌ Bring a Trailer failed:', error);
       }
-      console.log();
-    } catch (error) {
-      console.error('❌ Bring a Trailer failed:', error);
-    }
     }
 
     if (source === 'classic' || (!source && type !== 'active')) {
-    // Run Classic.com scraper
-    console.log('='.repeat(50));
-    console.log('2. Scraping Classic.com...');
-    console.log('='.repeat(50));
-    try {
+      // Run Classic.com scraper
+      console.log('\n🎯 [2/6] Classic.com');
+      console.log('─'.repeat(50));
+
+      try {
       const classicScraper = new ClassicScraper();
       const classicResults = await classicScraper.scrapeListings({
         model: model || undefined,
@@ -399,25 +456,24 @@ async function main() {
         onlySold: false  // Classic.com has auctions (status='auction') that we want to include
       });
       results.classic = classicResults.length;
-      console.log(`✅ Classic.com: ${classicResults.length} sold listings`);
-      
-      // Save to database
-      if (classicResults.length > 0) {
-        const saved = await saveListings(classicResults, 'classic');
-        results.saved += saved;
-      }
-      console.log();
-    } catch (error) {
-      console.error('❌ Classic.com failed:', error);
-    }
-  }
+        results.classic = classicResults.length;
 
-  if (source === 'carsandbids' || !source) {
-    // Run Cars and Bids scraper
-    console.log('='.repeat(50));
-    console.log('3. Scraping Cars and Bids...');
-    console.log('='.repeat(50));
-    try {
+        // Save to database
+        if (classicResults.length > 0) {
+          const saved = await saveListings(classicResults, 'classic');
+          results.saved += saved;
+        }
+      } catch (error) {
+        console.error('❌ Classic.com failed:', error);
+      }
+    }
+
+    if (source === 'carsandbids' || !source) {
+      // Run Cars and Bids scraper
+      console.log('\n🎯 [3/6] Cars and Bids');
+      console.log('─'.repeat(50));
+
+      try {
       const carsAndBidsScraper = new CarsAndBidsScraper();
       const carsAndBidsResults = await carsAndBidsScraper.scrapeListings({
         model: model || undefined,
@@ -425,18 +481,17 @@ async function main() {
         onlySold: true
       });
       results.carsAndBids = carsAndBidsResults.length;
-      console.log(`✅ Cars and Bids: ${carsAndBidsResults.length} sold listings`);
-      
-      // Save to database
-      if (carsAndBidsResults.length > 0) {
-        const saved = await saveListings(carsAndBidsResults, 'carsandbids');
-        results.saved += saved;
+        results.carsAndBids = carsAndBidsResults.length;
+
+        // Save to database
+        if (carsAndBidsResults.length > 0) {
+          const saved = await saveListings(carsAndBidsResults, 'carsandbids');
+          results.saved += saved;
+        }
+      } catch (error) {
+        console.error('❌ Cars and Bids failed:', error);
       }
-      console.log();
-    } catch (error) {
-      console.error('❌ Cars and Bids failed:', error);
     }
-  }
 
   if (source === 'edmunds' || !source) {
     // Run Edmunds scraper

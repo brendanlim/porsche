@@ -126,9 +126,7 @@ export class HTMLStorageService {
       const contentHash = this.calculateHash(html);
       
       // Always store, even if duplicate (we want historical record)
-      console.log(`Storing ${type} HTML from ${source}: ${storagePath}`);
-      
-      // We always store (don't skip duplicates - we want the historical record)
+      // Silent operation - don't log every storage operation
       
       // Convert HTML string to Blob
       const htmlBlob = new Blob([html], { type: 'text/html' });
@@ -177,13 +175,7 @@ export class HTMLStorageService {
           .eq('id', listingId);
       }
       
-      const descriptor = type === 'search' 
-        ? `${model || 'unknown'} ${trim || ''} search page`
-        : listingId 
-          ? `listing ${listingId}`
-          : `${model || 'unknown'} ${trim || ''} detail page`;
-      console.log(`Stored HTML for ${descriptor}: ${storagePath} (${fileSize} bytes)`);
-      
+      // Silent success - return the result without logging
       return {
         path: storagePath,
         size: fileSize,

@@ -1,13 +1,10 @@
 name: Market Insights Generation
 
 on:
-  # Schedule daily insights at 6 AM UTC (2 AM EST)
+  # Schedule runs - daily at 6 AM UTC and weekly on Mondays at 8 AM UTC
   schedule:
-    - cron: '0 6 * * *'
-  
-  # Schedule weekly insights on Mondays at 8 AM UTC (4 AM EST)
-  schedule:
-    - cron: '0 8 * * 1'
+    - cron: '0 6 * * *'  # Daily insights at 6 AM UTC (2 AM EST)
+    - cron: '0 8 * * 1'  # Weekly insights on Mondays at 8 AM UTC (4 AM EST)
   
   # Allow manual triggering
   workflow_dispatch:

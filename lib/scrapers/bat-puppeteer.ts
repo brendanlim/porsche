@@ -175,14 +175,14 @@ export class BaTScraperPuppeteer extends BaseScraper {
     console.log('─'.repeat(70));
     
     // Fetch existing URLs from database to detect duplicates
-    console.log('📊 Fetching existing BaT URLs from database...');
+    console.log('📊 Checking for existing BaT listings in database...');
     const { data: existingListings } = await supabaseAdmin
       .from('listings')
-      .select('url')
+      .select('source_url')
       .eq('source', 'bring-a-trailer');
-    
-    const existingUrls = new Set(existingListings?.map(l => l.url) || []);
-    console.log(`Found ${existingUrls.size} existing BaT listings in database`);
+
+    const existingUrls = new Set(existingListings?.map(l => l.source_url) || []);
+    console.log(`Found ${existingUrls.size} existing BaT listings to check for duplicates`);
     
     // Process each model/trim combination
     for (let configIdx = 0; configIdx < modelsToScrape.length; configIdx++) {

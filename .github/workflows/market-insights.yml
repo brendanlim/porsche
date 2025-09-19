@@ -46,6 +46,11 @@ jobs:
     if: |
       (github.event_name == 'schedule') || 
       (github.event_name == 'workflow_dispatch' && github.event.inputs.insight_type == 'daily')
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     
     steps:
       - name: Checkout repository
@@ -61,11 +66,6 @@ jobs:
         run: npm ci
 
       - name: Setup environment variables
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           echo "Environment variables configured"
 
@@ -75,11 +75,6 @@ jobs:
             --type=daily \
             ${{ github.event.inputs.force_regeneration == 'true' && '--force' || '' }} \
             ${{ github.event.inputs.validate_predictions == 'true' && '--validate' || '' }}
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Report daily insights status
         if: always()
@@ -128,22 +123,12 @@ jobs:
           npx tsx scripts/analytics/generate-market-insights.ts \
             --type=daily \
             --validate
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Generate weekly market insights
         if: steps.is_monday.outputs.run_weekly == 'true'
         run: |
           npx tsx scripts/analytics/generate-market-insights.ts \
             --type=weekly
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Report weekly insights status
         if: steps.is_monday.outputs.run_weekly == 'true'
@@ -170,11 +155,6 @@ jobs:
         run: npm ci
 
       - name: Setup environment variables
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           echo "Environment variables configured"
 
@@ -183,22 +163,12 @@ jobs:
           npx tsx scripts/analytics/generate-market-insights.ts \
             --type=daily \
             --validate
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Generate weekly market insights
         run: |
           npx tsx scripts/analytics/generate-market-insights.ts \
             --type=weekly \
             ${{ github.event.inputs.force_regeneration == 'true' && '--force' || '' }}
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Report weekly insights status
         if: always()
@@ -232,11 +202,6 @@ jobs:
         run: npm ci
 
       - name: Setup environment variables
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           echo "Environment variables configured"
 
@@ -248,11 +213,6 @@ jobs:
             ${{ github.event.inputs.trim != '' && format('--trim="{0}"', github.event.inputs.trim) || '' }} \
             ${{ github.event.inputs.force_regeneration == 'true' && '--force' || '' }} \
             ${{ github.event.inputs.validate_predictions == 'true' && '--validate' || '' }}
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Report model-specific insights status
         if: always()
@@ -269,6 +229,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: [generate-daily-insights, generate-weekly-scheduled, generate-weekly-insights, generate-model-specific-insights]
     if: always() && (needs.generate-daily-insights.result != 'skipped' || needs.generate-weekly-scheduled.result != 'skipped' || needs.generate-weekly-insights.result != 'skipped' || needs.generate-model-specific-insights.result != 'skipped')
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     
     steps:
       - name: Checkout repository
@@ -288,10 +253,6 @@ jobs:
           # This would run a script to check daily/weekly costs and alert if over threshold
           echo "Checking LLM API usage and costs..."
           # npx tsx scripts/analytics/monitor-costs.ts
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
       - name: Report cost monitoring
         run: |
@@ -373,6 +334,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: [generate-daily-insights, generate-weekly-scheduled, generate-weekly-insights, generate-model-specific-insights]
     if: always() && github.event_name == 'schedule' # Run with scheduled jobs
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     
     steps:
       - name: Checkout repository
@@ -392,9 +358,6 @@ jobs:
           # This would run a script to clean up insights older than 6 months
           echo "Cleaning up old market insights..."
           # npx tsx scripts/analytics/cleanup-old-insights.ts
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
       - name: Report cleanup status
         run: |

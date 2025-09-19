@@ -355,7 +355,7 @@ export class BaTScraper extends BaseScraper {
         return null;
       }
       
-      // Extract sold date
+      // Extract sold date (with validation)
       const soldDate = this.extractSoldDate($, pageText);
       
       // Extract VIN
@@ -513,45 +513,136 @@ export class BaTScraper extends BaseScraper {
   }
 
   private extractSoldDate($: cheerio.CheerioAPI, pageText: string): Date | undefined {
+    // Current date for validation (no sold dates should be in the future)
+    const today = new Date();
+    const maxValidDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1); // Allow today + 1 for timezone issues
+    const minValidDate = new Date(2010, 0, 1); // BaT started around 2007, but most sales after 2010
+
+    // Helper to parse date with 2-digit year handling
+    const parseDate = (dateStr: string): Date | null => {
+      // First try normal parsing
+      let date = new Date(dateStr);
+
+      // Check for 2-digit year pattern (MM/DD/YY or M/D/YY)
+      const twoDigitYearMatch = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{2})/);
+      if (twoDigitYearMatch) {
+        const month = parseInt(twoDigitYearMatch[1]) - 1; // JS months are 0-indexed
+        const day = parseInt(twoDigitYearMatch[2]);
+        let year = parseInt(twoDigitYearMatch[3]);
+
+        // Convert 2-digit year to 4-digit
+        // For BaT context: sales started ~2007
+        // If year would be in future, subtract 100
+        if (year <= 29) {
+          year = 2000 + year;
+        } else {
+          year = 1900 + year;
+        }
+
+        // If the resulting date is in the future, it's probably wrong century
+        // e.g., "25" should be 2024 not 2025 if we're in 2024
+        const tempDate = new Date(year, month, day);
+        const currentYear = new Date().getFullYear();
+        if (tempDate.getFullYear() > currentYear) {
+          year = year - 1;  // Try previous year
+          console.log(`    Adjusted year from ${year + 1} to ${year} (was future date)`);
+        }
+
+        date = new Date(year, month, day);
+      }
+
+      return date;
+    };
+
+    // Helper to validate date
+    const isValidSoldDate = (date: Date): boolean => {
+      return !isNaN(date.getTime()) &&
+             date <= maxValidDate &&
+             date >= minValidDate;
+    };
+
     // First try to extract from specific BaT elements
-    // BaT shows "Sold for $XXX on Month Day, Year" in the listing-available-info
+    // BaT shows "Sold for $XXX on Month Day, Year" or "Sold for USD $XXX on M/D/YY"
     const soldInfo = $('.listing-available-info').text();
-    const soldMatch = soldInfo.match(/on\s+([\w\s]+\d{1,2},?\s*\d{4})/i);
-    if (soldMatch) {
-      const date = new Date(soldMatch[1]);
-      if (!isNaN(date.getTime())) {
-        return date;
+
+    // Try different date patterns
+    const datePatterns = [
+      /on\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/i,  // on M/D/YY or MM/DD/YYYY
+      /on\s+([\w\s]+\d{1,2},?\s*\d{4})/i,   // on Month Day, Year
+      /on\s+([\w\s]+\d{1,2},?\s*\d{2})(?!\d)/i  // on Month Day, YY
+    ];
+
+    for (const pattern of datePatterns) {
+      const match = soldInfo.match(pattern);
+      if (match) {
+        const date = parseDate(match[1]);
+        if (date && isValidSoldDate(date)) {
+          console.log(`    Extracted sold date: ${date.toLocaleDateString()}`);
+          return date;
+        } else if (date) {
+          console.log(`    ⚠️ Invalid date found: ${match[1]} -> ${date?.toLocaleDateString()} (rejected)`);
+        }
       }
     }
-    
+
     // Try to find in the auction status area
     const auctionStatus = $('.auction-status').text();
-    const statusMatch = auctionStatus.match(/([\w\s]+\d{1,2},?\s*\d{4})/i);
-    if (statusMatch) {
-      const date = new Date(statusMatch[1]);
-      if (!isNaN(date.getTime())) {
-        return date;
-      }
-    }
-    
-    // Fallback to text patterns
-    const patterns = [
-      /sold\s+for\s+\$[\d,]+\s+on\s+([\w\s]+\d{1,2},?\s*\d{4})/i,
-      /ended[:\s]*([\w\s]+\d{1,2},?\s*\d{4})/i,
-      /sold on[:\s]*([\w\s]+\d{1,2},?\s*\d{4})/i,
-      /auction ended[:\s]*([\w\s]+\d{1,2},?\s*\d{4})/i,
-      /ending\s+([\w\s]+\d{1,2},?\s*\d{4})/i
+    const statusPatterns = [
+      /(\d{1,2}\/\d{1,2}\/\d{2,4})/i,
+      /([\w\s]+\d{1,2},?\s*\d{4})/i,
+      /([\w\s]+\d{1,2},?\s*\d{2})(?!\d)/i
     ];
-    
-    for (const pattern of patterns) {
-      const match = pageText.match(pattern);
+
+    for (const pattern of statusPatterns) {
+      const match = auctionStatus.match(pattern);
       if (match) {
-        const date = new Date(match[1]);
-        if (!isNaN(date.getTime())) {
+        const date = parseDate(match[1]);
+        if (date && isValidSoldDate(date)) {
+          console.log(`    Extracted sold date from status: ${date.toLocaleDateString()}`);
           return date;
         }
       }
     }
+
+    // Try meta tags
+    const metaEndDate = $('meta[property="auction:end_date"]').attr('content') ||
+                       $('meta[name="auction:end_date"]').attr('content');
+    if (metaEndDate) {
+      const date = new Date(metaEndDate);
+      if (isValidSoldDate(date)) {
+        console.log(`    Extracted sold date from meta: ${date.toLocaleDateString()}`);
+        return date;
+      }
+    }
+
+    // Fallback to text patterns
+    const patterns = [
+      /sold\s+for\s+(?:USD\s+)?\$[\d,]+\s+on\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/i,  // Sold for $X on M/D/YY
+      /sold\s+for\s+\$[\d,]+\s+on\s+([\w\s]+\d{1,2},?\s*\d{4})/i,
+      /ended[:\s]*(\d{1,2}\/\d{1,2}\/\d{2,4})/i,
+      /ended[:\s]*([\w\s]+\d{1,2},?\s*\d{4})/i,
+      /sold on[:\s]*(\d{1,2}\/\d{1,2}\/\d{2,4})/i,
+      /sold on[:\s]*([\w\s]+\d{1,2},?\s*\d{4})/i,
+      /auction ended[:\s]*(\d{1,2}\/\d{1,2}\/\d{2,4})/i,
+      /auction ended[:\s]*([\w\s]+\d{1,2},?\s*\d{4})/i,
+      /ending\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/i,
+      /ending\s+([\w\s]+\d{1,2},?\s*\d{4})/i,
+      /closed[:\s]*(\d{1,2}\/\d{1,2}\/\d{2,4})/i,
+      /closed[:\s]*([\w\s]+\d{1,2},?\s*\d{4})/i
+    ];
+
+    for (const pattern of patterns) {
+      const match = pageText.match(pattern);
+      if (match) {
+        const date = parseDate(match[1]);
+        if (date && isValidSoldDate(date)) {
+          console.log(`    Extracted sold date from pattern: ${date.toLocaleDateString()}`);
+          return date;
+        }
+      }
+    }
+
+    console.log(`    ⚠️ No valid sold date found`);
     
     return undefined;
   }

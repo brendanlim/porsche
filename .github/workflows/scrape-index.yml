@@ -1,0 +1,54 @@
+name: Scrape Index (Stage 1)
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC (fast, collects URLs only)
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      source:
+        description: 'Source to scrape'
+        required: false
+        default: 'bat'
+        type: choice
+        options:
+          - bat
+          - classic
+          - carsandbids
+          - all
+
+jobs:
+  scrape-index:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30  # Should complete in 5-10 minutes
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run index scraper
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BRIGHT_DATA_CUSTOMER_ID: ${{ secrets.BRIGHT_DATA_CUSTOMER_ID }}
+          BRIGHT_DATA_BROWSER_PASSWORD: ${{ secrets.BRIGHT_DATA_BROWSER_PASSWORD }}
+        run: |
+          npx tsx scripts/scraping/scrape-index-only.ts --source=${{ github.event.inputs.source || 'bat' }}
+
+      - name: Trigger detail processing
+        if: success()
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          event-type: process-details
+          client-payload: '{"priority": "1"}'

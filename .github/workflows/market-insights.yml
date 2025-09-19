@@ -71,7 +71,7 @@ jobs:
 
       - name: Generate daily market insights
         run: |
-          tsx scripts/analytics/generate-market-insights.ts \
+          npx tsx scripts/analytics/generate-market-insights.ts \
             --type=daily \
             ${{ github.event.inputs.force_regeneration == 'true' && '--force' || '' }} \
             ${{ github.event.inputs.validate_predictions == 'true' && '--validate' || '' }}
@@ -125,7 +125,7 @@ jobs:
       - name: Validate previous predictions
         if: steps.is_monday.outputs.run_weekly == 'true'
         run: |
-          tsx scripts/analytics/generate-market-insights.ts \
+          npx tsx scripts/analytics/generate-market-insights.ts \
             --type=daily \
             --validate
         env:
@@ -137,7 +137,7 @@ jobs:
       - name: Generate weekly market insights
         if: steps.is_monday.outputs.run_weekly == 'true'
         run: |
-          tsx scripts/analytics/generate-market-insights.ts \
+          npx tsx scripts/analytics/generate-market-insights.ts \
             --type=weekly
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -180,7 +180,7 @@ jobs:
 
       - name: Validate previous predictions
         run: |
-          tsx scripts/analytics/generate-market-insights.ts \
+          npx tsx scripts/analytics/generate-market-insights.ts \
             --type=daily \
             --validate
         env:
@@ -191,7 +191,7 @@ jobs:
 
       - name: Generate weekly market insights
         run: |
-          tsx scripts/analytics/generate-market-insights.ts \
+          npx tsx scripts/analytics/generate-market-insights.ts \
             --type=weekly \
             ${{ github.event.inputs.force_regeneration == 'true' && '--force' || '' }}
         env:
@@ -242,7 +242,7 @@ jobs:
 
       - name: Generate model-specific insights
         run: |
-          tsx scripts/analytics/generate-market-insights.ts \
+          npx tsx scripts/analytics/generate-market-insights.ts \
             --type=model-specific \
             --model="${{ github.event.inputs.model }}" \
             ${{ github.event.inputs.trim != '' && format('--trim="{0}"', github.event.inputs.trim) || '' }} \

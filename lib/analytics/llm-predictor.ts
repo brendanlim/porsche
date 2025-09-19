@@ -195,8 +195,31 @@ export class LLMPredictor {
 
       const processingTime = Date.now() - startTime;
       
-      // Parse and validate response
-      const analysis = JSON.parse(response.choices[0].message.content || '{}');
+      // Parse and validate response with error handling
+      let analysis;
+      try {
+        const content = response.choices[0].message.content || '{}';
+        // Try to extract JSON from markdown code blocks if present
+        const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
+        const jsonString = jsonMatch ? jsonMatch[1] : content;
+        analysis = JSON.parse(jsonString);
+      } catch (parseError) {
+        console.error('Error parsing price prediction JSON:', parseError);
+        console.error('Raw response:', response.choices[0].message.content?.substring(0, 500));
+        
+        // Fallback to a basic prediction structure
+        analysis = {
+          prediction: {
+            lowEstimate: 0,
+            expectedPrice: 0,
+            highEstimate: 0,
+            currency: 'USD'
+          },
+          confidence: 0,
+          factors: [],
+          error: 'Failed to parse LLM response'
+        };
+      }
       
       // Create prediction object
       const prediction: PricePrediction = {
@@ -825,6 +848,24 @@ class PromptManager {
           modelName: 'gpt-4-turbo-preview',
           temperature: 0.6,
           maxTokens: 800
+        }
+      },
+      'investment_recommendation': {
+        file: 'investment-recommendation.md',
+        modelConfig: {
+          modelProvider: 'openai',
+          modelName: 'gpt-4-turbo-preview',
+          temperature: 0.5,
+          maxTokens: 1200
+        }
+      },
+      'market_investment_recommendation': {  // Also with market_ prefix
+        file: 'investment-recommendation.md',
+        modelConfig: {
+          modelProvider: 'openai',
+          modelName: 'gpt-4-turbo-preview',
+          temperature: 0.5,
+          maxTokens: 1200
         }
       }
     };

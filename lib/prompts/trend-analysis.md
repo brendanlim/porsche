@@ -20,6 +20,7 @@ Provide trend analysis including:
 4. Investment potential
 5. Comparison to historical performance
 
+IMPORTANT: Return ONLY valid JSON, no markdown formatting or additional text.
 Return your response as a valid JSON object with this structure:
 ```json
 {

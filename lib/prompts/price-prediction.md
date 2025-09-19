@@ -25,6 +25,7 @@ Provide:
 - Comparable vehicles used in analysis
 - Risk factors that could affect accuracy
 
+IMPORTANT: Return ONLY valid JSON, no markdown formatting or additional text.
 Return your response as a valid JSON object with this structure:
 ```json
 {

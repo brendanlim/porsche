@@ -627,7 +627,7 @@ export class LLMPredictor {
         model: insight.model,
         trim: insight.trim,
         time_range: '7d', // Default time range
-        summary: insight.summary || insight.insight_summary,
+        summary: insight.summary,
         key_findings: insight.keyFindings || [],
         anomalies: insight.anomalies || [],
         predictions: insight.predictions || [],

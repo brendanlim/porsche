@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { Search, AlertCircle, TrendingDown, Calendar, Info, CheckCircle, XCircle } from 'lucide-react';
 import { formatPrice, formatMileage, validateVIN } from '@/lib/utils';
-import Link from 'next/link';
 
 interface VINData {
   vin: string;
@@ -26,8 +25,28 @@ interface VINData {
     errorMessages?: string[];
   };
   formattedDescription?: string;
-  listings: any[];
-  priceHistory: any[];
+  listings: Array<{
+    id: string;
+    vin: string;
+    model: string;
+    trim?: string;
+    year: number;
+    price: number;
+    mileage?: number;
+    source: string;
+    source_url?: string;
+    list_date?: string;
+    sold_date?: string;
+    created_at?: string;
+    scraped_at?: string;
+    options_text?: string;
+  }>;
+  priceHistory: Array<{
+    id: string;
+    price: number;
+    observed_at: string;
+    source: string;
+  }>;
   summary: {
     model?: string;
     trim?: string;
@@ -212,7 +231,7 @@ export default function VINPage() {
                 <div>
                   <p className="text-blue-900 font-medium">No market listings found</p>
                   <p className="text-blue-700 text-sm mt-1">
-                    This VIN has been decoded successfully but we don't have any historical listing data for this specific vehicle yet.
+                    This VIN has been decoded successfully but we don&apos;t have any historical listing data for this specific vehicle yet.
                     The information above is derived from the VIN structure.
                   </p>
                 </div>
@@ -312,7 +331,7 @@ export default function VINPage() {
               <h2 className="text-2xl font-bold mb-6">Listing History</h2>
               
               <div className="space-y-4">
-                {vinData.listings.map((listing, index) => (
+                {vinData.listings.map((listing) => (
                   <div key={listing.id} className="border-l-4 border-blue-500 pl-4 py-3">
                     <div className="flex justify-between items-start">
                       <div>

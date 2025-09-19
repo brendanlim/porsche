@@ -114,7 +114,7 @@ export class CarsScraper extends SharedScraper {
         dealer_name: dealer,
         is_dealer: !!dealer,
         status: isSold ? 'sold' : 'active',
-        listing_date: listingDate,
+        scraped_at: new Date(),
         exterior_color: exteriorColor,
         raw_data: { title, price: priceText, mileage, status: isSold ? 'sold' : 'active' }
       };

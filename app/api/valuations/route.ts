@@ -83,13 +83,23 @@ export async function POST(request: NextRequest) {
 
     if (isPremium) {
       // Advanced valuation for premium users
-      estimatedValue = calculateAdvancedValuation(similarListings, {
+      // Transform the listings to match the expected type
+      const formattedListings = similarListings.map((listing: any) => ({
+        price: listing.price,
+        mileage: listing.mileage,
+        sold_date: listing.sold_date,
+        exterior_color_id: listing.exterior_color_id,
+        model_years: listing.model_years ? { year: listing.model_years.year } : undefined,
+        listing_options: listing.listing_options
+      }));
+
+      estimatedValue = calculateAdvancedValuation(formattedListings, {
         year,
         mileage,
         exterior_color_id,
         options: options || []
       });
-      confidenceScore = calculateConfidenceScore(similarListings);
+      confidenceScore = calculateConfidenceScore(formattedListings);
     } else {
       // Basic valuation for free users
       estimatedValue = calculateBasicValuation(similarListings, mileage);
@@ -206,7 +216,7 @@ function calculateConfidenceScore(listings: { mileage: number; price: number; so
   return confidence * mileageConfidence * recencyConfidence;
 }
 
-async function calculateMarketTrend(supabase: { from: (...args: unknown[]) => unknown }, modelId: string, trimId: string, year: number) {
+async function calculateMarketTrend(supabase: any, modelId: string, trimId: string, year: number) {
   // Get price trends over the last 6 months
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);

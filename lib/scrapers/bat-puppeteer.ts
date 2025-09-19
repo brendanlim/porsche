@@ -190,7 +190,8 @@ export class BaTScraperPuppeteer extends BaseScraper {
         
         // Check trim match if provided
         if (trim) {
-          const trimMatch = m.trim.toLowerCase().replace(' ', '-') === trim.toLowerCase();
+          if (!m.trim) return false; // Skip models without a trim field
+          const trimMatch = m.trim.toLowerCase().replace(' ', '-') === trim.toLowerCase().replace(' ', '-');
           if (!trimMatch) return false;
         }
         

@@ -30,7 +30,14 @@ async function ensureQueueTable() {
 async function main() {
   const args = process.argv.slice(2);
   const sourceArg = args.find(arg => arg.startsWith('--source='));
+  const testModeArg = args.find(arg => arg.startsWith('--test'));
+  const modelArg = args.find(arg => arg.startsWith('--model='));
+  const trimArg = args.find(arg => arg.startsWith('--trim='));
+
   const source = sourceArg ? sourceArg.split('=')[1].toLowerCase() : 'bat';
+  const testMode = !!testModeArg;
+  const testModel = modelArg ? modelArg.split('=')[1] : undefined;
+  const testTrim = trimArg ? trimArg.split('=')[1] : undefined;
 
   console.log('\n' + '█'.repeat(70));
   console.log(' '.repeat(20) + 'STAGE 1: INDEX SCRAPER');
@@ -38,7 +45,12 @@ async function main() {
   console.log('\n📋 Configuration:');
   console.log(`  • Source: ${source}`);
   console.log(`  • Mode: Index URLs only (no detail fetching)`);
-  console.log(`  • Estimated time: 5-10 minutes`);
+  if (testMode) {
+    console.log(`  • TEST MODE: Limited scraping`);
+    if (testModel) console.log(`  • Test Model: ${testModel}`);
+    if (testTrim) console.log(`  • Test Trim: ${testTrim}`);
+  }
+  console.log(`  • Estimated time: ${testMode ? '1-2' : '5-10'} minutes`);
   console.log('─'.repeat(70));
 
   if (source === 'bat') {
@@ -49,11 +61,19 @@ async function main() {
     console.log('\n🔍 Collecting listing URLs from Bring a Trailer...\n');
 
     // Run the scraper with indexOnly mode - just collect URLs, don't fetch details
-    const listings = await scraper.scrapeListings({
+    const scraperOptions: any = {
       maxPages: 1,  // Just get first page of each model for speed
       onlySold: true,
       indexOnly: true  // This flag will skip detail page fetching
-    });
+    };
+
+    // In test mode, only scrape specific model/trim
+    if (testMode && (testModel || testTrim)) {
+      if (testModel) scraperOptions.model = testModel;
+      if (testTrim) scraperOptions.trim = testTrim;
+    }
+
+    const listings = await scraper.scrapeListings(scraperOptions);
 
     console.log(`\n✅ Found ${listings.length} listing URLs`);
 

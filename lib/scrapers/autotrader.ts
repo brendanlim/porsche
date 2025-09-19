@@ -4,7 +4,8 @@ import { ScraperResult } from './base';
 
 export class AutoTraderScraper extends SharedScraper {
   constructor() {
-    super('autotrader', {
+    super({
+      source: 'autotrader',
       baseUrl: 'https://www.autotrader.com',
       name: 'AutoTrader',
       selectors: {
@@ -13,15 +14,15 @@ export class AutoTraderScraper extends SharedScraper {
         price: '[data-testid="price"], .price-main',
         mileage: '[data-testid="mileage"], .item:contains("miles")',
         vin: '[data-testid="vin"], .vin',
-        dealer: '[data-testid="dealer-name"], .dealer-name',
         location: '[data-testid="location"], .location'
       }
     });
   }
 
-  async scrapeListings(model: string, trim?: string, onlySold: boolean = false): Promise<ScraperResult[]> {
+  async scrapeListings(params?: { model?: string; maxPages?: number; onlySold?: boolean }): Promise<ScraperResult[]> {
     const results: ScraperResult[] = [];
-    
+    const { model = '911', onlySold = false } = params || {};
+
     // AutoTrader doesn't have sold listings - it's for active inventory only
     if (onlySold) {
       console.log('AutoTrader only provides active listings');
@@ -34,8 +35,8 @@ export class AutoTraderScraper extends SharedScraper {
       const modelPath = model.toLowerCase().replace(' ', '-');
       const searchUrl = `${baseUrl}/${modelPath}/los-angeles-ca?searchRadius=500&marketExtension=include&showAccelerateBanner=false&sortBy=relevance&numRecords=100`;
 
-      console.log(`🔍 Scraping AutoTrader for ${model} ${trim || ''}`);
-      
+      console.log(`🔍 Scraping AutoTrader for ${model}`);
+
       const html = await this.fetchUrl(searchUrl, 'search');
       const $ = cheerio.load(html);
 
@@ -83,7 +84,7 @@ export class AutoTraderScraper extends SharedScraper {
           
           // Extract trim from title
           let modelName = model;
-          let trimName = trim;
+          let trimName: string | undefined;
           
           if (!trimName) {
             const trimPatterns = ['GT4 RS', 'GT4', 'GT3 RS', 'GT3', 'GT2 RS', 'Turbo S', 'Turbo', 'GTS', 'Carrera'];
@@ -117,7 +118,7 @@ export class AutoTraderScraper extends SharedScraper {
             location: location ? { city: location } : undefined,
             is_dealer: true, // AutoTrader is primarily dealers
             status: 'active', // All AutoTrader listings are active
-            listing_date: new Date().toISOString(),
+            scraped_at: new Date(),
             raw_data: {
               title,
               price: priceText,
@@ -247,18 +248,18 @@ export class AutoTraderScraper extends SharedScraper {
     }
   }
 
-  private extractYear(text: string): number {
+  protected extractYear(text: string): number {
     const match = text.match(/\b(19|20)\d{2}\b/);
     return match ? parseInt(match[0]) : new Date().getFullYear();
   }
 
-  private extractMileage(text: string): number | undefined {
+  protected extractMileage(text: string): number | undefined {
     const cleaned = text.replace(/[^0-9]/g, '');
     const mileage = parseInt(cleaned);
     return !isNaN(mileage) && mileage > 0 ? mileage : undefined;
   }
 
-  private extractPrice(text: string): number | undefined {
+  protected extractPrice(text: string): number | undefined {
     const cleaned = text.replace(/[^0-9]/g, '');
     const price = parseInt(cleaned);
     return !isNaN(price) && price > 0 ? price : undefined;

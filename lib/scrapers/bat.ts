@@ -556,7 +556,21 @@ export class BaTScraper extends BaseScraper {
              date.getFullYear() <= 2029;    // Reasonable upper bound
     };
 
-    // First try to extract from specific BaT elements
+    // First try the specific date span element
+    const dateSpan = $('.listing-available-info .date').text();
+    if (dateSpan) {
+      const dateMatch = dateSpan.match(/on\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/i) ||
+                       dateSpan.match(/(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
+      if (dateMatch) {
+        const date = parseDate(dateMatch[1]);
+        if (date && isValidSoldDate(date)) {
+          console.log(`    Extracted sold date from span: ${date.toLocaleDateString()}`);
+          return date;
+        }
+      }
+    }
+
+    // Also try to extract from the full listing-available-info text
     // BaT shows "Sold for $XXX on Month Day, Year" or "Sold for USD $XXX on M/D/YY"
     const soldInfo = $('.listing-available-info').text();
 

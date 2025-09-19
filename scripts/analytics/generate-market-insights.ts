@@ -122,7 +122,14 @@ class MarketInsightsGenerator {
     ];
 
     if (!this.options.dryRun) {
-      await Promise.all(tasks);
+      const results = await Promise.allSettled(tasks);
+      
+      // Check if any tasks failed
+      const failures = results.filter(r => r.status === 'rejected');
+      if (failures.length > 0) {
+        console.error(`❌ ${failures.length} out of ${results.length} tasks failed`);
+        throw new Error('Some insight generation tasks failed');
+      }
     } else {
       console.log('🧪 Would generate:');
       console.log('  - Market summary');
@@ -301,7 +308,7 @@ class MarketInsightsGenerator {
         // Generate insights for top trending models
         for (const trend of sortedTrends.slice(0, 3)) {
           await this.predictor.generateMarketInsights(
-            'market_trend_analysis',
+            'trend_analysis',
             trend.model,
             trend.trim
           );

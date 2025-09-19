@@ -603,18 +603,18 @@ export class LLMPredictor {
         insight_type: insight.insightType,
         model: insight.model,
         trim: insight.trim,
-        insight_title: insight.title,
-        insight_summary: insight.summary,
-        detailed_analysis: insight.detailedAnalysis,
-        analysis_date: insight.analysisDate.toISOString(),
-        prediction_horizon_days: insight.predictionHorizonDays,
+        time_range: '7d', // Default time range
+        summary: insight.summary || insight.insight_summary,
+        key_findings: insight.keyFindings || [],
+        anomalies: insight.anomalies || [],
+        predictions: insight.predictions || [],
+        recommendations: insight.recommendations || [],
+        trending_models: insight.trendingModels || [],
+        undervalued_listings: insight.undervaluedListings || [],
+        data_points: insight.dataPointsAnalyzed || 0,
         confidence_score: insight.confidenceScore,
-        data_points_analyzed: insight.dataPointsAnalyzed,
-        llm_provider: insight.llmProvider,
-        llm_model: insight.llmModel,
-        prompt_version: insight.promptVersion,
-        processing_time_ms: insight.processingTimeMs,
-        cost_usd: insight.costUsd
+        generated_at: insight.analysisDate.toISOString(),
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // Expire in 7 days
       });
 
     if (error) {
@@ -809,7 +809,16 @@ class PromptManager {
           maxTokens: 600
         }
       },
-      'market_trend_analysis': {
+      'trend_analysis': {
+        file: 'trend-analysis.md',
+        modelConfig: {
+          modelProvider: 'openai',
+          modelName: 'gpt-4-turbo-preview',
+          temperature: 0.6,
+          maxTokens: 800
+        }
+      },
+      'market_trend_analysis': {  // Also register with market_ prefix for compatibility
         file: 'trend-analysis.md',
         modelConfig: {
           modelProvider: 'openai',

@@ -81,17 +81,22 @@ jobs:
         run: |
           npx tsx -e "
           import { createClient } from '@supabase/supabase-js';
-          const supabase = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL,
-            process.env.SUPABASE_SERVICE_ROLE_KEY
-          );
 
-          const { data } = await supabase
-            .from('scrape_queue_stats')
-            .select('*');
+          async function reportStatus() {
+            const supabase = createClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL,
+              process.env.SUPABASE_SERVICE_ROLE_KEY
+            );
 
-          console.log('Queue Status:');
-          data?.forEach(row => {
-            console.log(\`  \${row.source} - \${row.status}: \${row.count}\`);
-          });
+            const { data } = await supabase
+              .from('scrape_queue_stats')
+              .select('*');
+
+            console.log('Queue Status:');
+            data?.forEach(row => {
+              console.log(\`  \${row.source} - \${row.status}: \${row.count}\`);
+            });
+          }
+
+          reportStatus().catch(console.error);
           "

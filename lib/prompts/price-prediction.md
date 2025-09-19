@@ -25,4 +25,59 @@ Provide:
 - Comparable vehicles used in analysis
 - Risk factors that could affect accuracy
 
-Format the response as structured JSON for easy parsing.
+Return your response as a valid JSON object with this structure:
+```json
+{
+  "prediction": {
+    "lowEstimate": number,
+    "expectedPrice": number,
+    "highEstimate": number,
+    "currency": "USD"
+  },
+  "confidence": number (0-100),
+  "timeHorizon": {
+    "current": {
+      "price": number,
+      "confidence": number
+    },
+    "sixMonths": {
+      "price": number,
+      "confidence": number,
+      "trend": "up" | "down" | "stable"
+    },
+    "oneYear": {
+      "price": number,
+      "confidence": number,
+      "trend": "up" | "down" | "stable"
+    }
+  },
+  "factors": [
+    {
+      "factor": "string",
+      "impact": "positive" | "negative" | "neutral",
+      "weight": "high" | "medium" | "low",
+      "description": "string"
+    }
+  ],
+  "comparables": [
+    {
+      "model": "string",
+      "trim": "string",
+      "year": number,
+      "mileage": number,
+      "soldPrice": number,
+      "soldDate": "string",
+      "similarity": number (0-100)
+    }
+  ],
+  "risks": [
+    {
+      "risk": "string",
+      "probability": "high" | "medium" | "low",
+      "potentialImpact": "string"
+    }
+  ],
+  "recommendation": "strong buy" | "buy" | "hold" | "sell" | "strong sell",
+  "analysis": "Detailed explanation of the prediction"
+}
+```

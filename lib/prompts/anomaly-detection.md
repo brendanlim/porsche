@@ -21,4 +21,38 @@ For each anomaly found:
 - Assess the potential impact
 - Suggest action items if relevant
 
-Return findings in a structured format with severity levels (high/medium/low).
+Return your response as a valid JSON object with this structure:
+```json
+{
+  "anomalies": [
+    {
+      "type": "pricing" | "pattern" | "opportunity" | "risk",
+      "severity": "high" | "medium" | "low",
+      "model": "string",
+      "trim": "string",
+      "description": "string",
+      "deviation": "string (e.g., '35% below market')",
+      "impact": "string",
+      "action": "string",
+      "confidence": number (0-100),
+      "dataPoints": ["optional supporting data"]
+    }
+  ],
+  "summary": "Overall anomaly detection summary",
+  "totalAnomaliesFound": number,
+  "highSeverityCount": number,
+  "opportunities": [
+    {
+      "description": "string",
+      "estimatedValue": "string",
+      "timeframe": "string"
+    }
+  ],
+  "risks": [
+    {
+      "description": "string",
+      "likelihood": "high" | "medium" | "low"
+    }
+  ]
+}
+```

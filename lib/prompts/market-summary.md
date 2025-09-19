@@ -17,3 +17,31 @@ Provide insights on:
 5. Comparison to historical averages
 
 Keep the analysis factual, data-driven, and actionable for collectors and investors.
+
+Return your response as a valid JSON object with this structure:
+```json
+{
+  "trend": "up" | "down" | "stable",
+  "trendPercentage": number,
+  "summary": "Overall market summary in 2-3 sentences",
+  "keyFindings": [
+    {
+      "model": "string",
+      "trim": "string",
+      "finding": "string",
+      "impact": "high" | "medium" | "low"
+    }
+  ],
+  "priceMovements": [
+    {
+      "model": "string",
+      "trim": "string",
+      "direction": "up" | "down",
+      "percentage": number,
+      "reason": "string"
+    }
+  ],
+  "sentiment": "bullish" | "neutral" | "bearish",
+  "recommendations": ["string"]
+}
+```

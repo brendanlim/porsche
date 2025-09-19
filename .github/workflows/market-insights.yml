@@ -287,7 +287,7 @@ jobs:
         run: |
           # This would run a script to check daily/weekly costs and alert if over threshold
           echo "Checking LLM API usage and costs..."
-          # tsx scripts/analytics/monitor-costs.ts
+          # npx tsx scripts/analytics/monitor-costs.ts
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -391,7 +391,7 @@ jobs:
         run: |
           # This would run a script to clean up insights older than 6 months
           echo "Cleaning up old market insights..."
-          # tsx scripts/analytics/cleanup-old-insights.ts
+          # npx tsx scripts/analytics/cleanup-old-insights.ts
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

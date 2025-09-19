@@ -1,18 +1,42 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, AlertCircle, TrendingDown, Calendar, MapPin } from 'lucide-react';
+import { Search, AlertCircle, TrendingDown, Calendar, Info, CheckCircle, XCircle } from 'lucide-react';
 import { formatPrice, formatMileage, validateVIN } from '@/lib/utils';
 import Link from 'next/link';
 
 interface VINData {
   vin: string;
+  decodedVIN?: {
+    valid: boolean;
+    vin: string;
+    worldManufacturerIdentifier: string;
+    manufacturer: string;
+    region: string;
+    vehicleType: string;
+    model: string;
+    modelCode: string;
+    generation?: string;
+    bodyStyle?: string;
+    engineType?: string;
+    checkDigit: string;
+    modelYear: number;
+    plantCode: string;
+    sequentialNumber: string;
+    errorMessages?: string[];
+  };
+  formattedDescription?: string;
   listings: any[];
   priceHistory: any[];
   summary: {
     model?: string;
     trim?: string;
     year?: number;
+    generation?: string;
+    bodyStyle?: string;
+    engineType?: string;
+    manufacturer?: string;
+    plantCode?: string;
     firstSeen?: string;
     lastSeen?: string;
     lowestPrice?: number;
@@ -22,6 +46,8 @@ interface VINData {
     soldPrice?: number;
     soldDate?: string;
     totalListings?: number;
+    hasListings?: boolean;
+    vinValid?: boolean;
   };
 }
 
@@ -53,7 +79,10 @@ export default function VINPage() {
 
       if (data.success) {
         setVinData(data.data);
-        if (data.data.listings.length === 0) {
+        if (data.data.listings.length === 0 && data.data.summary?.vinValid) {
+          // We have valid VIN decode but no listings
+          // Don't show as error, show decoded info instead
+        } else if (data.data.listings.length === 0) {
           setError('No history found for this VIN. Try searching for a different vehicle.');
         }
       }
@@ -120,13 +149,107 @@ export default function VINPage() {
           )}
         </div>
 
+        {/* VIN Decoded Information - Always show if valid */}
+        {vinData && vinData.decodedVIN?.valid && (
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div className="flex items-start justify-between mb-4">
+              <h2 className="text-xl font-bold">VIN Decoded Information</h2>
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                <CheckCircle className="w-4 h-4 mr-1" />
+                Valid Porsche VIN
+              </span>
+            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <p className="text-sm text-gray-600">Vehicle</p>
+                <p className="font-semibold text-lg">
+                  {vinData.summary.year} {vinData.summary.model}
+                  {vinData.summary.generation && ` (${vinData.summary.generation})`}
+                </p>
+              </div>
+
+              {vinData.summary.bodyStyle && (
+                <div>
+                  <p className="text-sm text-gray-600">Body Style</p>
+                  <p className="font-semibold">{vinData.summary.bodyStyle}</p>
+                </div>
+              )}
+
+              {vinData.summary.engineType && (
+                <div>
+                  <p className="text-sm text-gray-600">Engine/Trim</p>
+                  <p className="font-semibold">{vinData.summary.engineType}</p>
+                </div>
+              )}
+
+              <div>
+                <p className="text-sm text-gray-600">Manufacturer</p>
+                <p className="font-semibold">{vinData.decodedVIN.manufacturer}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-600">Production Plant</p>
+                <p className="font-semibold">{vinData.decodedVIN.plantCode}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-600">Region</p>
+                <p className="font-semibold">{vinData.decodedVIN.region}</p>
+              </div>
+            </div>
+
+            {vinData.formattedDescription && (
+              <div className="mt-4 pt-4 border-t">
+                <p className="text-sm text-gray-600 mb-1">Full Description</p>
+                <p className="text-lg font-medium">{vinData.formattedDescription}</p>
+              </div>
+            )}
+
+            {!vinData.summary.hasListings && (
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start">
+                <Info className="w-5 h-5 text-blue-500 mr-2 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-blue-900 font-medium">No market listings found</p>
+                  <p className="text-blue-700 text-sm mt-1">
+                    This VIN has been decoded successfully but we don't have any historical listing data for this specific vehicle yet.
+                    The information above is derived from the VIN structure.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Invalid VIN Warning */}
+        {vinData && vinData.decodedVIN && !vinData.decodedVIN.valid && (
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div className="flex items-start">
+              <XCircle className="w-6 h-6 text-red-500 mr-3 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Invalid or Unrecognized VIN</h3>
+                <p className="text-gray-600">
+                  This VIN could not be decoded as a valid Porsche vehicle. Please check the VIN and try again.
+                </p>
+                {vinData.decodedVIN.errorMessages && (
+                  <ul className="mt-2 text-sm text-red-600">
+                    {vinData.decodedVIN.errorMessages.map((msg, idx) => (
+                      <li key={idx}>• {msg}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Results */}
         {vinData && vinData.listings.length > 0 && (
           <div className="space-y-8">
-            {/* Summary Card */}
+            {/* Market Summary Card */}
             <div className="bg-white rounded-xl shadow-lg p-6">
               <h2 className="text-2xl font-bold mb-6">
-                {vinData.summary.year} {vinData.summary.model} {vinData.summary.trim || 'Base'}
+                Market History
               </h2>
               
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">

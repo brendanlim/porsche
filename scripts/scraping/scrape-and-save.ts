@@ -67,7 +67,28 @@ function parseListingDetails(listing: ScrapedListing): ScrapedListing {
     }
   }
   
-  // Parse trim if not properly set
+  // Parse trim if not properly set for 718/Cayman models
+  if ((model?.includes('718') || model?.includes('Cayman')) && (!trim || trim === 'Unknown' || trim === 'GT4')) {
+    // Check GT4 RS FIRST (more specific)
+    if (title.includes('GT4 RS') || title.includes('GT4RS')) {
+      trim = 'GT4 RS';
+    } else if (title.includes('GT4 Clubsport')) {
+      trim = 'GT4 Clubsport';
+    } else if (title.includes('GT4') && !title.includes('RS')) {
+      // Only set GT4 if RS is NOT in the title
+      trim = 'GT4';
+    } else if (title.includes('GTS 4.0')) {
+      trim = 'GTS 4.0';
+    } else if (title.includes('GTS')) {
+      trim = 'GTS';
+    } else if (title.includes('Spyder')) {
+      trim = 'Spyder';
+    } else if (title.includes(' S ') || title.includes(' S')) {
+      trim = 'S';
+    }
+  }
+
+  // Parse trim if not properly set for 911 models
   if (model === '911' && (!trim || trim === 'Unknown')) {
     // GT models (check these first as they're most specific)
     if (title.includes('GT3 RS') || title.includes('GT3RS')) {

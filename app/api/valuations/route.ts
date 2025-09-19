@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
         exterior_color_id,
         options: options || []
       });
-      confidenceScore = calculateConfidenceScore(similarListings, mileage);
+      confidenceScore = calculateConfidenceScore(similarListings);
     } else {
       // Basic valuation for free users
       estimatedValue = calculateBasicValuation(similarListings, mileage);
@@ -133,7 +133,14 @@ function calculateBasicValuation(listings: { mileage: number; price: number }[],
 }
 
 function calculateAdvancedValuation(
-  listings: { mileage: number; price: number; listing_options?: { option_id: string }[] }[],
+  listings: {
+    mileage: number;
+    price: number;
+    sold_date?: string;
+    exterior_color_id?: string;
+    model_years?: { year: number };
+    listing_options?: { option_id: string }[]
+  }[],
   vehicle: { year: number; mileage: number; exterior_color_id?: string; options: string[] }
 ): number {
   // Advanced valuation considering multiple factors
@@ -148,8 +155,10 @@ function calculateAdvancedValuation(
     weight *= Math.max(0.1, 1 - (mileageDiff / 150000));
 
     // Year adjustment
-    const yearDiff = Math.abs(listing.model_years.year - vehicle.year);
-    weight *= Math.max(0.3, 1 - (yearDiff * 0.2));
+    if (listing.model_years?.year) {
+      const yearDiff = Math.abs(listing.model_years.year - vehicle.year);
+      weight *= Math.max(0.3, 1 - (yearDiff * 0.2));
+    }
 
     // Color matching (premium colors add value)
     if (vehicle.exterior_color_id && listing.exterior_color_id === vehicle.exterior_color_id) {
@@ -163,8 +172,10 @@ function calculateAdvancedValuation(
     weight *= (1 + optionsBonus);
 
     // Time decay (more recent sales are more relevant)
-    const daysSinceSale = (Date.now() - new Date(listing.sold_date).getTime()) / (24 * 60 * 60 * 1000);
-    weight *= Math.max(0.5, 1 - (daysSinceSale / 365));
+    if (listing.sold_date) {
+      const daysSinceSale = (Date.now() - new Date(listing.sold_date).getTime()) / (24 * 60 * 60 * 1000);
+      weight *= Math.max(0.5, 1 - (daysSinceSale / 365));
+    }
 
     baseValue += listing.price * weight;
     totalWeight += weight;
@@ -173,7 +184,7 @@ function calculateAdvancedValuation(
   return totalWeight > 0 ? baseValue / totalWeight : 0;
 }
 
-function calculateConfidenceScore(listings: { mileage: number; price: number }[]): number {
+function calculateConfidenceScore(listings: { mileage: number; price: number; sold_date?: string }[]): number {
   if (listings.length === 0) return 0;
 
   // Base confidence on number of comparables
@@ -184,9 +195,13 @@ function calculateConfidenceScore(listings: { mileage: number; price: number }[]
   const mileageSpread = Math.max(...mileages) - Math.min(...mileages);
   const mileageConfidence = Math.max(0.5, 1 - (mileageSpread / 200000));
 
-  // Adjust for recency of sales
-  const daysSinceNewest = (Date.now() - new Date(Math.max(...listings.map((l: { sold_date: string }) => new Date(l.sold_date).getTime()))).getTime()) / (24 * 60 * 60 * 1000);
-  const recencyConfidence = Math.max(0.6, 1 - (daysSinceNewest / 180));
+  // Adjust for recency of sales if dates are available
+  let recencyConfidence = 0.8; // Default confidence
+  const listingsWithDates = listings.filter(l => l.sold_date);
+  if (listingsWithDates.length > 0) {
+    const daysSinceNewest = (Date.now() - new Date(Math.max(...listingsWithDates.map((l) => new Date(l.sold_date!).getTime()))).getTime()) / (24 * 60 * 60 * 1000);
+    recencyConfidence = Math.max(0.6, 1 - (daysSinceNewest / 180));
+  }
 
   return confidence * mileageConfidence * recencyConfidence;
 }

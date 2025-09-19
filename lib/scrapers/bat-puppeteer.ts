@@ -171,8 +171,9 @@ export class BaTScraperPuppeteer extends BaseScraper {
     trim?: string;
     maxPages?: number;
     onlySold?: boolean;
+    indexOnly?: boolean;
   } = {}): Promise<ScrapedListing[]> {
-    const { model, trim, maxPages = 5 } = options;
+    const { model, trim, maxPages = 5, indexOnly = false } = options;
     const allListings: ScrapedListing[] = [];
     
     // Filter models based on provided parameters
@@ -391,7 +392,13 @@ export class BaTScraperPuppeteer extends BaseScraper {
     console.log('\n' + '═'.repeat(70));
     console.log(`✅ SEARCH COMPLETE - Found ${allListings.length} total listings`);
     console.log('═'.repeat(70));
-    
+
+    // Skip detail fetching if indexOnly is true
+    if (indexOnly) {
+      console.log('\n📋 Index-only mode: Skipping detail page fetching');
+      return allListings;
+    }
+
     // Now fetch individual listing pages
     if (allListings.length > 0) {
       console.log('\n' + '▓'.repeat(70));

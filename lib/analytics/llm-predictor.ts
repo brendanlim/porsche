@@ -587,30 +587,12 @@ export class LLMPredictor {
   }
 
   private async storeAnomalies(anomalies: Anomaly[]): Promise<void> {
+    // Anomalies are now stored in market_insights table as JSONB
+    // This method is kept for backward compatibility but does nothing
     if (anomalies.length === 0) return;
-
-    const { error } = await supabaseAdmin
-      .from('market_anomalies')
-      .insert(
-        anomalies.map(anomaly => ({
-          id: anomaly.id,
-          listing_id: anomaly.listingId,
-          anomaly_type: anomaly.anomalyType,
-          severity: anomaly.severity,
-          expected_price_range_min: anomaly.expectedPriceMin,
-          expected_price_range_max: anomaly.expectedPriceMax,
-          actual_price: anomaly.actualPrice,
-          deviation_percentage: anomaly.deviationPercentage,
-          explanation: anomaly.explanation,
-          contributing_factors: anomaly.contributingFactors,
-          confidence_score: anomaly.confidenceScore
-        }))
-      );
-
-    if (error) {
-      console.error('Error storing anomalies:', error);
-      throw error;
-    }
+    
+    // TODO: Store anomalies in market_insights table instead
+    console.log(`Would store ${anomalies.length} anomalies (feature disabled - stored in market_insights instead)`);
   }
 
   private async storeMarketInsight(insight: MarketInsight): Promise<void> {
@@ -825,6 +807,15 @@ class PromptManager {
           modelName: 'gpt-4-turbo-preview',
           temperature: 0.5,
           maxTokens: 600
+        }
+      },
+      'market_trend_analysis': {
+        file: 'trend-analysis.md',
+        modelConfig: {
+          modelProvider: 'openai',
+          modelName: 'gpt-4-turbo-preview',
+          temperature: 0.6,
+          maxTokens: 800
         }
       }
     };

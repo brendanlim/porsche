@@ -301,7 +301,7 @@ class MarketInsightsGenerator {
         // Generate insights for top trending models
         for (const trend of sortedTrends.slice(0, 3)) {
           await this.predictor.generateMarketInsights(
-            'trend_analysis',
+            'market_trend_analysis',
             trend.model,
             trend.trim
           );

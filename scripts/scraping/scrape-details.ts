@@ -74,11 +74,11 @@ async function main() {
     .in('id', queueIds);
 
   // Import scrapers
-  const { BaTScraper } = await import('../../lib/scrapers/bat');
+  const { BaTScraperPuppeteer } = await import('../../lib/scrapers/bat-puppeteer');
   const { BrightDataPuppeteer } = await import('../../lib/scrapers/bright-data-puppeteer');
 
   const puppeteerScraper = new BrightDataPuppeteer();
-  const batScraper = new BaTScraper();
+  const batScraper = new BaTScraperPuppeteer();
 
   let successCount = 0;
   let errorCount = 0;
@@ -146,7 +146,9 @@ async function main() {
             .eq('id', item.id);
 
           successCount++;
-          console.log(`  ✅ Saved: ${parsed.model} ${parsed.trim} - $${parsed.price?.toLocaleString()}`);
+          const finalModel = parsed.model || item.model;
+          const finalTrim = parsed.trim || item.trim;
+          console.log(`  ✅ Saved: ${finalModel} ${finalTrim} - $${parsed.price?.toLocaleString()}`);
         } else {
           throw new Error('Failed to parse listing');
         }

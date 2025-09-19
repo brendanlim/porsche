@@ -37,6 +37,7 @@ const PORSCHE_MODELS: Record<string, { name: string; generation?: string }> = {
   '981': { name: '718', generation: '981' }, // Boxster/Cayman 2013-2016
   '982': { name: '718', generation: '982' }, // Boxster/Cayman 2016+
   '987': { name: '718', generation: '987' }, // Boxster/Cayman 2005-2012
+  'AE2': { name: '718', generation: '982' }, // GT4 RS specific code
 
   // Cayenne
   '92A': { name: 'Cayenne', generation: 'E1' }, // First gen
@@ -79,6 +80,7 @@ const PLANT_CODES: Record<string, string> = {
   'L': 'Leipzig',
   'N': 'Neckarsulm',
   'O': 'Osnabrück (contracted)',
+  'K': 'Osnabrück, Germany (718 overflow production)',
   '0': 'Various/Special',
   '1': 'Various/Special',
 };
@@ -110,6 +112,7 @@ const BODY_ENGINE_CODES: Record<string, { bodyStyle: string; engineType?: string
   'XC': { bodyStyle: 'Cayman GTS', engineType: 'GTS' },
   'XD': { bodyStyle: 'Cayman GT4', engineType: 'GT4' },
   'XE': { bodyStyle: 'Cayman GT4 RS', engineType: 'GT4 RS' },
+  'A8': { bodyStyle: 'Cayman GT4 RS', engineType: 'GT4 RS' }, // GT4 RS specific code
 };
 
 /**

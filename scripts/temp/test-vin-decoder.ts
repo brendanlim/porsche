@@ -18,6 +18,11 @@ const testVINs = [
   { vin: 'WP0CC2A85JS220936', expected: '2018 718 Cayman S' },
   { vin: 'WP0CC2A82LK295185', expected: '2020 718 Cayman GT4' },
 
+  // 718 GT4 RS Models (from real database)
+  { vin: 'WP0AE2A84RK274602', expected: '2024 718 Cayman GT4 RS' },
+  { vin: 'WP0AE2A80PS280474', expected: '2023 718 Cayman GT4 RS' },
+  { vin: 'WP0AE2A86RK274441', expected: '2024 718 Cayman GT4 RS' },
+
   // Cayenne (SUV)
   { vin: 'WP1AB29P78LA65831', expected: '2008 Cayenne' },
   { vin: 'WP1AA2A23CLA52320', expected: '2012 Cayenne S' },

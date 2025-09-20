@@ -29,21 +29,10 @@ export async function GET(request: NextRequest) {
         startDate.setDate(now.getDate() - 30);
     }
 
-    // Fetch listings with proper joins - filter by sold_date for accurate analytics
+    // Fetch listings using denormalized columns - much faster than joins
     const { data: listings, error: listingsError } = await supabaseAdmin
       .from('listings')
-      .select(`
-        *,
-        model_years!inner (
-          year,
-          models!inner (
-            name
-          )
-        ),
-        trims (
-          name
-        )
-      `)
+      .select('*')
       .gte('sold_date', startDate.toISOString())
       .lte('sold_date', now.toISOString())
       .order('sold_date', { ascending: false });
@@ -93,13 +82,13 @@ export async function GET(request: NextRequest) {
       ? Math.round(daysToSellArray.reduce((a, b) => a + b, 0) / daysToSellArray.length)
       : 0;
 
-    // Find top model and trim
+    // Find top model and trim using denormalized columns
     const modelCounts = new Map<string, number>();
     const trimCounts = new Map<string, number>();
 
     listings.forEach(l => {
-      const model = l.model_years?.models?.name;
-      const trim = l.trims?.name || 'Base';
+      const model = l.model;
+      const trim = l.trim || 'Base';
 
       if (model) {
         modelCounts.set(model, (modelCounts.get(model) || 0) + 1);
@@ -152,19 +141,19 @@ export async function GET(request: NextRequest) {
         : 0;
     }
 
-    // Recent sales (last 10)
+    // Recent sales (last 10) using denormalized columns
     const recentSales = listings
       .slice(0, 10)
       .map(l => ({
         id: l.id,
-        model: l.model_years?.models?.name || 'Unknown',
-        trim: l.trims?.name || 'Base',
-        year: l.model_years?.year || 0,
+        model: l.model || 'Unknown',
+        trim: l.trim || 'Base',
+        year: l.year || 0,
         price: l.price,
         mileage: l.mileage,
         soldDate: l.sold_date,
         vin: l.vin,
-        color: l.color
+        color: l.exterior_color || l.color
       }));
 
     // Model distribution for pie chart
@@ -174,7 +163,7 @@ export async function GET(request: NextRequest) {
         count,
         percentage: (count / totalSales) * 100,
         avgPrice: listings
-          .filter(l => l.model_years?.models?.name === model && l.price > 0)
+          .filter(l => l.model === model && l.price > 0)
           .reduce((sum, l, _, arr) => sum + l.price / arr.length, 0)
       }))
       .sort((a, b) => b.count - a.count)
@@ -186,7 +175,7 @@ export async function GET(request: NextRequest) {
         trim,
         count,
         avgPrice: listings
-          .filter(l => (l.trims?.name || 'Base') === trim && l.price > 0)
+          .filter(l => (l.trim || 'Base') === trim && l.price > 0)
           .reduce((sum, l, _, arr) => sum + l.price / arr.length, 0)
       }))
       .sort((a, b) => b.avgPrice - a.avgPrice)

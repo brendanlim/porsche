@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter, AreaChart, Area, Cell, PieChart, Pie, ComposedChart } from 'recharts';
-import { TrendingUp, TrendingDown, Minus, DollarSign, Calendar, Car, Activity, Trophy, Zap, Filter } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, DollarSign, Calendar, Car, Activity, Trophy, Zap, Filter, ExternalLink } from 'lucide-react';
 import { DepreciationTable } from '@/components/DepreciationTable';
 import { OptionsAnalysis } from '@/components/OptionsAnalysis';
 
@@ -120,6 +120,8 @@ interface TrimAnalytics {
     dealer: string;
     daysOnMarket: number;
     generation: string;
+    source?: string;
+    sourceUrl?: string;
   }>;
   priceVsMileage: Array<{
     mileage: number;
@@ -182,12 +184,20 @@ function StatCard({ title, value, change, icon: Icon, subtitle }: any) {
 export default function TrimAnalyticsPage() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const model = params.model as string;
   const trim = params.trim as string;
   const [analytics, setAnalytics] = useState<TrimAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedGeneration, setSelectedGeneration] = useState<string>('all');
-  const [timeRange, setTimeRange] = useState('2y');
+  
+  // Initialize from URL params or defaults
+  const [selectedGeneration, setSelectedGeneration] = useState<string>(
+    searchParams.get('generation') || 'all'
+  );
+  const [timeRange, setTimeRange] = useState(
+    searchParams.get('range') || '2y'
+  );
   const [chartWidth, setChartWidth] = useState(800);
   const [allGenerations, setAllGenerations] = useState<string[]>([]);
   
@@ -208,6 +218,31 @@ export default function TrimAnalyticsPage() {
 
   const modelDisplay = model.replace('-', ' ').toUpperCase();
   const trimDisplay = trim.replace(/-/g, ' ').toUpperCase();
+  
+  // Update URL when filters change
+  const updateUrlParams = (newGeneration?: string, newRange?: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    
+    // Update generation param
+    const generation = newGeneration !== undefined ? newGeneration : selectedGeneration;
+    if (generation === 'all') {
+      params.delete('generation');
+    } else {
+      params.set('generation', generation);
+    }
+    
+    // Update range param
+    const range = newRange !== undefined ? newRange : timeRange;
+    if (range === '2y') {
+      params.delete('range');
+    } else {
+      params.set('range', range);
+    }
+    
+    const search = params.toString();
+    const query = search ? `?${search}` : '';
+    router.push(`${pathname}${query}`, { scroll: false });
+  };
 
   useEffect(() => {
     fetchAnalytics();
@@ -271,7 +306,11 @@ export default function TrimAnalyticsPage() {
             <div className="flex flex-col gap-3 items-end">
               <select
                 value={timeRange}
-                onChange={(e) => setTimeRange(e.target.value)}
+                onChange={(e) => {
+                  const newRange = e.target.value;
+                  setTimeRange(newRange);
+                  updateUrlParams(undefined, newRange);
+                }}
                 className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 text-sm"
               >
                 <option value="3m">3 months</option>
@@ -291,7 +330,10 @@ export default function TrimAnalyticsPage() {
                 <span className="text-sm font-medium text-gray-700">Generation:</span>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setSelectedGeneration('all')}
+                    onClick={() => {
+                      setSelectedGeneration('all');
+                      updateUrlParams('all');
+                    }}
                     className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
                       selectedGeneration === 'all'
                         ? 'bg-blue-600 text-white'
@@ -303,7 +345,12 @@ export default function TrimAnalyticsPage() {
                   {allGenerations.map(gen => (
                     <button
                       key={gen}
-                      onClick={() => allGenerations.length > 1 ? setSelectedGeneration(gen) : null}
+                      onClick={() => {
+                        if (allGenerations.length > 1) {
+                          setSelectedGeneration(gen);
+                          updateUrlParams(gen);
+                        }
+                      }}
                       disabled={allGenerations.length === 1}
                       className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
                         selectedGeneration === gen || (allGenerations.length === 1)
@@ -342,9 +389,9 @@ export default function TrimAnalyticsPage() {
             icon={Activity}
           />
           <StatCard
-            title="YoY Appreciation"
+            title="MoM Appreciation"
             value={`${analytics.yearOverYearAppreciation > 0 ? '+' : ''}${analytics.yearOverYearAppreciation.toFixed(1)}%`}
-            change={analytics.yearOverYearAppreciation}
+            change={null}
             icon={TrendingUp}
           />
           <StatCard
@@ -951,7 +998,14 @@ export default function TrimAnalyticsPage() {
                         })}
                       </Pie>
                       <Tooltip 
-                        formatter={(value: any, name: string) => [`${value} listings`, name]}
+                        formatter={(value: any, name: string) => {
+                          if (typeof value === 'number') {
+                            const total = analytics.colorAnalysis.reduce((sum: number, c: any) => sum + c.count, 0);
+                            const percent = ((value / total) * 100).toFixed(2);
+                            return [`${value} listings (${percent}%)`, name];
+                          }
+                          return [value, name];
+                        }}
                         contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
                       />
                     </PieChart>
@@ -1363,12 +1417,25 @@ export default function TrimAnalyticsPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-xl font-bold text-gray-900">{formatPrice(listing.price)}</div>
-                    {index === 0 && (
-                      <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-1 rounded mt-1 inline-block">
-                        PREMIUM
-                      </span>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <div className="text-xl font-bold text-gray-900">{formatPrice(listing.price)}</div>
+                      {index === 0 && (
+                        <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-1 rounded mt-1 inline-block">
+                          PREMIUM
+                        </span>
+                      )}
+                    </div>
+                    {listing.sourceUrl && (
+                      <a
+                        href={listing.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        <span>View</span>
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
                     )}
                   </div>
                 </div>

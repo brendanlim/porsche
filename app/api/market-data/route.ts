@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     // Build query
     let query = supabase
-      .from('active_listings')
+      .from('listings')
       .select(`
         id,
         vin,
@@ -28,31 +28,31 @@ export async function GET(request: NextRequest) {
         price,
         mileage,
         year,
-        model_name,
-        trim_name,
-        generation_name,
-        color_name,
-        is_paint_to_sample,
+        model,
+        trim,
+        generation,
+        exterior_color,
         city,
         state,
         source,
         source_url,
         sold_date,
-        sold_price,
-        first_seen_at
+        scraped_at
       `)
       .order('price', { ascending: true })
+      .gt('price', 0)
+      .not('sold_date', 'is', null)
       .limit(limit);
 
     // Apply filters
     if (model) {
-      query = query.eq('model_name', model);
+      query = query.ilike('model', `%${model}%`);
     }
     if (trim) {
-      query = query.eq('trim_name', trim);
+      query = query.ilike('trim', `%${trim}%`);
     }
     if (generation) {
-      query = query.eq('generation_name', generation);
+      query = query.eq('generation', generation);
     }
     if (yearMin) {
       query = query.gte('year', parseInt(yearMin));
@@ -84,14 +84,14 @@ export async function GET(request: NextRequest) {
       x: listing.mileage || 0,
       y: listing.price,
       vin: listing.vin,
-      title: listing.title,
-      color: listing.color_name,
+      title: listing.title || `${listing.year} ${listing.model} ${listing.trim}`,
+      color: listing.exterior_color,
       source: listing.source,
       url: listing.source_url,
       year: listing.year,
-      trim: listing.trim_name,
-      generation: listing.generation_name,
-      isPTS: listing.is_paint_to_sample,
+      trim: listing.trim,
+      generation: listing.generation,
+      isPTS: false,
       location: listing.city && listing.state ? `${listing.city}, ${listing.state}` : undefined
     })) || [];
 

@@ -17,13 +17,32 @@ export default function HomePage() {
     minPrice: number;
     maxPrice: number;
   } | null>(null);
+  const [homeStats, setHomeStats] = useState<{
+    totalListings: number;
+    uniqueTrims: number;
+    avgPrice: number;
+    dataSources: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [selectedModel, setSelectedModel] = useState('911');
 
   useEffect(() => {
     fetchMarketData();
+    fetchHomeStats();
   }, [selectedModel]);
+
+  const fetchHomeStats = async () => {
+    try {
+      const response = await fetch('/api/homepage-stats');
+      const data = await response.json();
+      if (data.success) {
+        setHomeStats(data.stats);
+      }
+    } catch (error) {
+      console.error('Failed to fetch homepage stats:', error);
+    }
+  };
 
   const fetchMarketData = async () => {
     try {
@@ -147,7 +166,7 @@ export default function HomePage() {
                 <div className="space-y-2">
                   {hotModels.slice(0, 3).map((model, idx) => (
                     <div key={idx} className="flex items-center justify-between text-xs">
-                      <span className="text-gray-300">{model.model.split(' ').pop()}</span>
+                      <span className="text-gray-300">{model.model}</span>
                       <span className={`flex items-center gap-1 ${
                         model.trend === 'up' ? 'text-green-400' : 'text-red-400'
                       }`}>
@@ -164,21 +183,21 @@ export default function HomePage() {
       </section>
 
       {/* Stats Section - Refined */}
-      {stats && (
+      {homeStats && (
         <section className="py-8 bg-white border-b">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               <div className="text-center">
                 <div className="text-2xl font-bold text-gray-900">
-                  {stats.count.toLocaleString()}+
+                  {homeStats.totalListings.toLocaleString()}+
                 </div>
                 <div className="text-sm text-gray-600">Tracked Listings</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-gray-900">
-                  {formatPrice(stats.medianPrice)}
+                  {homeStats.uniqueTrims}+
                 </div>
-                <div className="text-sm text-gray-600">Median Price</div>
+                <div className="text-sm text-gray-600">Trims Tracked</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-gray-900">
@@ -188,7 +207,7 @@ export default function HomePage() {
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-gray-900">
-                  7
+                  {homeStats.dataSources}
                 </div>
                 <div className="text-sm text-gray-600">Data Sources</div>
               </div>

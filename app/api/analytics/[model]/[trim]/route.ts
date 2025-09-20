@@ -727,7 +727,9 @@ export async function GET(
         daysOnMarket: l.list_date && l.sold_date
           ? Math.max(0, Math.floor((new Date(l.sold_date).getTime() - new Date(l.list_date).getTime()) / (1000 * 60 * 60 * 24)))
           : null,
-        generation: getGeneration(l.year || 0, modelName, trim)
+        generation: getGeneration(l.year || 0, modelName, trim),
+        source: l.source || '',
+        sourceUrl: l.source_url || ''
       }));
 
     // Price vs Mileage scatter data - IMPORTANT!

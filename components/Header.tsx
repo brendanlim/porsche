@@ -38,8 +38,8 @@ export function Header() {
               <Link href="/browse" className="text-base font-medium text-gray-700 hover:text-blue-600">
                 Browse
               </Link>
-              <Link href="/trends" className="text-base font-medium text-gray-700 hover:text-blue-600">
-                Trends
+              <Link href="/insights" className="text-base font-medium text-gray-700 hover:text-blue-600">
+                Insights
               </Link>
               <Link href="/vin" className="text-base font-medium text-gray-700 hover:text-blue-600">
                 VIN Lookup
@@ -161,11 +161,11 @@ export function Header() {
                 Browse
               </Link>
               <Link
-                href="/trends"
+                href="/insights"
                 className="block text-base font-medium text-gray-700 hover:text-blue-600"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                Trends
+                Insights
               </Link>
               <Link
                 href="/vin"

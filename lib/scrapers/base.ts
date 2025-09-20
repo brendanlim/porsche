@@ -26,6 +26,7 @@ export interface ScraperResult {
   source_url: string;
   source_id?: string;
   sold_date?: Date;
+  list_date?: Date;  // When the listing was originally posted
   raw_data?: any;
   html?: string;
   options_text?: string;

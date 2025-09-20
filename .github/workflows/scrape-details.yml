@@ -1,11 +1,12 @@
 name: Scrape Details (Stage 2)
 
 on:
+  # Disabled by default - use comprehensive-scraper.yml instead
   repository_dispatch:
     types: [process-details]
-  schedule:
-    # Run every 2 hours to process queue
-    - cron: '0 */2 * * *'
+  # schedule:
+  #   # Run every 2 hours to process queue
+  #   - cron: '0 */2 * * *'
   workflow_dispatch:
     inputs:
       batch_size:

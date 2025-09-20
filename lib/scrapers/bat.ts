@@ -692,7 +692,7 @@ export class BaTScraper extends BaseScraper {
       $('dt:contains("Mileage")').next('dd').text(),
       $('[class*="mileage"]').text()
     ];
-    
+
     for (const location of mileageLocations) {
       const match = location.match(/[\d,]+/);
       if (match) {
@@ -702,41 +702,74 @@ export class BaTScraper extends BaseScraper {
         }
       }
     }
-    
-    // Fall back to text pattern matching
+
+    // Try to extract from title FIRST - this is most reliable
+    const title = $('h1.listing-title').text().trim() || $('h1').first().text().trim();
+
+    // Pattern for title: "XXk-Mile" or "XX,XXX-Mile"
+    const titleKPattern = /(\d+)[Kk][\s-]?[Mm]ile/;
+    const titleKMatch = title.match(titleKPattern);
+    if (titleKMatch) {
+      const mileage = parseInt(titleKMatch[1]) * 1000;
+      if (mileage >= 100 && mileage < 500000) {
+        return mileage;
+      }
+    }
+
+    // Also check for comma-formatted in title
+    const titleCommaPattern = /(\d{1,3}(?:,\d{3})*)[\s-]?[Mm]ile/;
+    const titleCommaMatch = title.match(titleCommaPattern);
+    if (titleCommaMatch) {
+      const mileage = parseInt(titleCommaMatch[1].replace(/,/g, ''));
+      if (mileage >= 100 && mileage < 500000) {
+        return mileage;
+      }
+    }
+
+    // Next, try the main description area only (not the whole body)
+    const descriptionText = $('.listing-description, .essentials').text();
+
+    // Pattern 1: Look for "XX,XXX miles" or "XXk miles" in description
+    const descPattern1 = /(\d{1,3}(?:,\d{3})*)\s*miles/i;
+    const descMatch1 = descriptionText.match(descPattern1);
+    if (descMatch1) {
+      const mileage = parseInt(descMatch1[1].replace(/,/g, ''));
+      if (mileage >= 5 && mileage < 500000) {
+        return mileage;
+      }
+    }
+
+    const descPattern2 = /(\d+)[Kk]\s*miles/i;
+    const descMatch2 = descriptionText.match(descPattern2);
+    if (descMatch2) {
+      const mileage = parseInt(descMatch2[1]) * 1000;
+      if (mileage >= 1000 && mileage < 500000) {
+        return mileage;
+      }
+    }
+
+    // Last resort: check full body text but be more careful
     const bodyText = $('body').text();
-    
-    // Pattern 1: Look for "XX,XXX miles" or "XX,XXX-Mile"
-    const pattern1 = /(\d{1,3}(?:,\d{3})*)\s*(?:-?[Mm]ile|[Mm]iles)/g;
+
+    // Only use body text if we find a very specific pattern
+    const pattern1 = /now\s+(?:has|shows)\s+(\d{1,3}(?:,\d{3})*)\s*miles/i;
     const matches1 = bodyText.match(pattern1);
     if (matches1) {
-      for (const match of matches1) {
-        const numMatch = match.match(/(\d{1,3}(?:,\d{3})*)/);
-        if (numMatch) {
-          const mileage = parseInt(numMatch[1].replace(/,/g, ''));
-          // Filter out unrealistic values (too low or too high)
-          if (mileage >= 5 && mileage < 500000) {
-            return mileage;
-          }
-        }
+      const mileage = parseInt(matches1[1].replace(/,/g, ''));
+      if (mileage >= 5 && mileage < 500000) {
+        return mileage;
       }
     }
-    
-    // Pattern 2: Look for "XXk miles"
-    const pattern2 = /(\d+)[Kk]\s*(?:-?[Mm]ile|[Mm]iles)/g;
+
+    const pattern2 = /now\s+(?:has|shows)\s+(\d+)[Kk]\s*miles/i;
     const matches2 = bodyText.match(pattern2);
     if (matches2) {
-      for (const match of matches2) {
-        const numMatch = match.match(/(\d+)/);
-        if (numMatch) {
-          const mileage = parseInt(numMatch[1]) * 1000;
-          if (mileage >= 1000 && mileage < 500000) {
-            return mileage;
-          }
-        }
+      const mileage = parseInt(matches2[1]) * 1000;
+      if (mileage >= 1000 && mileage < 500000) {
+        return mileage;
       }
     }
-    
+
     return undefined;
   }
 

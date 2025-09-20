@@ -1,4 +1,4 @@
-name: Market Insights Generation
+name: AI Chart Predictions Generation
 
 on:
   # Schedule runs - daily at 6 AM UTC (includes weekly on Mondays)
@@ -40,8 +40,8 @@ env:
   NODE_ENV: production
 
 jobs:
-  generate-daily-insights:
-    name: Generate Daily Market Insights
+  generate-daily-predictions:
+    name: Generate Daily Chart Predictions
     runs-on: ubuntu-latest
     if: |
       (github.event_name == 'schedule') || 
@@ -64,30 +64,29 @@ jobs:
         run: |
           echo "Environment variables configured"
 
-      - name: Generate daily market insights
+      - name: Generate AI chart predictions
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          npx tsx scripts/analytics/generate-market-insights.ts \
-            --type=daily \
-            ${{ github.event.inputs.force_regeneration == 'true' && '--force' || '' }} \
-            ${{ github.event.inputs.validate_predictions == 'true' && '--validate' || '' }}
+          npx tsx scripts/analytics/generate-chart-predictions.ts \
+            --days=30 \
+            ${{ github.event.inputs.force_regeneration == 'true' && '--force' || '' }}
 
-      - name: Report daily insights status
+      - name: Report predictions status
         if: always()
         run: |
           if [ ${{ job.status }} == 'success' ]; then
-            echo "✅ Daily market insights generated successfully"
+            echo "✅ Daily chart predictions generated successfully"
           else
-            echo "❌ Daily market insights generation failed"
+            echo "❌ Daily chart predictions generation failed"
             exit 1
           fi
 
   generate-weekly-scheduled:
-    name: Generate Weekly Market Analysis (Scheduled)
+    name: Generate Weekly Predictions (Scheduled)
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule'
     
@@ -117,7 +116,7 @@ jobs:
         if: steps.is_monday.outputs.run_weekly == 'true'
         run: npm ci
 
-      - name: Validate previous predictions
+      - name: Generate AI chart predictions (weekly)
         if: steps.is_monday.outputs.run_weekly == 'true'
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -125,28 +124,17 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          npx tsx scripts/analytics/generate-market-insights.ts \
-            --type=daily \
-            --validate
+          npx tsx scripts/analytics/generate-chart-predictions.ts \
+            --days=90 \
+            --force
 
-      - name: Generate weekly market insights
-        if: steps.is_monday.outputs.run_weekly == 'true'
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          npx tsx scripts/analytics/generate-market-insights.ts \
-            --type=weekly
-
-      - name: Report weekly insights status
+      - name: Report weekly predictions status
         if: steps.is_monday.outputs.run_weekly == 'true'
         run: |
-          echo "✅ Weekly market insights generated successfully"
+          echo "✅ Weekly chart predictions generated successfully"
 
-  generate-weekly-insights:
-    name: Generate Weekly Market Analysis (Manual)
+  generate-weekly-predictions:
+    name: Generate Weekly Predictions (Manual)
     runs-on: ubuntu-latest
     if: |
       (github.event_name == 'workflow_dispatch' && github.event.inputs.insight_type == 'weekly')
@@ -168,26 +156,15 @@ jobs:
         run: |
           echo "Environment variables configured"
 
-      - name: Validate previous predictions
+      - name: Generate weekly chart predictions
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          npx tsx scripts/analytics/generate-market-insights.ts \
-            --type=daily \
-            --validate
-
-      - name: Generate weekly market insights
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          npx tsx scripts/analytics/generate-market-insights.ts \
-            --type=weekly \
+          npx tsx scripts/analytics/generate-chart-predictions.ts \
+            --days=90 \
             ${{ github.event.inputs.force_regeneration == 'true' && '--force' || '' }}
 
       - name: Report weekly insights status
@@ -252,7 +229,7 @@ jobs:
   cost-monitoring:
     name: Monitor LLM API Costs
     runs-on: ubuntu-latest
-    needs: [generate-daily-insights, generate-weekly-scheduled, generate-weekly-insights, generate-model-specific-insights]
+    needs: [generate-daily-predictions, generate-weekly-scheduled, generate-weekly-predictions, generate-model-specific-insights]
     if: always() && (needs.generate-daily-insights.result != 'skipped' || needs.generate-weekly-scheduled.result != 'skipped' || needs.generate-weekly-insights.result != 'skipped' || needs.generate-model-specific-insights.result != 'skipped')
     
     steps:
@@ -281,7 +258,7 @@ jobs:
   notification:
     name: Send Completion Notification
     runs-on: ubuntu-latest
-    needs: [generate-daily-insights, generate-weekly-scheduled, generate-weekly-insights, generate-model-specific-insights, cost-monitoring]
+    needs: [generate-daily-predictions, generate-weekly-scheduled, generate-weekly-predictions, generate-model-specific-insights, cost-monitoring]
     if: always()
     
     steps:
@@ -292,13 +269,13 @@ jobs:
           FAILURE_COUNT=0
           DETAILS=""
           
-          # Check daily insights
-          if [ "${{ needs.generate-daily-insights.result }}" == "success" ]; then
+          # Check daily predictions
+          if [ "${{ needs.generate-daily-predictions.result }}" == "success" ]; then
             SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
-            DETAILS="${DETAILS}✅ Daily insights generated\n"
-          elif [ "${{ needs.generate-daily-insights.result }}" == "failure" ]; then
+            DETAILS="${DETAILS}✅ Daily predictions generated\n"
+          elif [ "${{ needs.generate-daily-predictions.result }}" == "failure" ]; then
             FAILURE_COUNT=$((FAILURE_COUNT + 1))
-            DETAILS="${DETAILS}❌ Daily insights failed\n"
+            DETAILS="${DETAILS}❌ Daily predictions failed\n"
           fi
           
           # Check weekly scheduled insights
@@ -310,13 +287,13 @@ jobs:
             DETAILS="${DETAILS}❌ Weekly scheduled insights failed\n"
           fi
           
-          # Check weekly manual insights
-          if [ "${{ needs.generate-weekly-insights.result }}" == "success" ]; then
+          # Check weekly manual predictions
+          if [ "${{ needs.generate-weekly-predictions.result }}" == "success" ]; then
             SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
-            DETAILS="${DETAILS}✅ Weekly insights generated\n"
-          elif [ "${{ needs.generate-weekly-insights.result }}" == "failure" ]; then
+            DETAILS="${DETAILS}✅ Weekly predictions generated\n"
+          elif [ "${{ needs.generate-weekly-predictions.result }}" == "failure" ]; then
             FAILURE_COUNT=$((FAILURE_COUNT + 1))
-            DETAILS="${DETAILS}❌ Weekly insights failed\n"
+            DETAILS="${DETAILS}❌ Weekly predictions failed\n"
           fi
           
           # Check model-specific insights
@@ -352,7 +329,7 @@ jobs:
   cleanup:
     name: Cleanup Old Insights
     runs-on: ubuntu-latest
-    needs: [generate-daily-insights, generate-weekly-scheduled, generate-weekly-insights, generate-model-specific-insights]
+    needs: [generate-daily-predictions, generate-weekly-scheduled, generate-weekly-predictions, generate-model-specific-insights]
     if: always() && github.event_name == 'schedule' # Run with scheduled jobs
     
     steps:

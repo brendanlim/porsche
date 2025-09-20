@@ -1,9 +1,10 @@
 name: Scrape Index (Stage 1)
 
 on:
-  schedule:
-    # Run daily at 2 AM UTC (fast, collects URLs only)
-    - cron: '0 2 * * *'
+  # Disabled by default - use comprehensive-scraper.yml instead
+  # schedule:
+  #   # Run daily at 2 AM UTC (fast, collects URLs only)
+  #   - cron: '0 2 * * *'
   workflow_dispatch:
     inputs:
       source:

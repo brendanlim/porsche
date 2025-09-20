@@ -33,23 +33,14 @@ export async function GET(
         startDate.setDate(now.getDate() - 30);
     }
 
-    // Fetch all listings for this model - join with model_years and models tables
+    // Fetch all SOLD listings for this model - use denormalized columns for better performance
+    // Filter by sold_date to ensure we're analyzing cars that actually sold in the time period
     const { data: listings, error: listingsError } = await supabaseAdmin
       .from('listings')
-      .select(`
-        *,
-        model_years!inner (
-          year,
-          models!inner (
-            name
-          )
-        ),
-        trims (
-          name
-        )
-      `)
-      .gte('created_at', startDate.toISOString())
-      .order('created_at', { ascending: false });
+      .select('*')
+      .gte('sold_date', startDate.toISOString().split('T')[0]) // Use sold_date for filtering
+      .not('sold_date', 'is', null) // Only include listings with a sold_date
+      .order('sold_date', { ascending: false });
 
     if (listingsError) throw listingsError;
 
@@ -69,10 +60,10 @@ export async function GET(
       });
     }
 
-    // Filter listings by model name
+    // Filter listings by model name using denormalized model column
     const filteredListings = listings.filter(l => {
-      const listingModel = l.model_years?.models?.name?.toLowerCase() || '';
-      return listingModel.includes(modelName.toLowerCase()) || 
+      const listingModel = l.model?.toLowerCase() || '';
+      return listingModel.includes(modelName.toLowerCase()) ||
              listingModel.includes(model.replace('-', ' ').toLowerCase());
     });
 
@@ -105,10 +96,13 @@ export async function GET(
     };
     const averageMileage = mileages.reduce((a, b) => a + b, 0) / mileages.length;
 
-    // Market trends over time (group by day)
+    // Market trends over time (group by day) - use sold_date for accurate market analysis
     const trendsByDay = new Map();
     filteredListings.forEach(listing => {
-      const date = new Date(listing.created_at).toISOString().split('T')[0];
+      // Use sold_date for market trends - this shows when cars actually sold
+      const date = listing.sold_date ? new Date(listing.sold_date).toISOString().split('T')[0] : null;
+      if (!date) return; // Skip listings without sold_date
+
       if (!trendsByDay.has(date)) {
         trendsByDay.set(date, {
           prices: [],
@@ -131,10 +125,10 @@ export async function GET(
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    // Trim analysis
+    // Trim analysis using denormalized trim column
     const trimGroups = new Map();
     filteredListings.forEach(listing => {
-      const trim = listing.trims?.name || 'Base';
+      const trim = listing.trim || 'Base';
       if (!trimGroups.has(trim)) {
         trimGroups.set(trim, {
           prices: [],
@@ -147,13 +141,15 @@ export async function GET(
       const group = trimGroups.get(trim);
       if (listing.price > 0) {
         group.prices.push(listing.price);
-        // Track recent vs older prices for change calculation
-        const listingDate = new Date(listing.created_at);
-        const daysAgo = (now.getTime() - listingDate.getTime()) / (1000 * 60 * 60 * 24);
-        if (daysAgo <= 7) {
-          group.recentPrices.push(listing.price);
-        } else if (daysAgo >= 23 && daysAgo <= 30) {
-          group.olderPrices.push(listing.price);
+        // Track recent vs older prices for change calculation - use sold_date
+        if (listing.sold_date) {
+          const soldDate = new Date(listing.sold_date);
+          const daysAgo = (now.getTime() - soldDate.getTime()) / (1000 * 60 * 60 * 24);
+          if (daysAgo <= 7) {
+            group.recentPrices.push(listing.price);
+          } else if (daysAgo >= 23 && daysAgo <= 30) {
+            group.olderPrices.push(listing.price);
+          }
         }
       }
       if (listing.mileage > 0) group.mileages.push(listing.mileage);
@@ -183,10 +179,10 @@ export async function GET(
       })
       .sort((a, b) => b.avgPrice - a.avgPrice);
 
-    // Year analysis
+    // Year analysis using denormalized year column
     const yearGroups = new Map();
     filteredListings.forEach(listing => {
-      const year = listing.model_years?.year;
+      const year = listing.year;
       if (!year) return;
       
       if (!yearGroups.has(year)) {
@@ -217,8 +213,8 @@ export async function GET(
       .map(l => ({
         mileage: l.mileage,
         price: l.price,
-        trim: l.trims?.name || 'Base',
-        year: l.model_years?.year || 0
+        trim: l.trim || 'Base',
+        year: l.year || 0
       }));
 
     // Top performers (highest prices, appreciation calculation would need historical data)
@@ -228,16 +224,16 @@ export async function GET(
       .slice(0, 10)
       .map(l => {
         // Simple appreciation estimate based on year and average depreciation
-        const year = l.model_years?.year || 2020;
+        const year = l.year || 2020;
         const age = new Date().getFullYear() - year;
         const expectedDepreciation = age * 0.05; // 5% per year typical
         const msrp = l.price / (1 - expectedDepreciation); // Rough MSRP estimate
         const appreciation = ((l.price - msrp * 0.7) / (msrp * 0.7)) * 100; // vs 70% of MSRP baseline
-        
+
         return {
           vin: l.vin,
           year: year,
-          trim: l.trims?.name || 'Base',
+          trim: l.trim || 'Base',
           price: l.price,
           mileage: l.mileage || 0,
           appreciation: appreciation

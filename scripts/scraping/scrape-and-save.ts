@@ -279,6 +279,7 @@ async function saveListings(listings: ScrapedListing[], source: string): Promise
           description: listing.description,
           options_text: listing.options_text,
           sold_date: listing.sold_date,
+          list_date: listing.list_date,
           scraped_at: new Date().toISOString()
         }, {
           onConflict: 'source_url',

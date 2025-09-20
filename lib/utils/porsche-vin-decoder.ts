@@ -33,11 +33,22 @@ const PORSCHE_MODELS: Record<string, { name: string; generation?: string }> = {
   '993': { name: '911', generation: '993' },
   '964': { name: '911', generation: '964' },
 
+  // 997 GT3 RS specific codes
+  'AF2': { name: '911', generation: '997' }, // 997 GT3 RS
+  'AB2': { name: '911', generation: '997' }, // 997 GT3 RS variant
+
   // 718 Models
   '981': { name: '718', generation: '981' }, // Boxster/Cayman 2013-2016
   '982': { name: '718', generation: '982' }, // Boxster/Cayman 2016+
   '987': { name: '718', generation: '987' }, // Boxster/Cayman 2005-2012
   'AE2': { name: '718', generation: '982' }, // GT4 RS specific code
+
+  // 718 GT4 specific codes - these need careful year-based detection
+  'AC2': { name: '718', generation: '981' }, // Can be 718 GT4 OR 996 GT3 depending on year
+  'CC2': { name: '718', generation: '982' }, // 982 GT4
+
+  // Special/Race codes
+  'ZZZ': { name: '911', generation: 'Race' }, // Rest of World/Race cars
 
   // Cayenne
   '92A': { name: 'Cayenne', generation: 'E1' }, // First gen
@@ -102,6 +113,12 @@ const BODY_ENGINE_CODES: Record<string, { bodyStyle: string; engineType?: string
   'ZB': { bodyStyle: 'GT3 RS', engineType: 'GT3 RS' },
   'ZR': { bodyStyle: 'GT2 RS', engineType: 'GT2 RS' },
 
+  // 996/997 GT3 codes (older pattern)
+  '99': { bodyStyle: 'GT3', engineType: 'GT3' }, // 996 GT3
+  '76': { bodyStyle: 'GT3', engineType: 'GT3' }, // 997 GT3
+  '89': { bodyStyle: 'GT3 RS', engineType: 'GT3 RS' }, // 997 GT3 RS
+  'A9': { bodyStyle: 'GT3 RS', engineType: 'GT3 RS' }, // 997 GT3 RS pattern
+
   // 718 codes
   'PA': { bodyStyle: 'Boxster', engineType: 'Base' },
   'PB': { bodyStyle: 'Boxster S', engineType: 'S' },
@@ -112,7 +129,8 @@ const BODY_ENGINE_CODES: Record<string, { bodyStyle: string; engineType?: string
   'XC': { bodyStyle: 'Cayman GTS', engineType: 'GTS' },
   'XD': { bodyStyle: 'Cayman GT4', engineType: 'GT4' },
   'XE': { bodyStyle: 'Cayman GT4 RS', engineType: 'GT4 RS' },
-  'A8': { bodyStyle: 'Cayman GT4 RS', engineType: 'GT4 RS' }, // GT4 RS specific code
+  'A8': { bodyStyle: 'Cayman GT4', engineType: 'GT4' }, // Can be GT4 or GT4 RS depending on model code
+  'A6': { bodyStyle: 'Cayman GT4', engineType: 'GT4' }, // GT4 pattern
 };
 
 /**
@@ -187,12 +205,46 @@ export function decodePorscheVIN(vin: string): DecodedVIN {
     modelCode = positions456;
     generation = modelInfo.generation || '';
 
+    // Special handling for AC2 code - can be 996 GT3 or 718 GT4 based on year
+    if (positions456 === 'AC2') {
+      if (modelYear && modelYear <= 2005) {
+        // AC2 before 2006 is 996 GT3
+        model = '911';
+        generation = '996';
+      } else {
+        // AC2 after 2005 is 718 GT4
+        model = '718';
+        generation = modelYear >= 2017 ? '982' : '981';
+      }
+    }
+
     // For 911 and 718, positions 7-8 often indicate body/engine
     if (model === '911' || model === '718') {
       const bodyEngineInfo = BODY_ENGINE_CODES[positions78];
       if (bodyEngineInfo) {
         bodyStyle = bodyEngineInfo.bodyStyle;
         engineType = bodyEngineInfo.engineType || '';
+
+        // Special handling for GT4/GT4 RS distinction
+        // A8 code is GT4 RS only when paired with AE2 model code
+        if (positions78 === 'A8') {
+          if (positions456 === 'AE2') {
+            // AE2 + A8 = GT4 RS
+            bodyStyle = 'Cayman GT4 RS';
+            engineType = 'GT4 RS';
+          } else {
+            // AC2/CC2 + A8 = regular GT4
+            bodyStyle = 'Cayman GT4';
+            engineType = 'GT4';
+          }
+        }
+
+        // Handle GT3 R race cars
+        if (positions456 === 'ZZZ' && positions78 === '99') {
+          bodyStyle = 'GT3 R';
+          engineType = 'GT3 R';
+          generation = modelYear >= 2019 ? '992' : modelYear >= 2013 ? '991' : '997';
+        }
       }
     }
   } else {
@@ -201,12 +253,38 @@ export function decodePorscheVIN(vin: string): DecodedVIN {
 
     // Position 4 often indicates vehicle type
     const position4 = cleanVIN.charAt(3);
+    const position5 = cleanVIN.charAt(4);
     switch (position4) {
       case 'A':
       case 'B':
       case 'C':
         vehicleType = 'Passenger Car';
         model = '911'; // Most common for these codes
+
+        // Try to determine generation from position 5 for older 911s
+        if (position4 === 'A') {
+          switch (position5) {
+            case 'C':
+              generation = '996'; // 996 generation (1999-2004)
+              break;
+            case 'P':
+              generation = '997'; // 997 generation (2005-2011)
+              break;
+            case 'B':
+              generation = '991'; // 991 generation (2012-2018)
+              break;
+            case 'F':
+              generation = '992'; // 992 generation (2019+)
+              break;
+          }
+        }
+
+        // Check for body/engine codes for these older 911s
+        const bodyEngineInfo = BODY_ENGINE_CODES[positions78];
+        if (bodyEngineInfo) {
+          bodyStyle = bodyEngineInfo.bodyStyle;
+          engineType = bodyEngineInfo.engineType || '';
+        }
         break;
       case 'Z':
         vehicleType = 'Sports Car';
@@ -257,11 +335,17 @@ export function formatDecodedVIN(decoded: DecodedVIN): string {
     decoded.manufacturer,
     decoded.model,
     decoded.generation,
-    decoded.bodyStyle,
-    decoded.engineType
-  ].filter(Boolean);
+    decoded.bodyStyle
+  ];
 
-  return parts.join(' ');
+  // Only add engineType if it's different from what's already in bodyStyle
+  if (decoded.engineType && decoded.bodyStyle && !decoded.bodyStyle.includes(decoded.engineType)) {
+    parts.push(decoded.engineType);
+  } else if (decoded.engineType && !decoded.bodyStyle) {
+    parts.push(decoded.engineType);
+  }
+
+  return parts.filter(Boolean).join(' ');
 }
 
 /**

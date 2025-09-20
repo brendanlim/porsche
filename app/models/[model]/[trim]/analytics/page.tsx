@@ -145,8 +145,8 @@ function formatMileage(mileage: number): string {
   return new Intl.NumberFormat('en-US').format(mileage) + ' mi';
 }
 
-function StatCard({ title, value, change, icon: Icon, subtitle }: any) {
-  const hasChange = change !== null && change !== undefined;
+function StatCard({ title, value, change, icon: Icon, subtitle, hideChange = false }: any) {
+  const hasChange = change !== null && change !== undefined && !hideChange;
   const isPositive = hasChange && change > 0;
   const isNeutral = hasChange && Math.abs(change) < 0.5;
 
@@ -171,7 +171,7 @@ function StatCard({ title, value, change, icon: Icon, subtitle }: any) {
             Stable
           </p>
         )}
-        {!hasChange && (
+        {!hasChange && !hideChange && change !== null && (
           <p className="text-xs text-gray-400 mt-2">
             Insufficient data
           </p>
@@ -244,9 +244,29 @@ export default function TrimAnalyticsPage() {
     router.push(`${pathname}${query}`, { scroll: false });
   };
 
+  // Fetch all generations on initial load
+  useEffect(() => {
+    fetchAllGenerations();
+  }, [model, trim]);
+
   useEffect(() => {
     fetchAnalytics();
   }, [model, trim, selectedGeneration, timeRange]);
+
+  const fetchAllGenerations = async () => {
+    try {
+      // Always fetch with 'all' to get all available generations
+      const response = await fetch(`/api/analytics/${model}/${trim}?range=${timeRange}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.generations && data.generations.length > 0) {
+          setAllGenerations(data.generations);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch all generations:', error);
+    }
+  };
 
   const fetchAnalytics = async () => {
     try {
@@ -260,14 +280,9 @@ export default function TrimAnalyticsPage() {
       const data = await response.json();
       setAnalytics(data);
       
-      // Store all generations when fetching without filter
+      // Always update all generations if we're fetching with 'all'
       if (selectedGeneration === 'all' && data.generations && data.generations.length > 0) {
         setAllGenerations(data.generations);
-      }
-      
-      // If there's only one generation and we haven't selected it yet, select it automatically
-      if (data.generations && data.generations.length === 1 && selectedGeneration === 'all') {
-        setSelectedGeneration(data.generations[0]);
       }
     } catch (error) {
       console.error('Failed to fetch analytics:', error);
@@ -391,7 +406,7 @@ export default function TrimAnalyticsPage() {
           <StatCard
             title="MoM Appreciation"
             value={`${analytics.yearOverYearAppreciation > 0 ? '+' : ''}${analytics.yearOverYearAppreciation.toFixed(1)}%`}
-            change={null}
+            hideChange={true}
             icon={TrendingUp}
           />
           <StatCard
@@ -400,7 +415,7 @@ export default function TrimAnalyticsPage() {
               ? `${formatPrice(analytics.priceRange.min)} - ${formatPrice(analytics.priceRange.max)}`
               : 'N/A'
             }
-            change={0}
+            hideChange={true}
             icon={Zap}
           />
         </div>
@@ -882,34 +897,185 @@ export default function TrimAnalyticsPage() {
         </Card>
 
 
-        {/* Cost Per 1000 Miles Analysis */}
+        {/* Depreciation Analysis */}
         <Card>
           <CardHeader>
-            <CardTitle>Depreciation & Cost per 1,000 Miles</CardTitle>
+            <CardTitle>Depreciation Analysis</CardTitle>
             <CardDescription>
-              Value retention analysis by model year and generation
+              Average price and cost efficiency by model year
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div style={{ width: '100%', height: 350, display: 'flex', justifyContent: 'center' }}>
-              <BarChart width={chartWidth} height={350} data={analytics.depreciationByYear}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="year" stroke="#6b7280" tick={{ fontSize: 11 }} />
-                <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" tick={{ fontSize: 11 }} />
-                <YAxis yAxisId="right" orientation="right" stroke="#10b981" tick={{ fontSize: 11 }} />
-                <Tooltip 
-                  formatter={(value: any, name: string) => {
-                    if (name === 'Average Price') return formatPrice(value);
-                    if (name === 'Cost/1000mi') return `$${value.toFixed(0)}`;
-                    return formatMileage(value);
-                  }}
-                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
-                />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar yAxisId="left" dataKey="avgPrice" fill="#3b82f6" name="Average Price" />
-                <Bar yAxisId="right" dataKey="costPer1000Mi" fill="#10b981" name="Cost/1000mi" />
-              </BarChart>
-            </div>
+            {analytics.depreciationByYear && analytics.depreciationByYear.length > 0 ? (
+              <>
+                {/* Line Chart for Depreciation Curve */}
+                <div style={{ width: '100%', height: 300, display: 'flex', justifyContent: 'center' }}>
+                  <ResponsiveContainer width={chartWidth} height={300}>
+                    <ComposedChart 
+                      data={analytics.depreciationByYear}
+                      margin={{ top: 20, right: 20, bottom: 60, left: 20 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis 
+                        dataKey="year" 
+                        stroke="#6b7280" 
+                        tick={{ fontSize: 11 }}
+                        label={{ value: 'Model Year', position: 'insideBottom', offset: -5, style: { fontSize: 12 } }}
+                      />
+                      <YAxis 
+                        yAxisId="left"
+                        stroke="#3b82f6" 
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                        label={{ value: 'Average Price', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
+                      />
+                      <YAxis 
+                        yAxisId="right"
+                        orientation="right"
+                        stroke="#10b981" 
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(value) => `${(value / 1000).toFixed(0)}k mi`}
+                        label={{ value: 'Average Mileage', angle: 90, position: 'insideRight', style: { fontSize: 12 } }}
+                      />
+                      <Tooltip 
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length > 0) {
+                            const data = payload[0].payload;
+                            const oldestYear = Math.min(...analytics.depreciationByYear.map(d => d.year));
+                            const newestYear = Math.max(...analytics.depreciationByYear.map(d => d.year));
+                            const newestPrice = analytics.depreciationByYear.find(d => d.year === newestYear)?.avgPrice || 0;
+                            const depreciationPercent = newestPrice > 0 ?
+                              ((newestPrice - data.avgPrice) / newestPrice * 100) : 0;
+                            
+                            return (
+                              <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-sm">
+                                <p className="font-semibold text-gray-900">{data.year} Model Year</p>
+                                <p className="text-sm text-blue-600">Avg Price: {formatPrice(data.avgPrice)}</p>
+                                <p className="text-sm text-green-600">Avg Mileage: {formatMileage(data.avgMileage)}</p>
+                                <p className="text-sm text-purple-600">Cost/1000mi: ${data.costPer1000Mi.toFixed(2)}</p>
+                                {data.generation && (
+                                  <p className="text-sm text-gray-600">Generation: {data.generation}</p>
+                                )}
+                                {depreciationPercent !== 0 && (
+                                  <p className="text-sm font-medium mt-1 text-gray-700">
+                                    {depreciationPercent > 0 ? '+' : ''}{depreciationPercent.toFixed(1)}% vs newest
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 12 }} />
+                      
+                      {/* Price line with area fill */}
+                      <Area
+                        yAxisId="left"
+                        type="monotone"
+                        dataKey="avgPrice"
+                        fill="#3b82f6"
+                        fillOpacity={0.1}
+                        stroke="#3b82f6"
+                        strokeWidth={3}
+                        dot={{ r: 5, fill: '#3b82f6' }}
+                        name="Average Price"
+                      />
+                      
+                      {/* Mileage line */}
+                      <Line
+                        yAxisId="right"
+                        type="monotone"
+                        dataKey="avgMileage"
+                        stroke="#10b981"
+                        strokeWidth={2}
+                        dot={{ r: 4, fill: '#10b981' }}
+                        strokeDasharray="5 5"
+                        name="Average Mileage"
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+                
+                {/* Key Metrics Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+                  {(() => {
+                    const sorted = [...analytics.depreciationByYear].sort((a, b) => b.year - a.year);
+                    const newest = sorted[0];
+                    const oldest = sorted[sorted.length - 1];
+                    
+                    // Find median year for price comparison
+                    const medianYear = sorted[Math.floor(sorted.length / 2)];
+                    
+                    // Calculate average depreciation per year (using mileage-adjusted values)
+                    const avgDepreciationPerYear = sorted.length > 1 ? 
+                      ((oldest.avgPrice - newest.avgPrice) / (newest.year - oldest.year)) : 0;
+                    
+                    const bestValue = [...analytics.depreciationByYear]
+                      .filter(d => d.costPer1000Mi > 0)
+                      .sort((a, b) => a.costPer1000Mi - b.costPer1000Mi)[0];
+
+                    const worstValue = [...analytics.depreciationByYear]
+                      .filter(d => d.costPer1000Mi > 0)
+                      .sort((a, b) => b.costPer1000Mi - a.costPer1000Mi)[0];
+
+                    // Calculate price spread
+                    const priceSpread = newest && oldest ?
+                      ((newest.avgPrice - oldest.avgPrice) / oldest.avgPrice * 100) : 0;
+                    
+                    return (
+                      <>
+                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                          <div className="text-sm font-medium text-blue-900 mb-1">Current Market (Newest)</div>
+                          <div className="text-2xl font-bold text-blue-600">{newest?.year}</div>
+                          <div className="text-sm text-blue-700 mt-1">{formatPrice(newest?.avgPrice || 0)}</div>
+                          <div className="text-xs text-blue-600 mt-1">Avg: {formatMileage(newest?.avgMileage || 0)}</div>
+                        </div>
+                        
+                        <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                          <div className="text-sm font-medium text-green-900 mb-1">Sweet Spot Year</div>
+                          <div className="text-2xl font-bold text-green-600">{bestValue?.year || medianYear?.year}</div>
+                          <div className="text-sm text-green-700 mt-1">
+                            {bestValue ? `$${bestValue.costPer1000Mi.toFixed(2)}/1000mi` : formatPrice(medianYear?.avgPrice || 0)}
+                          </div>
+                          <div className="text-xs text-green-600 mt-1">
+                            {bestValue ? 'Lowest cost per mile' : 'Median price point'}
+                          </div>
+                        </div>
+
+                        <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                          <div className="text-sm font-medium text-red-900 mb-1">Premium Year</div>
+                          <div className="text-2xl font-bold text-red-600">{worstValue?.year || newest?.year}</div>
+                          <div className="text-sm text-red-700 mt-1">
+                            {worstValue ? `$${worstValue.costPer1000Mi.toFixed(2)}/1000mi` : formatPrice(newest?.avgPrice || 0)}
+                          </div>
+                          <div className="text-xs text-red-600 mt-1">
+                            {worstValue ? 'Highest cost per mile' : 'Newest model year'}
+                          </div>
+                        </div>
+
+                        <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                          <div className="text-sm font-medium text-purple-900 mb-1">Market Spread</div>
+                          <div className="text-2xl font-bold text-purple-600">
+                            {priceSpread > 0 ? '+' : ''}{priceSpread.toFixed(1)}%
+                          </div>
+                          <div className="text-sm text-purple-700 mt-1">
+                            {sorted.length} model years
+                          </div>
+                          <div className="text-xs text-purple-600 mt-1">
+                            {oldest?.year} - {newest?.year}
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </>
+            ) : (
+              <div className="h-[400px] flex items-center justify-center">
+                <p className="text-gray-500">No depreciation data available</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

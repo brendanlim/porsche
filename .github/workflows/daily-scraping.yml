@@ -22,8 +22,8 @@ on:
           - edmunds
           - autotrader
           - cargurus
-      models:
-        description: 'Specific models to scrape (comma-separated, e.g., 911,718)'
+      model:
+        description: 'Specific model to scrape (e.g., 911, 718-cayman)'
         required: false
         type: string
       max_pages:
@@ -65,7 +65,7 @@ jobs:
         run: |
           echo "🚀 Starting daily data collection..."
           echo "Source: ${{ github.event.inputs.source || 'all' }}"
-          echo "Models: ${{ github.event.inputs.models || 'all' }}"
+          echo "Model: ${{ github.event.inputs.model || 'all' }}"
           echo "Max pages: ${{ github.event.inputs.max_pages || '10' }}"
 
           # Build command based on inputs
@@ -75,8 +75,8 @@ jobs:
             COMMAND="$COMMAND --source=${{ github.event.inputs.source }}"
           fi
 
-          if [ "${{ github.event.inputs.models }}" != "" ]; then
-            COMMAND="$COMMAND --models=${{ github.event.inputs.models }}"
+          if [ "${{ github.event.inputs.model }}" != "" ]; then
+            COMMAND="$COMMAND --model=${{ github.event.inputs.model }}"
           fi
 
           if [ "${{ github.event.inputs.max_pages }}" != "" ]; then

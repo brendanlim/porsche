@@ -1,7 +1,7 @@
 name: Scrape Index (Stage 1)
 
 on:
-  # Disabled by default - use comprehensive-scraper.yml instead
+  # Disabled - use daily-scraping.yml instead (simpler, more reliable)
   # schedule:
   #   # Run daily at 2 AM UTC (fast, collects URLs only)
   #   - cron: '0 2 * * *'
@@ -21,7 +21,7 @@ on:
 jobs:
   scrape-index:
     runs-on: ubuntu-latest
-    timeout-minutes: 30  # Should complete in 5-10 minutes
+    timeout-minutes: 90  # BaT has 100+ model configs, needs more time
 
     steps:
       - name: Checkout repository

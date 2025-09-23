@@ -1,7 +1,7 @@
 name: Scrape Details (Stage 2)
 
 on:
-  # Disabled by default - use comprehensive-scraper.yml instead
+  # Disabled - use daily-scraping.yml instead (simpler, more reliable)
   repository_dispatch:
     types: [process-details]
   # schedule:
@@ -33,7 +33,7 @@ on:
 jobs:
   process-details:
     runs-on: ubuntu-latest
-    timeout-minutes: 45  # Should complete in 30-40 minutes
+    timeout-minutes: 60  # Process details with safety margin
 
     strategy:
       matrix:

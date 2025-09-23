@@ -1,6 +1,6 @@
 'use client';
 
-import { TrendingUp, TrendingDown, DollarSign, Package, Clock, Trophy, Tag, Activity } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Package, Activity } from 'lucide-react';
 
 interface KPIData {
   totalSales: number;
@@ -64,27 +64,6 @@ export function MetricsDashboard({ data, loading = false }: MetricsDashboardProp
       value: formatCurrency(data.totalVolume),
       icon: TrendingUp,
       color: 'orange',
-      change: null
-    },
-    {
-      label: 'Avg Days to Sell',
-      value: data.averageDaysToSell > 0 ? `${data.averageDaysToSell}d` : 'N/A',
-      icon: Clock,
-      color: 'cyan',
-      change: null
-    },
-    {
-      label: 'Top Model',
-      value: data.topModel || 'N/A',
-      icon: Trophy,
-      color: 'yellow',
-      change: null
-    },
-    {
-      label: 'Top Trim',
-      value: data.topTrim || 'N/A',
-      icon: Tag,
-      color: 'pink',
       change: null
     }
   ];

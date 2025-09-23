@@ -101,7 +101,7 @@ export function MetricsDashboard({ data, loading = false }: MetricsDashboardProp
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {[...Array(7)].map((_, i) => (
           <div key={i} className="bg-white rounded-lg shadow p-6 animate-pulse">
             <div className="h-4 bg-gray-200 rounded w-24 mb-3"></div>
@@ -114,13 +114,13 @@ export function MetricsDashboard({ data, loading = false }: MetricsDashboardProp
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {metrics.map((metric) => {
         const Icon = metric.icon;
         const colorClass = colorClasses[metric.color as keyof typeof colorClasses];
 
         return (
-          <div key={metric.label} className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6">
+          <div key={metric.label} className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6 min-w-0">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium text-gray-600">{metric.label}</span>
               <div className={`p-2 rounded-lg ${colorClass}`}>

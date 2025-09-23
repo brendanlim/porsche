@@ -175,7 +175,7 @@ export class BaTScraperPuppeteer extends BaseScraper {
     indexOnly?: boolean;
   } = {}): Promise<ScrapedListing[]> {
     const { model, trim, maxPages = 5, indexOnly = false } = options;
-    const allListings: ScrapedListing[] = [];
+    let allListings: ScrapedListing[] = [];
     
     // Filter models based on provided parameters
     let modelsToScrape = BAT_MODELS;

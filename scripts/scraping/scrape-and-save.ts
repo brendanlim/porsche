@@ -138,16 +138,16 @@ function parseListingDetails(listing: ScrapedListing): ScrapedListing {
     const carAge = currentYear - year;
 
     // Define max miles per year based on car type
-    let maxMilesPerYear = 12000; // Standard for regular Porsches
+    let maxMilesPerYear = 25000; // Generous limit for regular Porsches (some are daily drivers)
 
-    // GT cars (GT3, GT4, GT2) are typically driven less
+    // GT cars (GT3, GT4, GT2) are typically driven less but some are tracked heavily
     if (trim?.includes('GT3') || trim?.includes('GT4') || trim?.includes('GT2')) {
-      maxMilesPerYear = 5000; // More realistic for GT cars (collectors/track cars)
+      maxMilesPerYear = 10000; // Generous for GT cars (allows for track enthusiasts)
     }
 
     // Special handling for brand new cars (current or next year)
     if (carAge <= 1) {
-      maxMilesPerYear = 10000; // Even demo cars shouldn't exceed this
+      maxMilesPerYear = 20000; // Demo cars and press cars can rack up miles
     }
 
     // Calculate maximum reasonable mileage

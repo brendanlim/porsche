@@ -4,6 +4,7 @@ import { BaTScraper } from './bat';
 import * as cheerio from 'cheerio';
 import { HTMLStorageService } from '../services/html-storage';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getModelSlug, isCleanModelName, type CleanModelName } from '../utils/model-slug-mapper';
 
 interface BaTModel {
   name: string;
@@ -183,8 +184,16 @@ export class BaTScraperPuppeteer extends BaseScraper {
       modelsToScrape = BAT_MODELS.filter(m => {
         // Check model match if provided
         if (model) {
-          const modelMatch = m.slug.toLowerCase() === model.toLowerCase() || 
-                           m.name.toLowerCase().replace(' ', '-') === model.toLowerCase();
+          // Convert clean model name to BaT slug for comparison
+          let targetSlug = model.toLowerCase();
+          if (isCleanModelName(model)) {
+            targetSlug = getModelSlug(model as CleanModelName, 'bat');
+            // Remove 'porsche-' prefix for comparison
+            targetSlug = targetSlug.replace('porsche-', '');
+          }
+
+          const modelMatch = m.slug.toLowerCase() === targetSlug ||
+                           m.name.toLowerCase().replace(' ', '-') === targetSlug;
           if (!modelMatch) return false;
         }
         

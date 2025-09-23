@@ -5,7 +5,7 @@ on:
   schedule:
     # 911 models at 1 AM UTC
     - cron: '0 1 * * *'
-    # 718/Cayman models at 5 AM UTC
+    # Cayman models at 5 AM UTC
     - cron: '0 5 * * *'
     # Boxster models at 9 AM UTC
     - cron: '0 9 * * *'
@@ -19,7 +19,7 @@ on:
         type: choice
         options:
           - 911
-          - 718-cayman
+          - cayman
           - boxster
       max_pages:
         description: 'Maximum pages to scrape'
@@ -48,7 +48,7 @@ jobs:
             if [ "$HOUR" == "01" ]; then
               echo "model=911" >> $GITHUB_OUTPUT
             elif [ "$HOUR" == "05" ]; then
-              echo "model=718-cayman" >> $GITHUB_OUTPUT
+              echo "model=cayman" >> $GITHUB_OUTPUT
             elif [ "$HOUR" == "09" ]; then
               echo "model=boxster" >> $GITHUB_OUTPUT
             else
@@ -114,7 +114,7 @@ jobs:
             const { count } = await supabase
               .from('listings')
               .select('*', { count: 'exact', head: true })
-              .eq('model', model.includes('718') ? '718 Cayman' : model.charAt(0).toUpperCase() + model.slice(1))
+              .eq('model', model.charAt(0).toUpperCase() + model.slice(1))
               .gte('scraped_at', today + 'T00:00:00.000Z');
 
             console.log('📊 Focused Scraping Report');

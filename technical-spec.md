@@ -407,25 +407,36 @@ class LLMPredictor {
 
 ## Background Jobs
 
-### Scheduled Tasks
+### Scraping Workflows
 
-#### Daily Jobs
-- Market insight generation
-- Anomaly detection
-- Price validation
-- Data quality checks
+#### Focused Model Scraping (Primary)
+**Schedule:** 3 times daily, model-specific
+- **1 AM UTC**: 911 models
+- **5 AM UTC**: 718/Cayman models
+- **9 AM UTC**: Boxster models
+- **Timeout**: 60 minutes per model
+- **Configuration**: 5 pages default, BaT source
+- **Benefits**: Reliable, isolated failures, manageable timeouts
 
-#### Weekly Jobs
-- Deep market analysis
-- Cross-market correlation
-- Investment recommendations
-- Performance reports
+#### Daily Data Collection (Comprehensive)
+**Schedule:** On-demand or weekly
+- **3 AM UTC**: All models and sources
+- **Timeout**: 180 minutes (increased from 120)
+- **Purpose**: Full refresh, all sources
+- **Note**: Prone to timeouts with all models
+
+#### AI Predictions Generation
+**Schedule:** Daily at 6 AM UTC
+- Chart predictions with 30-day horizon
+- Weekly deep analysis on Mondays
+- Model-specific insights on demand
 
 ### Queue Processing
 - Priority-based execution
 - Retry logic with exponential backoff
 - Error tracking and alerting
 - Progress monitoring
+- Model-based isolation for reliability
 
 ## Performance Optimizations
 
@@ -564,5 +575,5 @@ class LLMPredictor {
 
 ---
 
-*Last Updated: January 2025*
-*Version: 1.0.0*
+*Last Updated: September 2025*
+*Version: 1.0.1*

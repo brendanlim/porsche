@@ -3,7 +3,7 @@
 ## 🚨 ALWAYS CHECK `/notes/` FOLDER FIRST
 **Before starting ANY work, read relevant notes in `/notes/` directory**
 - Contains lessons learned, what works, what failed
-- Files: `YYYYMMDD_task.md` (e.g., `20250123_scraping_mileage_fixes.md`)
+- Files: `YYYYMMDD_task.md` (e.g., `20250923_scraping_mileage_fixes.md`)
 - **DO NOT REPEAT PAST MISTAKES** - Learn from documented issues
 - Update notes after significant work
 

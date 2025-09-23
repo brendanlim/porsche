@@ -131,7 +131,36 @@ function parseListingDetails(listing: ScrapedListing): ScrapedListing {
       trim = 'Carrera';
     }
   }
-  
+
+  // Validate and fix mileage for known issues
+  if (listing.mileage) {
+    // GT4 RS specific validation (introduced in 2022)
+    if ((trim?.includes('GT4 RS') || trim?.includes('GT4RS')) && year && year >= 2022) {
+      // GT4 RS should never have more than 30k miles
+      if (listing.mileage > 30000) {
+        // Check if it's a parsing error (extra zeros)
+        const correctedMileage = Math.floor(listing.mileage / 100);
+        if (correctedMileage > 100 && correctedMileage < 30000) {
+          console.log(`    ⚠️  Fixing GT4 RS mileage: ${listing.mileage} → ${correctedMileage} miles`);
+          listing.mileage = correctedMileage;
+        } else {
+          console.log(`    ⚠️  GT4 RS mileage unrealistic (${listing.mileage}), setting to null`);
+          listing.mileage = undefined;
+        }
+      }
+    }
+
+    // General high-mileage validation for newer cars
+    if (year && year >= 2020 && listing.mileage > 100000) {
+      // Check for parsing errors (extra digits)
+      const correctedMileage = Math.floor(listing.mileage / 100);
+      if (correctedMileage > 100 && correctedMileage < 50000) {
+        console.log(`    ⚠️  Fixing likely parsing error: ${listing.mileage} → ${correctedMileage} miles`);
+        listing.mileage = correctedMileage;
+      }
+    }
+  }
+
   // Infer generation from year if not set
   if (!generation && year) {
     if (model === '911') {

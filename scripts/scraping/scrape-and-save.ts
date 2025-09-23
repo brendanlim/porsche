@@ -133,30 +133,55 @@ function parseListingDetails(listing: ScrapedListing): ScrapedListing {
   }
 
   // Validate and fix mileage for known issues
-  if (listing.mileage) {
-    // GT4 RS specific validation (introduced in 2022)
-    if ((trim?.includes('GT4 RS') || trim?.includes('GT4RS')) && year && year >= 2022) {
-      // GT4 RS should never have more than 30k miles
-      if (listing.mileage > 30000) {
-        // Check if it's a parsing error (extra zeros)
-        const correctedMileage = Math.floor(listing.mileage / 100);
-        if (correctedMileage > 100 && correctedMileage < 30000) {
-          console.log(`    ⚠️  Fixing GT4 RS mileage: ${listing.mileage} → ${correctedMileage} miles`);
-          listing.mileage = correctedMileage;
-        } else {
-          console.log(`    ⚠️  GT4 RS mileage unrealistic (${listing.mileage}), setting to null`);
-          listing.mileage = undefined;
-        }
-      }
+  if (listing.mileage && year) {
+    const currentYear = new Date().getFullYear();
+    const carAge = currentYear - year;
+
+    // Define max miles per year based on car type
+    let maxMilesPerYear = 12000; // Standard for regular Porsches
+
+    // GT cars (GT3, GT4, GT2) are typically driven less
+    if (trim?.includes('GT3') || trim?.includes('GT4') || trim?.includes('GT2')) {
+      maxMilesPerYear = 5000; // More realistic for GT cars (collectors/track cars)
     }
 
-    // General high-mileage validation for newer cars
-    if (year && year >= 2020 && listing.mileage > 100000) {
-      // Check for parsing errors (extra digits)
-      const correctedMileage = Math.floor(listing.mileage / 100);
-      if (correctedMileage > 100 && correctedMileage < 50000) {
-        console.log(`    ⚠️  Fixing likely parsing error: ${listing.mileage} → ${correctedMileage} miles`);
-        listing.mileage = correctedMileage;
+    // Special handling for brand new cars (current or next year)
+    if (carAge <= 1) {
+      maxMilesPerYear = 10000; // Even demo cars shouldn't exceed this
+    }
+
+    // Calculate maximum reasonable mileage
+    const maxReasonableMileage = Math.max(carAge * maxMilesPerYear, 1000); // At least 1000 miles
+
+    // Check if mileage exceeds reasonable maximum
+    if (listing.mileage > maxReasonableMileage) {
+      // Try to fix common parsing errors
+      let correctedMileage = listing.mileage;
+
+      // Check for extra zeros (common parsing error)
+      if (correctedMileage > 100000) {
+        const divided100 = Math.floor(correctedMileage / 100);
+        const divided10 = Math.floor(correctedMileage / 10);
+
+        // Check if dividing by 100 gives reasonable result
+        if (divided100 <= maxReasonableMileage && divided100 > 100) {
+          console.log(`    ⚠️  Fixing mileage parsing error (÷100): ${listing.mileage} → ${divided100} miles`);
+          listing.mileage = divided100;
+        }
+        // Check if dividing by 10 gives reasonable result
+        else if (divided10 <= maxReasonableMileage && divided10 > 100) {
+          console.log(`    ⚠️  Fixing mileage parsing error (÷10): ${listing.mileage} → ${divided10} miles`);
+          listing.mileage = divided10;
+        }
+        // Can't fix - set to null for re-scraping
+        else {
+          console.log(`    ⚠️  Mileage unrealistic for ${year} ${trim || model} (${listing.mileage} miles, max expected: ${maxReasonableMileage}), setting to null`);
+          listing.mileage = undefined;
+        }
+      } else {
+        // For smaller numbers that still exceed max, just warn and nullify
+        console.log(`    ⚠️  High mileage for ${year} ${trim || model} (${listing.mileage} miles, max expected: ${maxReasonableMileage}), setting to null`);
+        listing.mileage = undefined;
       }
     }
   }

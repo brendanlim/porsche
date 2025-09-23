@@ -1,0 +1,285 @@
+name: Daily Data Collection
+
+on:
+  # Schedule runs daily at 3 AM UTC (11 PM EST)
+  schedule:
+    - cron: '0 3 * * *'
+
+  # Allow manual triggering with parameters
+  workflow_dispatch:
+    inputs:
+      source:
+        description: 'Source to scrape'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - bat
+          - classic
+          - carsandbids
+          - cars
+          - edmunds
+          - autotrader
+          - cargurus
+      models:
+        description: 'Specific models to scrape (comma-separated, e.g., 911,718)'
+        required: false
+        type: string
+      max_pages:
+        description: 'Maximum pages to scrape per source'
+        required: false
+        default: '10'
+        type: string
+
+env:
+  NODE_ENV: production
+
+jobs:
+  scrape-listings:
+    name: Scrape All Sources
+    runs-on: ubuntu-latest
+    timeout-minutes: 120  # 2 hour timeout for comprehensive scraping
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run comprehensive scraper
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BRIGHT_DATA_CUSTOMER_ID: ${{ secrets.BRIGHT_DATA_CUSTOMER_ID }}
+          BRIGHT_DATA_BROWSER_PASSWORD: ${{ secrets.BRIGHT_DATA_BROWSER_PASSWORD }}
+          BRIGHT_DATA_ZONE_PASSWORD: ${{ secrets.BRIGHT_DATA_ZONE_PASSWORD }}
+        run: |
+          echo "🚀 Starting daily data collection..."
+          echo "Source: ${{ github.event.inputs.source || 'all' }}"
+          echo "Models: ${{ github.event.inputs.models || 'all' }}"
+          echo "Max pages: ${{ github.event.inputs.max_pages || '10' }}"
+
+          # Build command based on inputs
+          COMMAND="npx tsx scripts/scraping/scrape-and-save.ts"
+
+          if [ "${{ github.event.inputs.source }}" != "" ] && [ "${{ github.event.inputs.source }}" != "all" ]; then
+            COMMAND="$COMMAND --source=${{ github.event.inputs.source }}"
+          fi
+
+          if [ "${{ github.event.inputs.models }}" != "" ]; then
+            COMMAND="$COMMAND --models=${{ github.event.inputs.models }}"
+          fi
+
+          if [ "${{ github.event.inputs.max_pages }}" != "" ]; then
+            COMMAND="$COMMAND --max-pages=${{ github.event.inputs.max_pages }}"
+          fi
+
+          # Run the scraper
+          $COMMAND
+
+      - name: Generate scraping report
+        if: always()
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          npx tsx -e "
+          import { createClient } from '@supabase/supabase-js';
+
+          async function generateReport() {
+            const supabase = createClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL,
+              process.env.SUPABASE_SERVICE_ROLE_KEY
+            );
+
+            // Get today's scraping stats
+            const today = new Date().toISOString().split('T')[0];
+
+            // Count listings scraped today
+            const { data: todayListings, error: listingsError } = await supabase
+              .from('listings')
+              .select('source, model, trim', { count: 'exact' })
+              .gte('scraped_at', today + 'T00:00:00.000Z');
+
+            if (listingsError) {
+              console.error('Error fetching listings:', listingsError);
+              return;
+            }
+
+            // Group by source
+            const sourceStats = {};
+            todayListings?.forEach(listing => {
+              const source = listing.source;
+              if (!sourceStats[source]) {
+                sourceStats[source] = { count: 0, models: new Set() };
+              }
+              sourceStats[source].count++;
+              if (listing.model) {
+                sourceStats[source].models.add(listing.model);
+              }
+            });
+
+            // Get total listings in database
+            const { count: totalListings } = await supabase
+              .from('listings')
+              .select('*', { count: 'exact', head: true });
+
+            console.log('📊 Daily Scraping Report');
+            console.log('========================');
+            console.log(\`📅 Date: \${today}\`);
+            console.log(\`✅ Total new listings: \${todayListings?.length || 0}\`);
+            console.log(\`📈 Total in database: \${totalListings || 0}\`);
+            console.log('');
+            console.log('Breakdown by source:');
+            Object.entries(sourceStats).forEach(([source, stats]) => {
+              console.log(\`  • \${source}: \${stats.count} listings (\${stats.models.size} models)\`);
+            });
+
+            // Check for any failed runs
+            const { data: failedRuns } = await supabase
+              .from('ingestion_runs')
+              .select('*')
+              .eq('status', 'failed')
+              .gte('started_at', today + 'T00:00:00.000Z');
+
+            if (failedRuns && failedRuns.length > 0) {
+              console.log('');
+              console.log('⚠️  Failed runs:');
+              failedRuns.forEach(run => {
+                console.log(\`  • \${run.source}: \${run.error_details?.message || 'Unknown error'}\`);
+              });
+            }
+          }
+
+          generateReport().catch(console.error);
+          "
+
+      - name: Report final status
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ Daily scraping completed successfully"
+          else
+            echo "❌ Daily scraping failed - check logs for details"
+            exit 1
+          fi
+
+  cleanup-old-data:
+    name: Cleanup Old Data
+    runs-on: ubuntu-latest
+    needs: scrape-listings
+    if: success()
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run cleanup tasks
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          echo "🧹 Running cleanup tasks..."
+
+          # Clean up old scrape queue entries
+          npx tsx -e "
+          import { createClient } from '@supabase/supabase-js';
+
+          async function cleanup() {
+            const supabase = createClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL,
+              process.env.SUPABASE_SERVICE_ROLE_KEY
+            );
+
+            // Delete completed queue entries older than 7 days
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+            const { error } = await supabase
+              .from('scrape_queue')
+              .delete()
+              .eq('status', 'completed')
+              .lt('created_at', sevenDaysAgo.toISOString());
+
+            if (error) {
+              console.error('Error cleaning queue:', error);
+            } else {
+              console.log('✅ Cleaned up old queue entries');
+            }
+
+            // Clean up old ingestion runs older than 30 days
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+            const { error: runsError } = await supabase
+              .from('ingestion_runs')
+              .delete()
+              .lt('started_at', thirtyDaysAgo.toISOString());
+
+            if (runsError) {
+              console.error('Error cleaning runs:', runsError);
+            } else {
+              console.log('✅ Cleaned up old ingestion runs');
+            }
+          }
+
+          cleanup().catch(console.error);
+          "
+
+      - name: Report cleanup status
+        run: |
+          echo "🧹 Cleanup completed successfully"
+
+  notification:
+    name: Send Status Notification
+    runs-on: ubuntu-latest
+    needs: [scrape-listings, cleanup-old-data]
+    if: always()
+
+    steps:
+      - name: Prepare notification
+        id: notification
+        run: |
+          SCRAPE_STATUS="${{ needs.scrape-listings.result }}"
+          CLEANUP_STATUS="${{ needs.cleanup-old-data.result }}"
+
+          if [ "$SCRAPE_STATUS" == "success" ] && [ "$CLEANUP_STATUS" == "success" ]; then
+            echo "status=✅ All daily tasks completed successfully!" >> $GITHUB_OUTPUT
+          elif [ "$SCRAPE_STATUS" == "success" ]; then
+            echo "status=⚠️ Scraping succeeded but cleanup had issues" >> $GITHUB_OUTPUT
+          else
+            echo "status=❌ Daily scraping failed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Report final status
+        run: |
+          echo "🎯 Daily Data Collection Summary:"
+          echo "${{ steps.notification.outputs.status }}"
+          echo ""
+          echo "Scraping: ${{ needs.scrape-listings.result }}"
+          echo "Cleanup: ${{ needs.cleanup-old-data.result }}"
+
+          # Exit with failure if scraping failed
+          if [ "${{ needs.scrape-listings.result }}" != "success" ]; then
+            exit 1
+          fi

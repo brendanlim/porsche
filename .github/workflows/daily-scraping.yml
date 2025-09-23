@@ -39,7 +39,7 @@ jobs:
   scrape-listings:
     name: Scrape All Sources
     runs-on: ubuntu-latest
-    timeout-minutes: 120  # 2 hour timeout for comprehensive scraping
+    timeout-minutes: 180  # 3 hour timeout for comprehensive scraping (needed for all models)
 
     steps:
       - name: Checkout repository

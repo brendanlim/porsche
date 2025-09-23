@@ -1,0 +1,137 @@
+name: Focused Model Scraping
+
+on:
+  # Run multiple times per day for different models
+  schedule:
+    # 911 models at 1 AM UTC
+    - cron: '0 1 * * *'
+    # 718/Cayman models at 5 AM UTC
+    - cron: '0 5 * * *'
+    # Boxster models at 9 AM UTC
+    - cron: '0 9 * * *'
+
+  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      model:
+        description: 'Model to scrape'
+        required: true
+        type: choice
+        options:
+          - 911
+          - 718-cayman
+          - boxster
+      max_pages:
+        description: 'Maximum pages to scrape'
+        required: false
+        default: '5'
+        type: string
+
+env:
+  NODE_ENV: production
+
+jobs:
+  determine-model:
+    name: Determine Model to Scrape
+    runs-on: ubuntu-latest
+    outputs:
+      model: ${{ steps.set-model.outputs.model }}
+    steps:
+      - name: Set model based on schedule
+        id: set-model
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "model=${{ github.event.inputs.model }}" >> $GITHUB_OUTPUT
+          else
+            # Determine model based on hour
+            HOUR=$(date -u +%H)
+            if [ "$HOUR" == "01" ]; then
+              echo "model=911" >> $GITHUB_OUTPUT
+            elif [ "$HOUR" == "05" ]; then
+              echo "model=718-cayman" >> $GITHUB_OUTPUT
+            elif [ "$HOUR" == "09" ]; then
+              echo "model=boxster" >> $GITHUB_OUTPUT
+            else
+              echo "model=911" >> $GITHUB_OUTPUT  # Default
+            fi
+          fi
+
+  scrape-model:
+    name: Scrape Model
+    needs: determine-model
+    runs-on: ubuntu-latest
+    timeout-minutes: 60  # 1 hour for focused scraping
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run focused scraper
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BRIGHT_DATA_CUSTOMER_ID: ${{ secrets.BRIGHT_DATA_CUSTOMER_ID }}
+          BRIGHT_DATA_BROWSER_PASSWORD: ${{ secrets.BRIGHT_DATA_BROWSER_PASSWORD }}
+          BRIGHT_DATA_ZONE_PASSWORD: ${{ secrets.BRIGHT_DATA_ZONE_PASSWORD }}
+        run: |
+          echo "🎯 Focused scraping for model: ${{ needs.determine-model.outputs.model }}"
+          echo "Max pages: ${{ github.event.inputs.max_pages || '5' }}"
+
+          npx tsx scripts/scraping/scrape-and-save.ts \
+            --source=bat \
+            --model=${{ needs.determine-model.outputs.model }} \
+            --max-pages=${{ github.event.inputs.max_pages || '5' }}
+
+      - name: Generate report
+        if: always()
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          npx tsx -e "
+          import { createClient } from '@supabase/supabase-js';
+
+          const supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_ROLE_KEY
+          );
+
+          async function report() {
+            const model = '${{ needs.determine-model.outputs.model }}';
+            const today = new Date().toISOString().split('T')[0];
+
+            const { count } = await supabase
+              .from('listings')
+              .select('*', { count: 'exact', head: true })
+              .eq('model', model.includes('718') ? '718 Cayman' : model.charAt(0).toUpperCase() + model.slice(1))
+              .gte('scraped_at', today + 'T00:00:00.000Z');
+
+            console.log('📊 Focused Scraping Report');
+            console.log('=======================');
+            console.log(\`Model: \${model}\`);
+            console.log(\`New listings today: \${count || 0}\`);
+          }
+
+          report().catch(console.error);
+          "
+
+      - name: Report status
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ Focused scraping for ${{ needs.determine-model.outputs.model }} completed"
+          else
+            echo "❌ Focused scraping for ${{ needs.determine-model.outputs.model }} failed"
+            exit 1
+          fi

@@ -9,22 +9,48 @@ import path from 'path';
 import fs from 'fs';
 import { createClient } from '@supabase/supabase-js';
 
-// Load environment - conditional dotenv for local development
-const envPath = path.resolve(process.cwd(), '.env.local');
-if (fs.existsSync(envPath)) {
-  try {
-    const dotenv = require('dotenv');
-    dotenv.config({ path: envPath });
-    console.log('Loaded environment variables from .env.local');
-  } catch (error) {
-    console.log('dotenv not available, using environment variables from system');
+// Function to load environment variables (for local development only)
+async function loadEnvironmentVariables() {
+  const envPath = path.resolve(process.cwd(), '.env.local');
+  if (fs.existsSync(envPath)) {
+    try {
+      // Try to import dotenv only when needed (local development)
+      const dotenv = await import('dotenv');
+      dotenv.config({ path: envPath });
+      console.log('Loaded environment variables from .env.local');
+    } catch (error) {
+      // Dotenv not available (GitHub Actions), skip loading
+      console.log('dotenv not available, using environment variables from system');
+    }
+  } else {
+    console.log('Using environment variables from system/GitHub Actions');
   }
 }
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Function to validate environment variables and create Supabase client
+function validateAndCreateSupabaseClient() {
+  const requiredEnvVars = {
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  };
+
+  const missingVars = Object.entries(requiredEnvVars)
+    .filter(([_, value]) => !value)
+    .map(([key]) => key);
+
+  if (missingVars.length > 0) {
+    console.error('❌ Missing required environment variables:');
+    missingVars.forEach(key => console.error(`   - ${key}`));
+    console.error('\nPlease set these in GitHub Secrets or .env.local');
+    process.exit(1);
+  }
+
+  // Create Supabase client
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 // Create a queue table if it doesn't exist
 async function ensureQueueTable() {
@@ -33,6 +59,12 @@ async function ensureQueueTable() {
 }
 
 async function main() {
+  // Load environment variables first
+  await loadEnvironmentVariables();
+
+  // Validate environment variables and create Supabase client
+  const supabase = validateAndCreateSupabaseClient();
+
   const args = process.argv.slice(2);
   const sourceArg = args.find(arg => arg.startsWith('--source='));
   const testModeArg = args.find(arg => arg.startsWith('--test'));

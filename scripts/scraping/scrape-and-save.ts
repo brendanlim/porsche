@@ -6,51 +6,55 @@ import { createClient } from '@supabase/supabase-js';
 import { ScrapedListing } from '../../lib/types/scraper';
 import { processListingOptions } from '../../lib/services/options-manager';
 
-// Only load .env.local if it exists (for local development)
-const envPath = path.resolve(process.cwd(), '.env.local');
-if (fs.existsSync(envPath)) {
-  try {
-    // Try to import dotenv only when needed (local development)
-    const dotenv = require('dotenv');
-    dotenv.config({ path: envPath });
-    console.log('Loaded environment variables from .env.local');
-  } catch (error) {
-    // Dotenv not available (GitHub Actions), skip loading
-    console.log('dotenv not available, using environment variables from system');
-  }
-} else {
-  console.log('Using environment variables from system/GitHub Actions');
-}
-
-// Validate required environment variables
-const requiredEnvVars = {
-  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-};
-
-const missingVars = Object.entries(requiredEnvVars)
-  .filter(([_, value]) => !value)
-  .map(([key]) => key);
-
-if (missingVars.length > 0) {
-  console.error('❌ Missing required environment variables:');
-  missingVars.forEach(key => console.error(`   - ${key}`));
-  console.error('\nPlease set these in GitHub Secrets or .env.local');
-  process.exit(1);
-}
-
-// Create Supabase client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
+// Function to load environment variables (for local development only)
+async function loadEnvironmentVariables() {
+  const envPath = path.resolve(process.cwd(), '.env.local');
+  if (fs.existsSync(envPath)) {
+    try {
+      // Try to import dotenv only when needed (local development)
+      const dotenv = await import('dotenv');
+      dotenv.config({ path: envPath });
+      console.log('Loaded environment variables from .env.local');
+    } catch (error) {
+      // Dotenv not available (GitHub Actions), skip loading
+      console.log('dotenv not available, using environment variables from system');
     }
+  } else {
+    console.log('Using environment variables from system/GitHub Actions');
   }
-);
+}
+
+// Function to validate environment variables and create Supabase client
+function validateAndCreateSupabaseClient() {
+  const requiredEnvVars = {
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  };
+
+  const missingVars = Object.entries(requiredEnvVars)
+    .filter(([_, value]) => !value)
+    .map(([key]) => key);
+
+  if (missingVars.length > 0) {
+    console.error('❌ Missing required environment variables:');
+    missingVars.forEach(key => console.error(`   - ${key}`));
+    console.error('\nPlease set these in GitHub Secrets or .env.local');
+    process.exit(1);
+  }
+
+  // Create Supabase client
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
+  );
+}
 
 // Fallback parsing function when fields are missing
 function parseListingDetails(listing: ScrapedListing): ScrapedListing {
@@ -159,7 +163,7 @@ function parseListingDetails(listing: ScrapedListing): ScrapedListing {
 }
 
 // Function to save listings to database
-async function saveListings(listings: ScrapedListing[], source: string): Promise<number> {
+async function saveListings(listings: ScrapedListing[], source: string, supabase: any): Promise<number> {
   let savedCount = 0;
   let updatedCount = 0;
   let skippedCount = 0;
@@ -369,6 +373,12 @@ async function saveListings(listings: ScrapedListing[], source: string): Promise
 }
 
 async function main() {
+  // Load environment variables first
+  await loadEnvironmentVariables();
+
+  // Validate environment variables and create Supabase client
+  const supabase = validateAndCreateSupabaseClient();
+
   // Parse command line arguments
   const args = process.argv.slice(2);
   const sourceArg = args.find(arg => arg.startsWith('--source='));
@@ -459,7 +469,7 @@ async function main() {
 
         // Save to database
         if (batResults.length > 0) {
-          const saved = await saveListings(batResults, 'bring-a-trailer');
+          const saved = await saveListings(batResults, 'bring-a-trailer', supabase);
           results.saved += saved;
         }
       } catch (error) {
@@ -485,7 +495,7 @@ async function main() {
 
         // Save to database
         if (classicResults.length > 0) {
-          const saved = await saveListings(classicResults, 'classic');
+          const saved = await saveListings(classicResults, 'classic', supabase);
           results.saved += saved;
         }
       } catch (error) {
@@ -511,7 +521,7 @@ async function main() {
 
         // Save to database
         if (carsAndBidsResults.length > 0) {
-          const saved = await saveListings(carsAndBidsResults, 'carsandbids');
+          const saved = await saveListings(carsAndBidsResults, 'carsandbids', supabase);
           results.saved += saved;
         }
       } catch (error) {
@@ -536,7 +546,7 @@ async function main() {
       
       // Save to database
       if (edmundsResults.length > 0) {
-        const saved = await saveListings(edmundsResults, 'edmunds');
+        const saved = await saveListings(edmundsResults, 'edmunds', supabase);
         results.saved += saved;
       }
       console.log();
@@ -562,7 +572,7 @@ async function main() {
       
       // Save to database
       if (carsResults.length > 0) {
-        const saved = await saveListings(carsResults, 'cars');
+        const saved = await saveListings(carsResults, 'cars', supabase);
         results.saved += saved;
       }
       console.log();
@@ -595,7 +605,7 @@ async function main() {
         
         // Save to database
         if (carsResults.length > 0) {
-          const saved = await saveListings(carsResults, 'cars');
+          const saved = await saveListings(carsResults, 'cars', supabase);
           results.saved += saved;
         }
         console.log();
@@ -621,7 +631,7 @@ async function main() {
         
         // Save to database
         if (autotraderResults.length > 0) {
-          const saved = await saveListings(autotraderResults, 'autotrader');
+          const saved = await saveListings(autotraderResults, 'autotrader', supabase);
           results.saved += saved;
         }
         console.log();

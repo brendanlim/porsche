@@ -118,7 +118,7 @@ export default function InsightsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="animate-pulse">
             <div className="h-8 bg-gray-200 rounded w-1/4 mb-8"></div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
@@ -139,7 +139,7 @@ export default function InsightsPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6">
             <h2 className="text-lg font-semibold text-red-900 mb-2">Error Loading Dashboard</h2>
             <p className="text-red-700">{error}</p>
@@ -158,7 +158,7 @@ export default function InsightsPage() {
   if (!dashboardData) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
             <h2 className="text-lg font-semibold text-yellow-900 mb-2">No Data Available</h2>
             <p className="text-yellow-700">No market data is available for the selected time range.</p>
@@ -170,7 +170,7 @@ export default function InsightsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -201,12 +201,12 @@ export default function InsightsPage() {
 
         <DashboardGrid>
           {/* KPI Metrics */}
-          <GridSection fullWidth>
+          <GridSection fullWidth columns={1}>
             <MetricsDashboard data={dashboardData.kpis} />
           </GridSection>
 
           {/* Volume Analysis and Model Comparison */}
-          <GridSection columns={2}>
+          <GridSection fullWidth columns={2}>
             <ChartCard
               title="Sales Volume Trends"
               description="Daily sales activity and market volume"
@@ -223,7 +223,7 @@ export default function InsightsPage() {
           </GridSection>
 
           {/* Price Distribution and Scatter Plot */}
-          <GridSection columns={2}>
+          <GridSection fullWidth columns={2}>
             <ChartCard
               title="Price Distribution"
               description="Market segmentation by price range"
@@ -252,7 +252,7 @@ export default function InsightsPage() {
           </GridSection>
 
           {/* Trim Analysis */}
-          <GridSection columns={1}>
+          <GridSection fullWidth columns={1}>
             <ChartCard
               title="Top Trims by Average Price"
               description="Premium trim levels and their market values"
@@ -269,7 +269,7 @@ export default function InsightsPage() {
           </GridSection>
 
           {/* Monthly Trends */}
-          <GridSection columns={1}>
+          <GridSection fullWidth columns={1}>
             <ChartCard
               title="Monthly Market Trends"
               description="Long-term market performance and volume analysis"
@@ -288,7 +288,7 @@ export default function InsightsPage() {
           </GridSection>
 
           {/* Recent Sales Table */}
-          <GridSection columns={1}>
+          <GridSection fullWidth columns={1}>
             <ChartCard
               title="Recent Sales"
               description="Latest transactions in the market"

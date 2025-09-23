@@ -200,16 +200,22 @@ export default function TrimAnalyticsPage() {
   );
   const [chartWidth, setChartWidth] = useState(800);
   const [allGenerations, setAllGenerations] = useState<string[]>([]);
-  
+
   useEffect(() => {
-    // Set chart width to 90% of available container width
+    // Set chart width to fit container on mobile
     const handleResize = () => {
-      // Get actual container width, accounting for padding and margins
-      const containerWidth = window.innerWidth > 1536 ? 1536 : window.innerWidth; // max-w-7xl is 1536px
-      const padding = 96; // Account for container and card padding
-      const availableWidth = containerWidth - padding;
-      // Set to 90% of available width
-      setChartWidth(Math.max(600, Math.floor(availableWidth * 0.9)));
+      const isMobile = window.innerWidth < 768;
+      if (isMobile) {
+        // On mobile, use full width minus padding
+        const padding = 32; // Mobile padding
+        setChartWidth(window.innerWidth - padding);
+      } else {
+        // Desktop behavior
+        const containerWidth = window.innerWidth > 1536 ? 1536 : window.innerWidth;
+        const padding = 96;
+        const availableWidth = containerWidth - padding;
+        setChartWidth(Math.max(600, Math.floor(availableWidth * 0.9)));
+      }
     };
     handleResize();
     window.addEventListener('resize', handleResize);
@@ -308,17 +314,17 @@ export default function TrimAnalyticsPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto p-6 space-y-6">
         {/* Header with Generation Filter */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="flex justify-between items-start">
+        <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
                 Porsche {modelDisplay} {trimDisplay}
               </h1>
               <p className="text-gray-600 mt-1">
                 Comprehensive market analysis and value insights
               </p>
             </div>
-            <div className="flex flex-col gap-3 items-end">
+            <div className="flex flex-col gap-3 sm:items-end w-full sm:w-auto">
               <select
                 value={timeRange}
                 onChange={(e) => {
@@ -341,9 +347,9 @@ export default function TrimAnalyticsPage() {
           {/* Generation Filter Buttons */}
           {allGenerations.length > 0 && (
             <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <span className="text-sm font-medium text-gray-700">Generation:</span>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => {
                       setSelectedGeneration('all');
@@ -430,8 +436,9 @@ export default function TrimAnalyticsPage() {
           </CardHeader>
           <CardContent>
             {analytics.salesData && analytics.salesData.length > 0 ? (
-              <div style={{ width: '100%', height: 400, display: 'flex', justifyContent: 'center' }}>
-                <ResponsiveContainer width={chartWidth} height={400}>
+              <div className="w-full overflow-x-auto">
+                <div style={{ width: '100%', minWidth: '300px', height: 400 }}>
+                  <ResponsiveContainer width="100%" height={400}>
                   <ComposedChart 
                     margin={{ top: 20, right: 20, bottom: 60, left: 20 }}
                     data={(() => {
@@ -621,7 +628,8 @@ export default function TrimAnalyticsPage() {
                         })()}
                       </Scatter>
                   </ComposedChart>
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                </div>
               </div>
             ) : (
               <div className="h-[400px] flex items-center justify-center">
@@ -676,9 +684,10 @@ export default function TrimAnalyticsPage() {
           </CardHeader>
           <CardContent>
             {/* Chart container centered within card */}
-            <div style={{ width: '100%', height: 350, display: 'flex', justifyContent: 'center' }}>
-              {analytics.priceVsMileage && analytics.priceVsMileage.length > 0 ? (
-                <ResponsiveContainer width={chartWidth} height={350}>
+            <div className="w-full overflow-x-auto">
+              <div style={{ width: '100%', minWidth: '300px', height: 350 }}>
+                {analytics.priceVsMileage && analytics.priceVsMileage.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={350}>
                   <ComposedChart 
                     margin={{ top: 20, right: 20, bottom: 60, left: 20 }}
                     data={(() => {
@@ -839,12 +848,13 @@ export default function TrimAnalyticsPage() {
                       })()}
                     </Scatter>
                   </ComposedChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  No data to display
-                </div>
-              )}
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-500">
+                    No data to display
+                  </div>
+                )}
+              </div>
             </div>
             {/* Dynamic legend based on actual data */}
             {analytics.priceVsMileage && analytics.priceVsMileage.length > 0 && (
@@ -909,8 +919,9 @@ export default function TrimAnalyticsPage() {
             {analytics.depreciationByYear && analytics.depreciationByYear.length > 0 ? (
               <>
                 {/* Line Chart for Depreciation Curve */}
-                <div style={{ width: '100%', height: 300, display: 'flex', justifyContent: 'center' }}>
-                  <ResponsiveContainer width={chartWidth} height={300}>
+                <div className="w-full overflow-x-auto">
+                  <div style={{ width: '100%', minWidth: '300px', height: 300 }}>
+                    <ResponsiveContainer width="100%" height={300}>
                     <ComposedChart 
                       data={analytics.depreciationByYear}
                       margin={{ top: 20, right: 20, bottom: 60, left: 20 }}
@@ -994,7 +1005,8 @@ export default function TrimAnalyticsPage() {
                         name="Average Mileage"
                       />
                     </ComposedChart>
-                  </ResponsiveContainer>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
                 
                 {/* Key Metrics Cards */}

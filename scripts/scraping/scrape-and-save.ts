@@ -1,6 +1,5 @@
 #!/usr/bin/env npx tsx
 // Load environment variables BEFORE any imports
-import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { createClient } from '@supabase/supabase-js';
@@ -10,8 +9,15 @@ import { processListingOptions } from '../../lib/services/options-manager';
 // Only load .env.local if it exists (for local development)
 const envPath = path.resolve(process.cwd(), '.env.local');
 if (fs.existsSync(envPath)) {
-  dotenv.config({ path: envPath });
-  console.log('Loaded environment variables from .env.local');
+  try {
+    // Try to import dotenv only when needed (local development)
+    const dotenv = require('dotenv');
+    dotenv.config({ path: envPath });
+    console.log('Loaded environment variables from .env.local');
+  } catch (error) {
+    // Dotenv not available (GitHub Actions), skip loading
+    console.log('dotenv not available, using environment variables from system');
+  }
 } else {
   console.log('Using environment variables from system/GitHub Actions');
 }

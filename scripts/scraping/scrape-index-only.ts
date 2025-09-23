@@ -5,15 +5,20 @@
  * Does NOT fetch individual detail pages
  */
 
-import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { createClient } from '@supabase/supabase-js';
 
-// Load environment
+// Load environment - conditional dotenv for local development
 const envPath = path.resolve(process.cwd(), '.env.local');
 if (fs.existsSync(envPath)) {
-  dotenv.config({ path: envPath });
+  try {
+    const dotenv = require('dotenv');
+    dotenv.config({ path: envPath });
+    console.log('Loaded environment variables from .env.local');
+  } catch (error) {
+    console.log('dotenv not available, using environment variables from system');
+  }
 }
 
 const supabase = createClient(

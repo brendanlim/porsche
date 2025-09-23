@@ -407,6 +407,51 @@ export class BaTScraperPuppeteer extends BaseScraper {
       console.log('▓'.repeat(70));
       console.log(`\n📊 Total listings to process: ${allListings.length}`);
 
+      // Check database for existing sold listings to skip
+      console.log('\n🔍 Checking for existing listings in database...');
+      const urlsToCheck = allListings.map(l => l.source_url).filter(Boolean);
+      const existingSoldListings = new Set<string>();
+
+      try {
+        // Query in batches of 100 URLs
+        const batchSize = 100;
+        for (let i = 0; i < urlsToCheck.length; i += batchSize) {
+          const batch = urlsToCheck.slice(i, i + batchSize);
+          const { data: existingListings } = await supabaseAdmin
+            .from('listings')
+            .select('source_url, sold_date, vin')
+            .in('source_url', batch)
+            .not('sold_date', 'is', null); // Only consider sold listings
+
+          if (existingListings) {
+            existingListings.forEach(listing => {
+              if (listing.source_url && listing.vin) {
+                // If we have VIN and sold_date, we can skip this listing
+                existingSoldListings.add(listing.source_url);
+              }
+            });
+          }
+        }
+
+        const skipCount = existingSoldListings.size;
+        console.log(`✅ Found ${skipCount} listings already in database with VIN and sold_date`);
+        console.log(`📊 Will fetch details for ${allListings.length - skipCount} new/updated listings`);
+
+        // Filter out listings we already have complete data for
+        const listingsToFetch = allListings.filter(l => !existingSoldListings.has(l.source_url));
+
+        // Update allListings to only include ones we need to fetch
+        if (listingsToFetch.length < allListings.length) {
+          console.log(`\n⚡ Optimization: Skipping ${allListings.length - listingsToFetch.length} already-processed sold listings`);
+          allListings = listingsToFetch;
+        }
+      } catch (error) {
+        console.error('⚠️  Error checking existing listings, will fetch all:', error);
+        // Continue with all listings if database check fails
+      }
+
+      console.log(`\n📊 Listings to fetch details: ${allListings.length}`);
+
       // Process in batches to avoid memory issues
       const batchSize = 50;
       const totalBatches = Math.ceil(allListings.length / batchSize);

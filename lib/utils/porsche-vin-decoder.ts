@@ -129,8 +129,10 @@ const BODY_ENGINE_CODES: Record<string, { bodyStyle: string; engineType?: string
   'XC': { bodyStyle: 'Cayman GTS', engineType: 'GTS' },
   'XD': { bodyStyle: 'Cayman GT4', engineType: 'GT4' },
   'XE': { bodyStyle: 'Cayman GT4 RS', engineType: 'GT4 RS' },
-  'A8': { bodyStyle: 'Cayman GT4', engineType: 'GT4' }, // Can be GT4 or GT4 RS depending on model code
+  'A8': { bodyStyle: 'Cayman GT4', engineType: 'GT4' }, // GT4 standard road car
+  'AE': { bodyStyle: 'Cayman GT4 RS', engineType: 'GT4 RS' }, // GT4 RS (position 7-8)
   'A6': { bodyStyle: 'Cayman GT4', engineType: 'GT4' }, // GT4 pattern
+  '98': { bodyStyle: 'GT4 Clubsport', engineType: 'GT4 Clubsport' }, // Racing/track version
 };
 
 /**

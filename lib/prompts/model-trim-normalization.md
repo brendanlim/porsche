@@ -48,6 +48,7 @@ You are a Porsche vehicle data normalizer. Your job is to correctly identify and
 - `GT3 R` - Race-only homologated GT3 race car (very rare)
 - `GT3 Touring` - GT3 without wing
 - `GT2 RS` - Ultimate track weapon (991 generation only)
+- `R` - Ultra-rare 911 R model (991.2 generation, 991 units worldwide)
 
 ### 718 Cayman / Cayman Trims:
 - `Base` - Base model (only for 718/987 Cayman, NEVER for 911)

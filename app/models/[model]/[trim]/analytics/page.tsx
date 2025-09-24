@@ -17,6 +17,9 @@ interface TrimAnalytics {
   medianPrice: number;
   priceRange: { min: number; max: number };
   averageMileage: number;
+  wowAppreciation: number;
+  momAppreciation: number;
+  yoyAppreciation: number;
   yearOverYearAppreciation: number;
   priceChangePercent: number | null;
   listingsChangePercent: number | null;
@@ -388,8 +391,45 @@ export default function TrimAnalyticsPage() {
           )}
         </div>
 
+        {/* Price Trend Metrics Row */}
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">1 Year Trend</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${analytics.yoyAppreciation > 0 ? 'text-green-600' : analytics.yoyAppreciation < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                {analytics.yoyAppreciation > 0 ? '+' : ''}{analytics.yoyAppreciation?.toFixed(2) || '0.00'}%
+              </div>
+              <p className="text-xs text-gray-500 mt-1">12 month price change</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">6 Month Trend</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${analytics.momAppreciation > 0 ? 'text-green-600' : analytics.momAppreciation < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                {analytics.momAppreciation > 0 ? '+' : ''}{analytics.momAppreciation?.toFixed(2) || '0.00'}%
+              </div>
+              <p className="text-xs text-gray-500 mt-1">6 month price change</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">3 Month Trend</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${analytics.wowAppreciation > 0 ? 'text-green-600' : analytics.wowAppreciation < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                {analytics.wowAppreciation > 0 ? '+' : ''}{analytics.wowAppreciation?.toFixed(2) || '0.00'}%
+              </div>
+              <p className="text-xs text-gray-500 mt-1">3 month price change</p>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Key Metrics */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Average Price"
             value={formatPrice(analytics.averagePrice)}
@@ -410,14 +450,8 @@ export default function TrimAnalyticsPage() {
             icon={Activity}
           />
           <StatCard
-            title="MoM Appreciation"
-            value={`${analytics.yearOverYearAppreciation > 0 ? '+' : ''}${analytics.yearOverYearAppreciation.toFixed(1)}%`}
-            hideChange={true}
-            icon={TrendingUp}
-          />
-          <StatCard
             title="Price Range"
-            value={analytics.priceRange 
+            value={analytics.priceRange
               ? `${formatPrice(analytics.priceRange.min)} - ${formatPrice(analytics.priceRange.max)}`
               : 'N/A'
             }
@@ -906,6 +940,426 @@ export default function TrimAnalyticsPage() {
           </CardContent>
         </Card>
 
+                {/* Seasonality Analysis */}
+        {analytics.seasonalityAnalysis && analytics.seasonalityAnalysis.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Seasonal Price Impact</CardTitle>
+              <CardDescription>
+                Analysis of how median sales prices and volume vary by season
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Bar Chart - Price Impact by Season */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Median Price Variation by Season</h4>
+                  <div style={{ width: '100%', height: 300 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={analytics.seasonalityAnalysis}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis dataKey="season" stroke="#6b7280" tick={{ fontSize: 11 }} />
+                        <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" tick={{ fontSize: 11 }} 
+                          tickFormatter={(value) => `${value > 0 ? '+' : ''}${value.toFixed(1)}%`} />
+                        <YAxis yAxisId="right" orientation="right" stroke="#10b981" tick={{ fontSize: 11 }} />
+                        <Tooltip 
+                          formatter={(value: any, name: string) => {
+                            if (name === 'Price Impact') return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
+                            if (name === 'Sales Volume') return `${value} sales`;
+                            return value;
+                          }}
+                          contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
+                        />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                        <Bar yAxisId="left" dataKey="priceImpact" fill="#3b82f6" name="Price Impact">
+                          {analytics.seasonalityAnalysis.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.priceImpact > 0 ? '#10b981' : entry.priceImpact < 0 ? '#ef4444' : '#6b7280'} />
+                          ))}
+                        </Bar>
+                        <Line yAxisId="right" type="monotone" dataKey="salesVolume" stroke="#f59e0b" strokeWidth={2} name="Sales Volume" dot={{ r: 4 }} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+                
+                {/* Season Statistics Cards */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Seasonal Statistics</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {analytics.seasonalityAnalysis.map((season, index) => {
+                      const seasonColors = {
+                        'Winter': 'bg-blue-50 border-blue-200',
+                        'Spring': 'bg-green-50 border-green-200',
+                        'Summer': 'bg-yellow-50 border-yellow-200',
+                        'Fall': 'bg-orange-50 border-orange-200'
+                      };
+                      const bgColor = seasonColors[season.season as keyof typeof seasonColors] || 'bg-gray-50 border-gray-200';
+                      
+                      return (
+                        <div key={`season-${index}`} className={`p-3 rounded-lg border ${bgColor}`}>
+                          <div className="font-medium text-gray-900 mb-2">{season.season}</div>
+                          <div className="space-y-1 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Median:</span>
+                              <span className="font-semibold">{formatPrice(season.medianPrice)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Impact:</span>
+                              <span className={`font-bold ${
+                                season.priceImpact > 0 ? 'text-green-600' : 
+                                season.priceImpact < 0 ? 'text-red-600' : 'text-gray-600'
+                              }`}>
+                                {season.priceImpact > 0 ? '+' : ''}{season.priceImpact.toFixed(1)}%
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Sales:</span>
+                              <span>{season.salesVolume} ({season.volumePercent.toFixed(0)}%)</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* Best/Worst Season Summary */}
+                  <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="text-sm space-y-2">
+                      {(() => {
+                        const sorted = [...analytics.seasonalityAnalysis].sort((a, b) => b.priceImpact - a.priceImpact);
+                        const best = sorted[0];
+                        const worst = sorted[sorted.length - 1];
+                        return (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <TrendingUp className="h-4 w-4 text-green-600" />
+                              <span className="text-gray-700">
+                                <strong>{best.season}</strong> shows highest prices ({best.priceImpact > 0 ? '+' : ''}{best.priceImpact.toFixed(1)}% premium)
+                              </span>
+                            </div>
+                            {worst.priceImpact < 0 && (
+                              <div className="flex items-center gap-2">
+                                <TrendingDown className="h-4 w-4 text-red-600" />
+                                <span className="text-gray-700">
+                                  <strong>{worst.season}</strong> shows lowest prices ({worst.priceImpact.toFixed(1)}% discount)
+                                </span>
+                              </div>
+                            )}
+                            <div className="mt-2 text-xs text-gray-500">
+                              Based on {analytics.totalListings} sales in the selected time period
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Color Premium Analysis */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Color Distribution & Value</CardTitle>
+            <CardDescription>
+              Premium analysis and distribution of color options
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Bar Chart - Color Premium */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Price Premium by Color</h4>
+                <div style={{ width: '100%', height: 260 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={analytics.colorAnalysis}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="color" stroke="#6b7280" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={80} />
+                      <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} />
+                      <Tooltip 
+                        formatter={(value: any, name: string) => {
+                          if (name === 'Premium') return `${value}%`;
+                          return value;
+                        }}
+                        contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
+                      />
+                      <Bar dataKey="premiumPercent" fill="#fbbf24" name="Premium %">
+                        {analytics.colorAnalysis.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.premiumPercent > 0 ? '#10b981' : '#ef4444'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              
+              {/* Pie Chart - Color Distribution */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Color Distribution</h4>
+                <div style={{ width: '100%', height: 260 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={analytics.colorAnalysis}
+                        dataKey="count"
+                        nameKey="color"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        label={(entry: any) => `${entry.color} ${((entry.count / analytics.colorAnalysis.reduce((sum: number, c: any) => sum + c.count, 0)) * 100).toFixed(0)}%`}
+                        labelLine={false}
+                      >
+                        {analytics.colorAnalysis.map((entry, index) => {
+                          // Define colors for common Porsche colors
+                          const colorMap: Record<string, string> = {
+                            'Black': '#1f2937',
+                            'White': '#e5e7eb',
+                            'Silver': '#9ca3af',
+                            'Gray': '#6b7280',
+                            'Grey': '#6b7280',
+                            'Red': '#dc2626',
+                            'Guards Red': '#dc2626',
+                            'Blue': '#2563eb',
+                            'Yellow': '#fbbf24',
+                            'Speed Yellow': '#fbbf24',
+                            'Racing Yellow': '#fbbf24',
+                            'Green': '#16a34a',
+                            'Orange': '#ea580c',
+                            'Brown': '#92400e',
+                            'Gold': '#facc15',
+                            'Purple': '#9333ea'
+                          };
+                          
+                          // Find matching color or use default
+                          let fillColor = '#94a3b8'; // Default gray
+                          Object.keys(colorMap).forEach(key => {
+                            if (entry.color.toLowerCase().includes(key.toLowerCase())) {
+                              fillColor = colorMap[key];
+                            }
+                          });
+                          
+                          return <Cell key={`cell-${index}`} fill={fillColor} stroke="#fff" strokeWidth={2} />;
+                        })}
+                      </Pie>
+                      <Tooltip 
+                        formatter={(value: any, name: string) => {
+                          if (typeof value === 'number') {
+                            const total = analytics.colorAnalysis.reduce((sum: number, c: any) => sum + c.count, 0);
+                            const percent = ((value / total) * 100).toFixed(2);
+                            return [`${value} listings (${percent}%)`, name];
+                          }
+                          return [value, name];
+                        }}
+                        contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3">
+              {analytics.colorAnalysis.slice(0, 6).map((color, index) => (
+                <div key={`color-${index}`} className={`p-3 rounded-lg border ${
+                  color.premiumPercent > 5 ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                }`}>
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-gray-900">{color.color}</span>
+                    <span className={`text-sm font-bold ${
+                      color.premiumPercent > 0 ? 'text-green-600' : 'text-gray-600'
+                    }`}>
+                      {color.premiumPercent > 0 ? '+' : ''}{color.premiumPercent.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-600 mt-1">
+                    <span>{color.count} listings</span>
+                    <span>{formatPrice(color.avgPrice)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Options Analysis - Only show for single generation or models with one generation */}
+        {analytics.optionsAnalysis && 
+         analytics.optionsAnalysis.length > 0 && 
+         (selectedGeneration !== 'all' || allGenerations.length === 1) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Options Analysis</CardTitle>
+              <CardDescription>
+                Price premiums are normalized by comparing same-year vehicles with and without each option
+                {selectedGeneration !== 'all' && ` (${selectedGeneration} only)`}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* High-Value Options vs Less Impact (2 columns) */}
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Options That Add Value */}
+                <div>
+                  <h3 className="text-lg font-semibold text-green-700 mb-4">High-Value Options</h3>
+                  <div className="space-y-3">
+                    {analytics.optionsAnalysis
+                      .sort((a, b) => (b.premiumPercent || 0) - (a.premiumPercent || 0))
+                      .slice(0, Math.ceil(analytics.optionsAnalysis.length / 2))
+                      .slice(0, 5)
+                      .map((option) => (
+                        <div key={option.option} className="bg-green-50 rounded-lg p-4 border border-green-100">
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <h4 className="font-semibold text-gray-900">{option.option}</h4>
+                              <div className="flex items-center gap-3 mt-1">
+                                <span className="text-sm text-gray-600">{option.frequency} listings</span>
+                                {option.marketAvailability && (
+                                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                                    option.marketAvailability === 'high' ? 'bg-green-100 text-green-800' :
+                                    option.marketAvailability === 'medium' ? 'bg-blue-100 text-blue-800' :
+                                    option.marketAvailability === 'low' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-purple-100 text-purple-800'
+                                  }`}>
+                                    {option.marketAvailability}
+                                  </span>
+                                )}
+                                {option.priceImpact === 'rising' && (
+                                  <TrendingUp className="h-3 w-3 text-green-600" />
+                                )}
+                                {option.priceImpact === 'falling' && (
+                                  <TrendingDown className="h-3 w-3 text-red-600" />
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className={`text-2xl font-bold ${
+                                (option.premiumPercent || 0) > 0 ? 'text-green-600' : 
+                                (option.premiumPercent || 0) < 0 ? 'text-red-600' : 'text-gray-600'
+                              }`}>
+                                {(option.premiumPercent || 0) > 0 ? '+' : ''}{(option.premiumPercent || 0).toFixed(1)}%
+                              </div>
+                              <div className="text-sm text-gray-600">
+                                {(option.premiumPercent || 0) > 0 ? 'premium' : 
+                                 (option.premiumPercent || 0) < 0 ? 'discount' : 'neutral'}
+                              </div>
+                              {option.daysOnMarketDiff !== null && option.daysOnMarketDiff !== undefined && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {option.daysOnMarketDiff < 0 ? (
+                                    <span className="text-green-600">
+                                      {Math.abs(option.daysOnMarketDiff).toFixed(0)} days faster
+                                    </span>
+                                  ) : option.daysOnMarketDiff > 0 ? (
+                                    <span className="text-red-600">
+                                      {option.daysOnMarketDiff.toFixed(0)} days slower
+                                    </span>
+                                  ) : (
+                                    <span>Same time to sell</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                {/* Options With Less Impact */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-700 mb-4">Other Common Options</h3>
+                  <div className="space-y-3">
+                    {analytics.optionsAnalysis
+                      .sort((a, b) => (b.premiumPercent || 0) - (a.premiumPercent || 0))
+                      .slice(Math.ceil(analytics.optionsAnalysis.length / 2))
+                      .slice(0, 5)
+                      .map((option) => (
+                        <div key={option.option} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <h4 className="font-semibold text-gray-900">{option.option}</h4>
+                              <div className="flex items-center gap-3 mt-1">
+                                <span className="text-sm text-gray-600">{option.frequency} listings</span>
+                                {option.marketAvailability && (
+                                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                                    option.marketAvailability === 'high' ? 'bg-green-100 text-green-800' :
+                                    option.marketAvailability === 'medium' ? 'bg-blue-100 text-blue-800' :
+                                    option.marketAvailability === 'low' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-purple-100 text-purple-800'
+                                  }`}>
+                                    {option.marketAvailability}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className={`text-2xl font-bold ${
+                                (option.premiumPercent || 0) > 5 ? 'text-green-600' : 
+                                (option.premiumPercent || 0) < -5 ? 'text-red-600' : 'text-gray-600'
+                              }`}>
+                                {(option.premiumPercent || 0) > 0 ? '+' : ''}{(option.premiumPercent || 0).toFixed(1)}%
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {Math.abs(option.premiumPercent || 0) < 5 ? 'neutral' : 
+                                 (option.premiumPercent || 0) > 0 ? 'premium' : 'discount'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </div>
+
+
+              {/* Fastest Selling Options */}
+              {analytics.optionsAnalysis.some(opt => opt.daysOnMarketDiff !== null && opt.daysOnMarketDiff < 0) && (
+                <div className="pt-6 border-t border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Options That Sell Faster</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {analytics.optionsAnalysis
+                      .filter(opt => opt.daysOnMarketDiff !== null && opt.daysOnMarketDiff < 0 && opt.frequency >= 3)
+                      .sort((a, b) => (a.daysOnMarketDiff || 0) - (b.daysOnMarketDiff || 0))
+                      .slice(0, 6)
+                      .map((option) => (
+                        <div key={option.option} className="bg-green-50 border border-green-200 rounded-lg p-3">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div className="font-medium text-gray-900">{option.option}</div>
+                              <div className="text-xs text-gray-600 mt-1">
+                                Avg {option.avgDaysOnMarket?.toFixed(0) || 'N/A'} days vs {option.avgDaysWithoutOption?.toFixed(0) || 'N/A'} days without
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-lg font-bold text-green-600">
+                                {Math.abs(option.daysOnMarketDiff || 0).toFixed(0)} days
+                              </div>
+                              <div className="text-xs text-gray-600">faster</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Most Common Options */}
+              <div className="pt-6 border-t border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Most Common Options</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {[...analytics.optionsAnalysis]
+                    .sort((a, b) => b.frequency - a.frequency)
+                    .slice(0, 9)
+                    .map((option) => (
+                      <div key={option.option} className="bg-white border border-gray-200 rounded-lg p-3">
+                        <div className="font-medium text-gray-900 text-sm">{option.option}</div>
+                        <div className="text-xs text-gray-600">{option.frequency} listings</div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Depreciation Analysis */}
         <Card>
@@ -1091,426 +1545,6 @@ export default function TrimAnalyticsPage() {
           </CardContent>
         </Card>
 
-        {/* Color Premium Analysis */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Color Distribution & Value</CardTitle>
-            <CardDescription>
-              Premium analysis and distribution of color options
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Bar Chart - Color Premium */}
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Price Premium by Color</h4>
-                <div style={{ width: '100%', height: 260 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={analytics.colorAnalysis}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis dataKey="color" stroke="#6b7280" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={80} />
-                      <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} />
-                      <Tooltip 
-                        formatter={(value: any, name: string) => {
-                          if (name === 'Premium') return `${value}%`;
-                          return value;
-                        }}
-                        contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
-                      />
-                      <Bar dataKey="premiumPercent" fill="#fbbf24" name="Premium %">
-                        {analytics.colorAnalysis.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.premiumPercent > 0 ? '#10b981' : '#ef4444'} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-              
-              {/* Pie Chart - Color Distribution */}
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Color Distribution</h4>
-                <div style={{ width: '100%', height: 260 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={analytics.colorAnalysis}
-                        dataKey="count"
-                        nameKey="color"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        label={(entry: any) => `${entry.color} ${((entry.count / analytics.colorAnalysis.reduce((sum: number, c: any) => sum + c.count, 0)) * 100).toFixed(0)}%`}
-                        labelLine={false}
-                      >
-                        {analytics.colorAnalysis.map((entry, index) => {
-                          // Define colors for common Porsche colors
-                          const colorMap: Record<string, string> = {
-                            'Black': '#1f2937',
-                            'White': '#e5e7eb',
-                            'Silver': '#9ca3af',
-                            'Gray': '#6b7280',
-                            'Grey': '#6b7280',
-                            'Red': '#dc2626',
-                            'Guards Red': '#dc2626',
-                            'Blue': '#2563eb',
-                            'Yellow': '#fbbf24',
-                            'Speed Yellow': '#fbbf24',
-                            'Racing Yellow': '#fbbf24',
-                            'Green': '#16a34a',
-                            'Orange': '#ea580c',
-                            'Brown': '#92400e',
-                            'Gold': '#facc15',
-                            'Purple': '#9333ea'
-                          };
-                          
-                          // Find matching color or use default
-                          let fillColor = '#94a3b8'; // Default gray
-                          Object.keys(colorMap).forEach(key => {
-                            if (entry.color.toLowerCase().includes(key.toLowerCase())) {
-                              fillColor = colorMap[key];
-                            }
-                          });
-                          
-                          return <Cell key={`cell-${index}`} fill={fillColor} stroke="#fff" strokeWidth={2} />;
-                        })}
-                      </Pie>
-                      <Tooltip 
-                        formatter={(value: any, name: string) => {
-                          if (typeof value === 'number') {
-                            const total = analytics.colorAnalysis.reduce((sum: number, c: any) => sum + c.count, 0);
-                            const percent = ((value / total) * 100).toFixed(2);
-                            return [`${value} listings (${percent}%)`, name];
-                          }
-                          return [value, name];
-                        }}
-                        contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-            
-            <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3">
-              {analytics.colorAnalysis.slice(0, 6).map((color, index) => (
-                <div key={`color-${index}`} className={`p-3 rounded-lg border ${
-                  color.premiumPercent > 5 ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
-                }`}>
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-gray-900">{color.color}</span>
-                    <span className={`text-sm font-bold ${
-                      color.premiumPercent > 0 ? 'text-green-600' : 'text-gray-600'
-                    }`}>
-                      {color.premiumPercent > 0 ? '+' : ''}{color.premiumPercent.toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-600 mt-1">
-                    <span>{color.count} listings</span>
-                    <span>{formatPrice(color.avgPrice)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Seasonality Analysis */}
-        {analytics.seasonalityAnalysis && analytics.seasonalityAnalysis.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Seasonal Price Impact</CardTitle>
-              <CardDescription>
-                Analysis of how median sales prices and volume vary by season
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Bar Chart - Price Impact by Season */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Median Price Variation by Season</h4>
-                  <div style={{ width: '100%', height: 300 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <ComposedChart data={analytics.seasonalityAnalysis}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="season" stroke="#6b7280" tick={{ fontSize: 11 }} />
-                        <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" tick={{ fontSize: 11 }} 
-                          tickFormatter={(value) => `${value > 0 ? '+' : ''}${value.toFixed(1)}%`} />
-                        <YAxis yAxisId="right" orientation="right" stroke="#10b981" tick={{ fontSize: 11 }} />
-                        <Tooltip 
-                          formatter={(value: any, name: string) => {
-                            if (name === 'Price Impact') return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
-                            if (name === 'Sales Volume') return `${value} sales`;
-                            return value;
-                          }}
-                          contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
-                        />
-                        <Legend wrapperStyle={{ fontSize: 12 }} />
-                        <Bar yAxisId="left" dataKey="priceImpact" fill="#3b82f6" name="Price Impact">
-                          {analytics.seasonalityAnalysis.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.priceImpact > 0 ? '#10b981' : entry.priceImpact < 0 ? '#ef4444' : '#6b7280'} />
-                          ))}
-                        </Bar>
-                        <Line yAxisId="right" type="monotone" dataKey="salesVolume" stroke="#f59e0b" strokeWidth={2} name="Sales Volume" dot={{ r: 4 }} />
-                      </ComposedChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-                
-                {/* Season Statistics Cards */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Seasonal Statistics</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    {analytics.seasonalityAnalysis.map((season, index) => {
-                      const seasonColors = {
-                        'Winter': 'bg-blue-50 border-blue-200',
-                        'Spring': 'bg-green-50 border-green-200',
-                        'Summer': 'bg-yellow-50 border-yellow-200',
-                        'Fall': 'bg-orange-50 border-orange-200'
-                      };
-                      const bgColor = seasonColors[season.season as keyof typeof seasonColors] || 'bg-gray-50 border-gray-200';
-                      
-                      return (
-                        <div key={`season-${index}`} className={`p-3 rounded-lg border ${bgColor}`}>
-                          <div className="font-medium text-gray-900 mb-2">{season.season}</div>
-                          <div className="space-y-1 text-sm">
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Median:</span>
-                              <span className="font-semibold">{formatPrice(season.medianPrice)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Impact:</span>
-                              <span className={`font-bold ${
-                                season.priceImpact > 0 ? 'text-green-600' : 
-                                season.priceImpact < 0 ? 'text-red-600' : 'text-gray-600'
-                              }`}>
-                                {season.priceImpact > 0 ? '+' : ''}{season.priceImpact.toFixed(1)}%
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Sales:</span>
-                              <span>{season.salesVolume} ({season.volumePercent.toFixed(0)}%)</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  
-                  {/* Best/Worst Season Summary */}
-                  <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="text-sm space-y-2">
-                      {(() => {
-                        const sorted = [...analytics.seasonalityAnalysis].sort((a, b) => b.priceImpact - a.priceImpact);
-                        const best = sorted[0];
-                        const worst = sorted[sorted.length - 1];
-                        return (
-                          <>
-                            <div className="flex items-center gap-2">
-                              <TrendingUp className="h-4 w-4 text-green-600" />
-                              <span className="text-gray-700">
-                                <strong>{best.season}</strong> shows highest prices ({best.priceImpact > 0 ? '+' : ''}{best.priceImpact.toFixed(1)}% premium)
-                              </span>
-                            </div>
-                            {worst.priceImpact < 0 && (
-                              <div className="flex items-center gap-2">
-                                <TrendingDown className="h-4 w-4 text-red-600" />
-                                <span className="text-gray-700">
-                                  <strong>{worst.season}</strong> shows lowest prices ({worst.priceImpact.toFixed(1)}% discount)
-                                </span>
-                              </div>
-                            )}
-                            <div className="mt-2 text-xs text-gray-500">
-                              Based on {analytics.totalListings} sales in the selected time period
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Options Analysis - Only show for single generation or models with one generation */}
-        {analytics.optionsAnalysis && 
-         analytics.optionsAnalysis.length > 0 && 
-         (selectedGeneration !== 'all' || allGenerations.length === 1) && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Options Analysis</CardTitle>
-              <CardDescription>
-                Price premiums are normalized by comparing same-year vehicles with and without each option
-                {selectedGeneration !== 'all' && ` (${selectedGeneration} only)`}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* High-Value Options vs Less Impact (2 columns) */}
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* Options That Add Value */}
-                <div>
-                  <h3 className="text-lg font-semibold text-green-700 mb-4">High-Value Options</h3>
-                  <div className="space-y-3">
-                    {analytics.optionsAnalysis
-                      .sort((a, b) => (b.premiumPercent || 0) - (a.premiumPercent || 0))
-                      .slice(0, Math.ceil(analytics.optionsAnalysis.length / 2))
-                      .slice(0, 5)
-                      .map((option) => (
-                        <div key={option.option} className="bg-green-50 rounded-lg p-4 border border-green-100">
-                          <div className="flex justify-between items-start mb-2">
-                            <div>
-                              <h4 className="font-semibold text-gray-900">{option.option}</h4>
-                              <div className="flex items-center gap-3 mt-1">
-                                <span className="text-sm text-gray-600">{option.frequency} listings</span>
-                                {option.marketAvailability && (
-                                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                                    option.marketAvailability === 'high' ? 'bg-green-100 text-green-800' :
-                                    option.marketAvailability === 'medium' ? 'bg-blue-100 text-blue-800' :
-                                    option.marketAvailability === 'low' ? 'bg-yellow-100 text-yellow-800' :
-                                    'bg-purple-100 text-purple-800'
-                                  }`}>
-                                    {option.marketAvailability}
-                                  </span>
-                                )}
-                                {option.priceImpact === 'rising' && (
-                                  <TrendingUp className="h-3 w-3 text-green-600" />
-                                )}
-                                {option.priceImpact === 'falling' && (
-                                  <TrendingDown className="h-3 w-3 text-red-600" />
-                                )}
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className={`text-2xl font-bold ${
-                                (option.premiumPercent || 0) > 0 ? 'text-green-600' : 
-                                (option.premiumPercent || 0) < 0 ? 'text-red-600' : 'text-gray-600'
-                              }`}>
-                                {(option.premiumPercent || 0) > 0 ? '+' : ''}{(option.premiumPercent || 0).toFixed(1)}%
-                              </div>
-                              <div className="text-sm text-gray-600">
-                                {(option.premiumPercent || 0) > 0 ? 'premium' : 
-                                 (option.premiumPercent || 0) < 0 ? 'discount' : 'neutral'}
-                              </div>
-                              {option.daysOnMarketDiff !== null && option.daysOnMarketDiff !== undefined && (
-                                <div className="text-xs text-gray-500 mt-1">
-                                  {option.daysOnMarketDiff < 0 ? (
-                                    <span className="text-green-600">
-                                      {Math.abs(option.daysOnMarketDiff).toFixed(0)} days faster
-                                    </span>
-                                  ) : option.daysOnMarketDiff > 0 ? (
-                                    <span className="text-red-600">
-                                      {option.daysOnMarketDiff.toFixed(0)} days slower
-                                    </span>
-                                  ) : (
-                                    <span>Same time to sell</span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-
-                {/* Options With Less Impact */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-700 mb-4">Other Common Options</h3>
-                  <div className="space-y-3">
-                    {analytics.optionsAnalysis
-                      .sort((a, b) => (b.premiumPercent || 0) - (a.premiumPercent || 0))
-                      .slice(Math.ceil(analytics.optionsAnalysis.length / 2))
-                      .slice(0, 5)
-                      .map((option) => (
-                        <div key={option.option} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                          <div className="flex justify-between items-start mb-2">
-                            <div>
-                              <h4 className="font-semibold text-gray-900">{option.option}</h4>
-                              <div className="flex items-center gap-3 mt-1">
-                                <span className="text-sm text-gray-600">{option.frequency} listings</span>
-                                {option.marketAvailability && (
-                                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                                    option.marketAvailability === 'high' ? 'bg-green-100 text-green-800' :
-                                    option.marketAvailability === 'medium' ? 'bg-blue-100 text-blue-800' :
-                                    option.marketAvailability === 'low' ? 'bg-yellow-100 text-yellow-800' :
-                                    'bg-purple-100 text-purple-800'
-                                  }`}>
-                                    {option.marketAvailability}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className={`text-2xl font-bold ${
-                                (option.premiumPercent || 0) > 5 ? 'text-green-600' : 
-                                (option.premiumPercent || 0) < -5 ? 'text-red-600' : 'text-gray-600'
-                              }`}>
-                                {(option.premiumPercent || 0) > 0 ? '+' : ''}{(option.premiumPercent || 0).toFixed(1)}%
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                {Math.abs(option.premiumPercent || 0) < 5 ? 'neutral' : 
-                                 (option.premiumPercent || 0) > 0 ? 'premium' : 'discount'}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              </div>
-
-
-              {/* Fastest Selling Options */}
-              {analytics.optionsAnalysis.some(opt => opt.daysOnMarketDiff !== null && opt.daysOnMarketDiff < 0) && (
-                <div className="pt-6 border-t border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Options That Sell Faster</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {analytics.optionsAnalysis
-                      .filter(opt => opt.daysOnMarketDiff !== null && opt.daysOnMarketDiff < 0 && opt.frequency >= 3)
-                      .sort((a, b) => (a.daysOnMarketDiff || 0) - (b.daysOnMarketDiff || 0))
-                      .slice(0, 6)
-                      .map((option) => (
-                        <div key={option.option} className="bg-green-50 border border-green-200 rounded-lg p-3">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <div className="font-medium text-gray-900">{option.option}</div>
-                              <div className="text-xs text-gray-600 mt-1">
-                                Avg {option.avgDaysOnMarket?.toFixed(0) || 'N/A'} days vs {option.avgDaysWithoutOption?.toFixed(0) || 'N/A'} days without
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-lg font-bold text-green-600">
-                                {Math.abs(option.daysOnMarketDiff || 0).toFixed(0)} days
-                              </div>
-                              <div className="text-xs text-gray-600">faster</div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Most Common Options */}
-              <div className="pt-6 border-t border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Most Common Options</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {[...analytics.optionsAnalysis]
-                    .sort((a, b) => b.frequency - a.frequency)
-                    .slice(0, 9)
-                    .map((option) => (
-                      <div key={option.option} className="bg-white border border-gray-200 rounded-lg p-3">
-                        <div className="font-medium text-gray-900 text-sm">{option.option}</div>
-                        <div className="text-xs text-gray-600">{option.frequency} listings</div>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Depreciation Analysis Table */}
         <DepreciationTable

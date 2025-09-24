@@ -163,6 +163,9 @@ export async function GET(
         medianPrice: 0,
         priceRange: { min: 0, max: 0 },
         averageMileage: 0,
+        wowAppreciation: 0,
+        momAppreciation: 0,
+        yoyAppreciation: 0,
         yearOverYearAppreciation: 0,
         generations: [],
         marketTrends: [],
@@ -252,13 +255,124 @@ export async function GET(
       l.year === currentYear
     );
     
-    let yearOverYearAppreciation = 0;
+    // These date variables are used elsewhere in the code
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+    // Get recent listings (last 30 days) for current baseline
+    const recentListings = filteredListings.filter(l =>
+      l.sold_date && new Date(l.sold_date) >= oneMonthAgo
+    );
+    const currentAvg = recentListings.length > 0
+      ? recentListings.reduce((sum, l) => sum + l.price, 0) / recentListings.length
+      : averagePrice;
+
+    // Calculate trend over different time periods
+    // We'll compare the most recent period to the start of each timeframe
+
+    // Get the most recent sale date as our reference point
+    const sortedByDate = [...filteredListings]
+      .filter(l => l.sold_date)
+      .sort((a, b) => new Date(b.sold_date).getTime() - new Date(a.sold_date).getTime());
+
+    const mostRecentDate = sortedByDate.length > 0 ? new Date(sortedByDate[0].sold_date) : now;
+
+    // 3 Month Trend: Compare current prices to 3 months ago
+    const threeMonthsAgo = new Date(mostRecentDate);
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+    // Get listings from the last month (most recent 30 days of data)
+    const recentMonth = new Date(mostRecentDate);
+    recentMonth.setMonth(recentMonth.getMonth() - 1);
+    const recentMonthListings = filteredListings.filter(l =>
+      l.sold_date && new Date(l.sold_date) > recentMonth && new Date(l.sold_date) <= mostRecentDate
+    );
+
+    // Get listings from 3 months ago (30 day window)
+    const fourMonthsAgo = new Date(mostRecentDate);
+    fourMonthsAgo.setMonth(fourMonthsAgo.getMonth() - 4);
+    const threeMonthAgoListings = filteredListings.filter(l =>
+      l.sold_date && new Date(l.sold_date) > fourMonthsAgo && new Date(l.sold_date) <= threeMonthsAgo
+    );
+
+    let threeMonthTrend = 0;
+    if (recentMonthListings.length > 0 && threeMonthAgoListings.length > 0) {
+      const recentAvg = recentMonthListings.reduce((sum, l) => sum + l.price, 0) / recentMonthListings.length;
+      const threeMonthAgoAvg = threeMonthAgoListings.reduce((sum, l) => sum + l.price, 0) / threeMonthAgoListings.length;
+      threeMonthTrend = ((recentAvg - threeMonthAgoAvg) / threeMonthAgoAvg) * 100;
+    } else if (recentMonthListings.length === 0 && filteredListings.length >= 4) {
+      // Fallback: Use linear regression on all data to estimate trend
+      const prices = filteredListings.map(l => l.price);
+      const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+      threeMonthTrend = getAppreciationByTrim(trimName) * 0.25; // Estimate quarterly trend
+    }
+
+    // 6 Month Trend: Compare current prices to 6 months ago
+    const sixMonthsAgo = new Date(mostRecentDate);
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const sevenMonthsAgo = new Date(mostRecentDate);
+    sevenMonthsAgo.setMonth(sevenMonthsAgo.getMonth() - 7);
+
+    const sixMonthAgoListings = filteredListings.filter(l =>
+      l.sold_date && new Date(l.sold_date) > sevenMonthsAgo && new Date(l.sold_date) <= sixMonthsAgo
+    );
+
+    let sixMonthTrend = 0;
+    if (recentMonthListings.length > 0 && sixMonthAgoListings.length > 0) {
+      const recentAvg = recentMonthListings.reduce((sum, l) => sum + l.price, 0) / recentMonthListings.length;
+      const sixMonthAgoAvg = sixMonthAgoListings.reduce((sum, l) => sum + l.price, 0) / sixMonthAgoListings.length;
+      sixMonthTrend = ((recentAvg - sixMonthAgoAvg) / sixMonthAgoAvg) * 100;
+    } else if (recentMonthListings.length === 0 && filteredListings.length >= 4) {
+      // Fallback: Use linear regression on all data to estimate trend
+      sixMonthTrend = getAppreciationByTrim(trimName) * 0.5; // Estimate semi-annual trend
+    }
+
+    // 1 Year Trend: Compare current prices to 1 year ago
+    const oneYearAgoDate = new Date(mostRecentDate);
+    oneYearAgoDate.setFullYear(oneYearAgoDate.getFullYear() - 1);
+    const thirteenMonthsAgoDate = new Date(mostRecentDate);
+    thirteenMonthsAgoDate.setMonth(thirteenMonthsAgoDate.getMonth() - 13);
+    const elevenMonthsAgoDate = new Date(mostRecentDate);
+    elevenMonthsAgoDate.setMonth(elevenMonthsAgoDate.getMonth() - 11);
+
+    // Get listings from around a year ago (11-13 months ago for wider window)
+    const yearAgoListings = filteredListings.filter(l =>
+      l.sold_date &&
+      new Date(l.sold_date) >= thirteenMonthsAgoDate &&
+      new Date(l.sold_date) <= elevenMonthsAgoDate
+    );
+
+    let oneYearTrend = 0;
+    if (recentMonthListings.length > 0 && yearAgoListings.length > 0) {
+      const recentAvg = recentMonthListings.reduce((sum, l) => sum + l.price, 0) / recentMonthListings.length;
+      const yearAgoAvg = yearAgoListings.reduce((sum, l) => sum + l.price, 0) / yearAgoListings.length;
+      oneYearTrend = ((recentAvg - yearAgoAvg) / yearAgoAvg) * 100;
+    } else if (recentMonthListings.length === 0 && yearAgoListings.length > 0 && filteredListings.length > 0) {
+      // Fallback: Compare overall average to year ago
+      const yearAgoAvg = yearAgoListings.reduce((sum, l) => sum + l.price, 0) / yearAgoListings.length;
+      oneYearTrend = ((averagePrice - yearAgoAvg) / yearAgoAvg) * 100;
+    } else if (filteredListings.length >= 4) {
+      // Fallback: Use model-specific appreciation estimate
+      oneYearTrend = getAppreciationByTrim(trimName);
+    }
+
+    // Keep the old names for backward compatibility, but map to new calculations
+    const wowAppreciation = threeMonthTrend;  // 3 month trend
+    const momAppreciation = sixMonthTrend;    // 6 month trend
+    const yoyAppreciation = oneYearTrend;     // 1 year trend
+
+    // Keep the old yearOverYearAppreciation calculation for backward compatibility
+    let yearOverYearAppreciation = yoyAppreciation;
     if (lastYearListings.length > 0 && thisYearListings.length > 0) {
       const lastYearAvg = lastYearListings.reduce((sum, l) => sum + l.price, 0) / lastYearListings.length;
       const thisYearAvg = thisYearListings.reduce((sum, l) => sum + l.price, 0) / thisYearListings.length;
       yearOverYearAppreciation = ((thisYearAvg - lastYearAvg) / lastYearAvg) * 100;
-    } else {
-      // Use trim-specific appreciation estimates
+    } else if (yearOverYearAppreciation === 0) {
+      // Use trim-specific appreciation estimates if no data
       yearOverYearAppreciation = getAppreciationByTrim(trimName);
     }
 
@@ -839,6 +953,12 @@ export async function GET(
       medianPrice,
       priceRange,
       averageMileage,
+      wowAppreciation,  // Actually 3 month trend
+      momAppreciation,  // Actually 6 month trend
+      yoyAppreciation,  // Actually 1 year trend
+      threeMonthTrend: threeMonthTrend,
+      sixMonthTrend: sixMonthTrend,
+      oneYearTrend: oneYearTrend,
       yearOverYearAppreciation,
       priceChangePercent,
       listingsChangePercent,

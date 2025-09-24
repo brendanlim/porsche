@@ -162,6 +162,7 @@ function fallbackParsing(title: string): ModelTrimResult {
     { pattern: /GT4/i, trim: 'GT4' },
     { pattern: /Turbo[\s-]?S/i, trim: 'Turbo S' },
     { pattern: /Turbo/i, trim: 'Turbo' },
+    { pattern: /911[\s-]?R\b/i, trim: 'R' },  // 911 R - specific ultra-rare model
     { pattern: /Carrera[\s-]?T/i, trim: 'Carrera T' },
     { pattern: /Carrera[\s-]?GTS/i, trim: 'Carrera GTS' },
     { pattern: /Carrera[\s-]?4S[\s-]?Cabriolet/i, trim: 'Carrera 4S Cabriolet' },
@@ -181,8 +182,7 @@ function fallbackParsing(title: string): ModelTrimResult {
     { pattern: /Sport[\s-]?Classic/i, trim: 'Sport Classic' },
     { pattern: /Speedster/i, trim: 'Speedster' },
     { pattern: /Spyder/i, trim: 'Spyder' },
-    { pattern: /\bS\b/i, trim: 'S' },
-    { pattern: /\bR\b/i, trim: 'R' }
+    { pattern: /\bS\b/i, trim: 'S' }
   ];
   
   for (const { pattern, trim: trimName } of trimPatterns) {

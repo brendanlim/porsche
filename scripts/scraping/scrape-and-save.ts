@@ -449,7 +449,7 @@ async function main() {
   const type = typeArg ? typeArg.split('=')[1].toLowerCase() : 'both'; // 'sold', 'active', or 'both'
   
   // Available sources
-  const availableSources = ['bat', 'classic', 'carsandbids', 'edmunds', 'cars', 'autotrader'];
+  const availableSources = ['bat', 'classic', 'carsandbids', 'edmunds', 'cars', 'autotrader', 'sothebys', 'truecar', 'carfax', 'carmax', 'carvana'];
   
   if (source && !availableSources.includes(source)) {
     console.error(`Invalid source: ${source}`);
@@ -467,9 +467,9 @@ async function main() {
     console.log(`  • Source filter: ${source}`);
   } else {
     const sources = type === 'active'
-      ? 'Cars.com, AutoTrader'
+      ? 'Cars.com, AutoTrader, TrueCar, Carfax, CarMax, Carvana'
       : type === 'sold'
-      ? 'BaT, Classic, Cars&Bids'
+      ? 'BaT, Classic, Cars&Bids, RM Sotheby\'s, Edmunds'
       : 'All sources';
     console.log(`  • Sources: ${sources}`);
   }
@@ -486,6 +486,11 @@ async function main() {
   const { EdmundsScraper } = await import('../../lib/scrapers/edmunds');
   const { CarsScraper } = await import('../../lib/scrapers/cars');
   const { AutoTraderScraper } = await import('../../lib/scrapers/autotrader');
+  const { SothebysScraper } = await import('../../lib/scrapers/sothebys');
+  const { TrueCarScraper } = await import('../../lib/scrapers/truecar');
+  const { CarfaxScraper } = await import('../../lib/scrapers/carfax');
+  const { CarMaxScraper } = await import('../../lib/scrapers/carmax');
+  const { CarvanaScraper } = await import('../../lib/scrapers/carvana');
   
   const results = {
     bat: 0,
@@ -494,6 +499,11 @@ async function main() {
     edmunds: 0,
     cars: 0,
     autotrader: 0,
+    sothebys: 0,
+    truecar: 0,
+    carfax: 0,
+    carmax: 0,
+    carvana: 0,
     total: 0,
     saved: 0
   };
@@ -508,7 +518,7 @@ async function main() {
     if (source === 'bat' || (!source && type !== 'active')) {
       // Run Bring a Trailer scraper (PRIORITY - best data)
       console.log('\n' + '═'.repeat(60));
-      console.log('🎯 [1/6] BRING A TRAILER');
+      console.log('🎯 [1/7] BRING A TRAILER');
       console.log('═'.repeat(60));
 
       try {
@@ -534,7 +544,7 @@ async function main() {
     if (source === 'classic' || (!source && type !== 'active')) {
       // Run Classic.com scraper
       console.log('\n' + '═'.repeat(60));
-      console.log('🎯 [2/6] CLASSIC.COM');
+      console.log('🎯 [2/7] CLASSIC.COM');
       console.log('═'.repeat(60));
 
       try {
@@ -560,7 +570,7 @@ async function main() {
     if (source === 'carsandbids' || !source) {
       // Run Cars and Bids scraper
       console.log('\n' + '═'.repeat(60));
-      console.log('🎯 [3/6] CARS AND BIDS');
+      console.log('🎯 [3/7] CARS AND BIDS');
       console.log('═'.repeat(60));
 
       try {
@@ -583,11 +593,36 @@ async function main() {
       }
     }
 
+    if (source === 'sothebys' || (!source && type !== 'active')) {
+      // Run RM Sotheby's scraper
+      console.log('\n' + '═'.repeat(60));
+      console.log('🎯 [4/7] RM SOTHEBY\'S');
+      console.log('═'.repeat(60));
+
+      try {
+        const sothebysScraper = new SothebysScraper();
+        const sothebysResults = await sothebysScraper.scrapeListings({
+          model: model || undefined,
+          maxPages: maxPagesOverride !== null ? maxPagesOverride : 1,  // Default to 1 for daily scraper
+          onlySold: true
+        });
+        results.sothebys = sothebysResults.length;
+
+        // Save to database
+        if (sothebysResults.length > 0) {
+          const saved = await saveListings(sothebysResults, 'sothebys', supabase);
+          results.saved += saved;
+        }
+      } catch (error) {
+        console.error('❌ RM Sotheby\'s failed:', error);
+      }
+    }
+
   if (source === 'edmunds' || !source) {
     // Run Edmunds scraper
-    console.log('='.repeat(50));
-    console.log('4. Scraping Edmunds...');
-    console.log('='.repeat(50));
+    console.log('\n' + '═'.repeat(60));
+    console.log('🎯 [5/7] EDMUNDS');
+    console.log('═'.repeat(60));
     try {
       const edmundsScraper = new EdmundsScraper();
       const edmundsResults = await edmundsScraper.scrapeListings({
@@ -611,9 +646,9 @@ async function main() {
 
   if (source === 'cars' || !source) {
     // Run Cars.com scraper
-    console.log('='.repeat(50));
-    console.log('5. Scraping Cars.com...');
-    console.log('='.repeat(50));
+    console.log('\n' + '═'.repeat(60));
+    console.log('🎯 [6/7] CARS.COM (SOLD)');
+    console.log('═'.repeat(60));
     try {
       const carsScraper = new CarsScraper();
       const carsResults = await carsScraper.scrapeListings({
@@ -632,6 +667,106 @@ async function main() {
       console.log();
     } catch (error) {
       console.error('❌ Cars.com failed:', error);
+    }
+  }
+
+  // TrueCar (Both sold and active listings)
+  if (source === 'truecar' || !source) {
+    console.log('\n' + '═'.repeat(60));
+    console.log('🎯 [8/11] TRUECAR');
+    console.log('═'.repeat(60));
+    try {
+      const truecarScraper = new TrueCarScraper();
+      const truecarResults = await truecarScraper.scrapeListings({
+        model: model || undefined,
+        maxPages: maxPagesOverride !== null ? maxPagesOverride : 3
+      });
+      results.truecar = truecarResults.length;
+      console.log(`✅ TrueCar: ${truecarResults.length} listings`);
+
+      // Save to database
+      if (truecarResults.length > 0) {
+        const saved = await saveListings(truecarResults, 'truecar', supabase);
+        results.saved += saved;
+      }
+      console.log();
+    } catch (error) {
+      console.error('❌ TrueCar failed:', error);
+    }
+  }
+
+  // Carfax (Active listings with history)
+  if (source === 'carfax' || !source) {
+    console.log('\n' + '═'.repeat(60));
+    console.log('🎯 [9/11] CARFAX');
+    console.log('═'.repeat(60));
+    try {
+      const carfaxScraper = new CarfaxScraper();
+      const carfaxResults = await carfaxScraper.scrapeListings({
+        model: model || undefined,
+        maxPages: maxPagesOverride !== null ? maxPagesOverride : 2
+      });
+      results.carfax = carfaxResults.length;
+      console.log(`✅ Carfax: ${carfaxResults.length} listings`);
+
+      // Save to database
+      if (carfaxResults.length > 0) {
+        const saved = await saveListings(carfaxResults, 'carfax', supabase);
+        results.saved += saved;
+      }
+      console.log();
+    } catch (error) {
+      console.error('❌ Carfax failed:', error);
+    }
+  }
+
+  // CarMax (Active listings)
+  if (source === 'carmax' || !source) {
+    console.log('\n' + '═'.repeat(60));
+    console.log('🎯 [10/11] CARMAX');
+    console.log('═'.repeat(60));
+    try {
+      const carmaxScraper = new CarMaxScraper();
+      const carmaxResults = await carmaxScraper.scrapeListings({
+        model: model || undefined,
+        maxPages: maxPagesOverride !== null ? maxPagesOverride : 2
+      });
+      results.carmax = carmaxResults.length;
+      console.log(`✅ CarMax: ${carmaxResults.length} listings`);
+
+      // Save to database
+      if (carmaxResults.length > 0) {
+        const saved = await saveListings(carmaxResults, 'carmax', supabase);
+        results.saved += saved;
+      }
+      console.log();
+    } catch (error) {
+      console.error('❌ CarMax failed:', error);
+    }
+  }
+
+  // Carvana (Active listings)
+  if (source === 'carvana' || !source) {
+    console.log('\n' + '═'.repeat(60));
+    console.log('🎯 [11/11] CARVANA');
+    console.log('═'.repeat(60));
+    try {
+      const carvanaScraper = new CarvanaScraper();
+      const carvanaResults = await carvanaScraper.scrapeListings({
+        model: model || undefined,
+        maxPages: maxPagesOverride !== null ? maxPagesOverride : 2
+      });
+      results.carvana = carvanaResults.length;
+      console.log(`✅ Carvana: ${carvanaResults.length} listings`);
+
+      // Save to database
+      if (carvanaResults.length > 0) {
+        const saved = await saveListings(carvanaResults, 'carvana', supabase);
+        results.saved += saved;
+      }
+      console.log();
+    } catch (error) {
+      console.error('❌ Carvana failed:', error);
     }
   }
   } // End sold listings section
@@ -696,7 +831,7 @@ async function main() {
   } // End active listings section
 
   // Summary
-  results.total = results.bat + results.classic + results.carsAndBids + results.edmunds + results.cars + results.autotrader;
+  results.total = results.bat + results.classic + results.carsAndBids + results.sothebys + results.edmunds + results.cars + results.autotrader + results.truecar + results.carfax + results.carmax + results.carvana;
 
   console.log('\n' + '█'.repeat(80));
   console.log(' '.repeat(30) + '🏁 SCRAPING COMPLETE');
@@ -709,12 +844,17 @@ async function main() {
     if (results.bat > 0) console.log(`    • Bring a Trailer: ${results.bat}`);
     if (results.classic > 0) console.log(`    • Classic.com: ${results.classic}`);
     if (results.carsAndBids > 0) console.log(`    • Cars and Bids: ${results.carsAndBids}`);
+    if (results.sothebys > 0) console.log(`    • RM Sotheby's: ${results.sothebys}`);
     if (results.edmunds > 0) console.log(`    • Edmunds: ${results.edmunds}`);
   }
   if (type === 'active' || type === 'both') {
     console.log('\n  Active Listings:');
     if (results.cars > 0) console.log(`    • Cars.com: ${results.cars}`);
     if (results.autotrader > 0) console.log(`    • AutoTrader: ${results.autotrader}`);
+    if (results.truecar > 0) console.log(`    • TrueCar: ${results.truecar}`);
+    if (results.carfax > 0) console.log(`    • Carfax: ${results.carfax}`);
+    if (results.carmax > 0) console.log(`    • CarMax: ${results.carmax}`);
+    if (results.carvana > 0) console.log(`    • Carvana: ${results.carvana}`);
   }
   console.log('\n  Database:');
   console.log(`    ✅ Total saved/updated: ${results.saved}`);

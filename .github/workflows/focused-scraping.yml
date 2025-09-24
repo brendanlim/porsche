@@ -129,8 +129,10 @@ jobs:
       - name: Report status
         if: always()
         run: |
-          if [ ${{ job.status }} == 'success' ]; then
+          if [ "${{ job.status }}" == "success" ]; then
             echo "✅ Focused scraping for ${{ needs.determine-model.outputs.model }} completed"
+          elif [ "${{ job.status }}" == "cancelled" ]; then
+            echo "⚠️ Focused scraping for ${{ needs.determine-model.outputs.model }} was cancelled"
           else
             echo "❌ Focused scraping for ${{ needs.determine-model.outputs.model }} failed"
             exit 1

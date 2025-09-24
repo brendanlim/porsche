@@ -86,7 +86,7 @@ export async function GET(
     // Calculate basic metrics
     const prices = filteredListings.map(l => l.price).filter(p => p > 0).sort((a, b) => a - b);
     const mileages = filteredListings.map(l => l.mileage).filter(m => m > 0);
-    
+
     const totalListings = filteredListings.length;
     const averagePrice = prices.reduce((a, b) => a + b, 0) / prices.length;
     const medianPrice = prices[Math.floor(prices.length / 2)];
@@ -95,6 +95,76 @@ export async function GET(
       max: Math.max(...prices)
     };
     const averageMileage = mileages.reduce((a, b) => a + b, 0) / mileages.length;
+
+    // Calculate appreciation metrics (WoW, MoM, YoY)
+    // 'now' is already declared above, reuse it
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+    // Get recent listings (last 30 days) for current baseline
+    const recentListings = filteredListings.filter(l =>
+      l.sold_date && new Date(l.sold_date) >= oneMonthAgo
+    );
+    const currentAvg = recentListings.length > 0
+      ? recentListings.reduce((sum, l) => sum + l.price, 0) / recentListings.length
+      : averagePrice;
+
+    // Week-over-week: Compare last 7 days to previous 7 days
+    const currentWeekListings = filteredListings.filter(l =>
+      l.sold_date && new Date(l.sold_date) >= oneWeekAgo
+    );
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    const prevWeekListings = filteredListings.filter(l =>
+      l.sold_date && new Date(l.sold_date) >= twoWeeksAgo && new Date(l.sold_date) < oneWeekAgo
+    );
+
+    let wowAppreciation = 0;
+    if (currentWeekListings.length > 0 && prevWeekListings.length > 0) {
+      const currentWeekAvg = currentWeekListings.reduce((sum, l) => sum + l.price, 0) / currentWeekListings.length;
+      const prevWeekAvg = prevWeekListings.reduce((sum, l) => sum + l.price, 0) / prevWeekListings.length;
+      wowAppreciation = ((currentWeekAvg - prevWeekAvg) / prevWeekAvg) * 100;
+    }
+
+    // Month-over-month: Compare last 30 days to previous 30 days
+    const twoMonthsAgo = new Date();
+    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+    const currentMonthListings = filteredListings.filter(l =>
+      l.sold_date && new Date(l.sold_date) >= oneMonthAgo
+    );
+    const prevMonthListings = filteredListings.filter(l =>
+      l.sold_date && new Date(l.sold_date) >= twoMonthsAgo && new Date(l.sold_date) < oneMonthAgo
+    );
+
+    let momAppreciation = 0;
+    if (currentMonthListings.length > 0 && prevMonthListings.length > 0) {
+      const currentMonthAvg = currentMonthListings.reduce((sum, l) => sum + l.price, 0) / currentMonthListings.length;
+      const prevMonthAvg = prevMonthListings.reduce((sum, l) => sum + l.price, 0) / prevMonthListings.length;
+      momAppreciation = ((currentMonthAvg - prevMonthAvg) / prevMonthAvg) * 100;
+    }
+
+    // Year-over-year: Compare recent average to same period last year (with wider window)
+    const thirteenMonthsAgo = new Date();
+    thirteenMonthsAgo.setMonth(thirteenMonthsAgo.getMonth() - 13);
+    const elevenMonthsAgo = new Date();
+    elevenMonthsAgo.setMonth(elevenMonthsAgo.getMonth() - 11);
+
+    // Get listings from around a year ago (11-13 months ago)
+    const yearAgoListings = filteredListings.filter(l =>
+      l.sold_date &&
+      new Date(l.sold_date) >= thirteenMonthsAgo &&
+      new Date(l.sold_date) <= elevenMonthsAgo
+    );
+
+    let yoyAppreciation = 0;
+    if (recentListings.length > 0 && yearAgoListings.length > 0) {
+      const yearAgoAvg = yearAgoListings.reduce((sum, l) => sum + l.price, 0) / yearAgoListings.length;
+      yoyAppreciation = ((currentAvg - yearAgoAvg) / yearAgoAvg) * 100;
+    }
 
     // Market trends over time (group by day) - use sold_date for accurate market analysis
     const trendsByDay = new Map();
@@ -247,6 +317,9 @@ export async function GET(
       medianPrice,
       priceRange,
       averageMileage,
+      wowAppreciation,
+      momAppreciation,
+      yoyAppreciation,
       marketTrends,
       trimAnalysis,
       yearAnalysis,

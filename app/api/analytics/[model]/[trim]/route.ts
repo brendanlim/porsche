@@ -130,8 +130,8 @@ export async function GET(
     // GT4 RS minimum should be around $220k
     const minPrices: Record<string, number> = {
       'gt3': 100000,
-      'gt3 rs': 220000,
-      'gt4 rs': 175000,  // Lowered from 220k to include more legitimate sales
+      'gt3 rs': 170000,    // Can sell around $170k for older generations
+      'gt4 rs': 175000,    // Lowered from 220k to include more legitimate sales
       'gt2': 150000,
       'gt2 rs': 250000,
       'turbo': 80000,

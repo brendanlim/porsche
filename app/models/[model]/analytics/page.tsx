@@ -14,6 +14,9 @@ interface ModelAnalytics {
   medianPrice: number;
   priceRange: { min: number; max: number };
   averageMileage: number;
+  wowAppreciation: number;
+  momAppreciation: number;
+  yoyAppreciation: number;
   marketTrends: Array<{
     date: string;
     averagePrice: number;
@@ -115,6 +118,9 @@ export default function ModelAnalyticsPage() {
           medianPrice: 0,
           priceRange: { min: 0, max: 0 },
           averageMileage: 0,
+          wowAppreciation: 0,
+          momAppreciation: 0,
+          yoyAppreciation: 0,
           marketTrends: [],
           trimAnalysis: [],
           yearAnalysis: [],
@@ -135,6 +141,9 @@ export default function ModelAnalyticsPage() {
         medianPrice: 0,
         priceRange: { min: 0, max: 0 },
         averageMileage: 0,
+        wowAppreciation: 0,
+        momAppreciation: 0,
+        yoyAppreciation: 0,
         marketTrends: [],
         trimAnalysis: [],
         yearAnalysis: [],
@@ -184,6 +193,43 @@ export default function ModelAnalyticsPage() {
         </select>
       </div>
 
+      {/* Appreciation Metrics Row */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Week-over-Week Appreciation</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${analytics.wowAppreciation > 0 ? 'text-green-600' : analytics.wowAppreciation < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+              {analytics.wowAppreciation > 0 ? '+' : ''}{analytics.wowAppreciation?.toFixed(2) || '0.00'}%
+            </div>
+            <p className="text-xs text-gray-500 mt-1">vs. previous week</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Year-over-Year Appreciation</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${analytics.yoyAppreciation > 0 ? 'text-green-600' : analytics.yoyAppreciation < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+              {analytics.yoyAppreciation > 0 ? '+' : ''}{analytics.yoyAppreciation?.toFixed(2) || '0.00'}%
+            </div>
+            <p className="text-xs text-gray-500 mt-1">vs. last year</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Month-over-Month Appreciation</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${analytics.momAppreciation > 0 ? 'text-green-600' : analytics.momAppreciation < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+              {analytics.momAppreciation > 0 ? '+' : ''}{analytics.momAppreciation?.toFixed(2) || '0.00'}%
+            </div>
+            <p className="text-xs text-gray-500 mt-1">vs. last month</p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Key Metrics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
@@ -206,7 +252,7 @@ export default function ModelAnalyticsPage() {
         />
         <StatCard
           title="Price Range"
-          value={analytics.priceRange 
+          value={analytics.priceRange
             ? `${formatPrice(analytics.priceRange.min)} - ${formatPrice(analytics.priceRange.max)}`
             : 'N/A'
           }

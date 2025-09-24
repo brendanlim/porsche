@@ -482,7 +482,8 @@ async function main() {
   // Import scrapers after dotenv is loaded
   const { BaTScraperPuppeteer } = await import('../../lib/scrapers/bat-puppeteer');
   const { ClassicScraper } = await import('../../lib/scrapers/classic');
-  const { CarsAndBidsScraper } = await import('../../lib/scrapers/carsandbids');
+  // Use Puppeteer version for Cars and Bids since it's a React SPA
+  const { CarsAndBidsPuppeteerScraper } = await import('../../lib/scrapers/carsandbids-puppeteer');
   const { EdmundsScraper } = await import('../../lib/scrapers/edmunds');
   const { CarsScraper } = await import('../../lib/scrapers/cars');
   const { AutoTraderScraper } = await import('../../lib/scrapers/autotrader');
@@ -574,7 +575,7 @@ async function main() {
       console.log('═'.repeat(60));
 
       try {
-      const carsAndBidsScraper = new CarsAndBidsScraper();
+      const carsAndBidsScraper = new CarsAndBidsPuppeteerScraper();
       const carsAndBidsResults = await carsAndBidsScraper.scrapeListings({
         model: model || undefined,
         maxPages: maxPagesOverride !== null ? maxPagesOverride : 1,  // Default to 1 for daily scraper

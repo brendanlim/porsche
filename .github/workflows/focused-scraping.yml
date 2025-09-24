@@ -1,4 +1,4 @@
-name: Focused Model Scraping
+name: Focused Model Scraping (BaT + Cars & Bids)
 
 on:
   # Run multiple times per day for different models
@@ -24,7 +24,7 @@ on:
       max_pages:
         description: 'Maximum pages to scrape'
         required: false
-        default: '5'
+        default: '2'
         type: string
 
 env:
@@ -75,7 +75,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run focused scraper
+      - name: Run focused scraper for BaT
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -85,12 +85,29 @@ jobs:
           BRIGHT_DATA_ZONE_PASSWORD: ${{ secrets.BRIGHT_DATA_ZONE_PASSWORD }}
         run: |
           echo "🎯 Focused scraping for model: ${{ needs.determine-model.outputs.model }}"
-          echo "Max pages: ${{ github.event.inputs.max_pages || '5' }}"
+          echo "Max pages: ${{ github.event.inputs.max_pages || '2' }}"
+          echo "Source: Bring a Trailer"
 
           npx tsx scripts/scraping/scrape-and-save.ts \
             --source=bat \
             --model=${{ needs.determine-model.outputs.model }} \
-            --max-pages=${{ github.event.inputs.max_pages || '5' }}
+            --max-pages=${{ github.event.inputs.max_pages || '2' }}
+
+      - name: Run focused scraper for Cars and Bids
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BRIGHT_DATA_CUSTOMER_ID: ${{ secrets.BRIGHT_DATA_CUSTOMER_ID }}
+          BRIGHT_DATA_BROWSER_PASSWORD: ${{ secrets.BRIGHT_DATA_BROWSER_PASSWORD }}
+          BRIGHT_DATA_ZONE_PASSWORD: ${{ secrets.BRIGHT_DATA_ZONE_PASSWORD }}
+        run: |
+          echo "Source: Cars and Bids"
+
+          npx tsx scripts/scraping/scrape-and-save.ts \
+            --source=carsandbids \
+            --model=${{ needs.determine-model.outputs.model }} \
+            --max-pages=${{ github.event.inputs.max_pages || '2' }}
 
       - name: Generate report
         if: always()
@@ -111,16 +128,26 @@ jobs:
             const model = '${{ needs.determine-model.outputs.model }}';
             const today = new Date().toISOString().split('T')[0];
 
-            const { count } = await supabase
+            const { count: batCount } = await supabase
               .from('listings')
               .select('*', { count: 'exact', head: true })
               .eq('model', model.charAt(0).toUpperCase() + model.slice(1))
+              .eq('source', 'bat')
+              .gte('scraped_at', today + 'T00:00:00.000Z');
+
+            const { count: cabCount } = await supabase
+              .from('listings')
+              .select('*', { count: 'exact', head: true })
+              .eq('model', model.charAt(0).toUpperCase() + model.slice(1))
+              .eq('source', 'carsandbids')
               .gte('scraped_at', today + 'T00:00:00.000Z');
 
             console.log('📊 Focused Scraping Report');
             console.log('=======================');
             console.log(\`Model: \${model}\`);
-            console.log(\`New listings today: \${count || 0}\`);
+            console.log(\`BaT listings today: \${batCount || 0}\`);
+            console.log(\`Cars & Bids listings today: \${cabCount || 0}\`);
+            console.log(\`Total new listings: \${(batCount || 0) + (cabCount || 0)}\`);
           }
 
           report().catch(console.error);

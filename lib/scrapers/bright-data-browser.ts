@@ -9,8 +9,8 @@ export class BrightDataBrowser {
   constructor() {
     this.customerId = process.env.BRIGHT_DATA_CUSTOMER_ID || '';
     this.password = process.env.BRIGHT_DATA_PASSWORD || '';
-    // Use scraping browser zone if available, otherwise fallback to unlocker
-    this.zone = process.env.BRIGHT_DATA_BROWSER_ZONE || 'scraping_browser' || process.env.BRIGHT_DATA_ZONE || 'pt_unlocker_z1';
+    // Use the configured zone (pt_unlocker_z1 works for Cars and Bids)
+    this.zone = process.env.BRIGHT_DATA_ZONE || 'pt_unlocker_z1';
     
     if (!this.customerId || !this.password) {
       throw new Error('Bright Data credentials not configured');
@@ -26,7 +26,8 @@ export class BrightDataBrowser {
     
     // Build the proxy URL for scraping browser
     // The scraping browser uses a different endpoint that can execute JS
-    const proxyUrl = `http://brd-customer-${this.customerId}-zone-${this.zone}:${this.password}@brd.superproxy.io:9222`;
+    // Use the Web Unlocker endpoint which handles JavaScript and Cloudflare
+    const proxyUrl = `http://brd-customer-${this.customerId}-zone-${this.zone}:${this.password}@brd.superproxy.io:33335`;
     
     try {
       // For scraping browser, we need to pass special headers to control browser behavior
@@ -35,17 +36,20 @@ export class BrightDataBrowser {
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       };
       
-      // Add browser instructions via headers
+      // Add browser instructions via headers for Web Unlocker
+      // These headers work with the Web Unlocker API
       if (waitForSelector) {
-        // Tell Bright Data to wait for specific selector
-        headers['X-BRD-Wait-For'] = waitForSelector;
+        // For Web Unlocker, we need different headers
+        headers['X-Crawler-Wait-For'] = waitForSelector;
+        headers['X-Crawler-Wait'] = '5000'; // Wait up to 5 seconds
       } else {
-        // Wait for network idle (all requests finished)
-        headers['X-BRD-Wait'] = 'networkidle';
+        // Wait for the page to fully load
+        headers['X-Crawler-Wait'] = '5000';
       }
-      
-      // Set render mode to get fully rendered HTML
-      headers['X-BRD-Render'] = 'html';
+
+      // Enable JavaScript rendering
+      headers['X-Crawler-Render'] = 'html';
+      headers['X-Crawler-JavaScript-Enabled'] = 'true';
       
       // Disable SSL validation for now (temporary)
       process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';

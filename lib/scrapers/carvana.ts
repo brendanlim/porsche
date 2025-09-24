@@ -1,5 +1,5 @@
 import { BaseScraper, ScraperResult } from './base'
-import { HTMLStorageService } from '../services/html-storage-service'
+import { HTMLStorageService } from '../services/html-storage'
 import axios from 'axios'
 import * as cheerio from 'cheerio'
 
@@ -64,11 +64,11 @@ export class CarvanaScraper extends BaseScraper {
         });
 
         if (storeHtml) {
-          await htmlStorage.storeHtml({
+          await htmlStorage.storeScrapedHTML({
             source: 'carvana',
             type: 'search',
             model: model || 'all',
-            content: response.data,
+            html: response.data,
             url: searchUrl,
             metadata: { page }
           });

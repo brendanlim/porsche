@@ -135,7 +135,7 @@ export class ClassicEnhancedScraper {
           // Process table rows
           for (const element of listings.length > 0 ? listings : vehicleLinks) {
             let href: string | undefined;
-            let $row: cheerio.Cheerio;
+            let $row: any;
 
             if (listings.length > 0) {
               // We're processing table rows
@@ -177,18 +177,36 @@ export class ClassicEnhancedScraper {
               continue; // Skip non-US listings
             }
 
-            // Skip listings from sources we already scrape directly
-            const sourcesToSkip = [
-              'bring a trailer', 'bringatrailer', 'bat',
-              'pcarmarket', 'pcarm',
-              'cars & bids', 'carsandbids', 'cars and bids',
-              'rm sotheby', 'rmsotheby', 'sothebys',
-              'bonhams', 'barrett-jackson', 'mecum'
+            // Identify the original source from Classic.com
+            let originalSource = 'unknown';
+            const sourcePatterns = [
+              { pattern: /bring a trailer|bringatrailer|bat/i, name: 'bring-a-trailer' },
+              { pattern: /pcarmarket|pcarm/i, name: 'pcarmarket' },
+              { pattern: /cars[\s&]*bids|carsandbids/i, name: 'cars-and-bids' },
+              { pattern: /rm sotheby|rmsotheby|sothebys/i, name: 'rm-sothebys' },
+              { pattern: /bonhams/i, name: 'bonhams' },
+              { pattern: /barrett[\s-]*jackson/i, name: 'barrett-jackson' },
+              { pattern: /mecum/i, name: 'mecum' },
+              { pattern: /hemmings/i, name: 'hemmings' },
+              { pattern: /gooding/i, name: 'gooding' },
+              { pattern: /dealer/i, name: 'dealer' },
+              { pattern: /private/i, name: 'private-party' }
             ];
 
-            if (sourcesToSkip.some(source => locationIndicators.includes(source))) {
-              continue; // Skip listings we get from direct sources
+            for (const { pattern, name } of sourcePatterns) {
+              if (pattern.test(rowText)) {
+                originalSource = name;
+                break;
+              }
             }
+
+            // For now, let's keep all listings but mark their original source
+            // This gives us coverage of smaller auction houses we don't scrape directly
+            const isDuplicateSource = ['bring-a-trailer', 'pcarmarket', 'cars-and-bids', 'rm-sothebys']
+              .includes(originalSource);
+
+            // You can uncomment this to skip duplicates if desired:
+            // if (isDuplicateSource) continue;
 
             // Extract price from row (usually in a td with price class or containing $)
             const priceText = $row.find('[class*="price"], td:contains("$")').text() ||
@@ -222,8 +240,10 @@ export class ClassicEnhancedScraper {
               mileage,
               sold_date: soldDate,
               status: 'sold',
-              source: this.source,
-              scraped_at: new Date()
+              source: this.source, // 'classic'
+              scraped_at: new Date(),
+              // Store original source in description or metadata
+              description: `Originally listed on: ${originalSource}${isDuplicateSource ? ' (duplicate source)' : ''}`
             };
 
             allListings.push(listing);

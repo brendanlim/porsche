@@ -2,14 +2,51 @@ import puppeteer from 'puppeteer-core';
 
 export class BrightDataPuppeteer {
   private browserWSEndpoint: string;
-  
+  private customerId: string;
+  private password: string;
+  private zone: string;
+  private sessionId: string;
+  private requestCount: number = 0;
+  private maxRequestsPerSession: number = 30;
+  private lastSessionReset: number = Date.now();
+
   constructor() {
-    const customerId = process.env.BRIGHT_DATA_CUSTOMER_ID || 'hl_cd9a1035';
-    const password = process.env.BRIGHT_DATA_BROWSER_PASSWORD || 'y2w8rf96p2na';
-    const zone = 'pt_scraping_browser_z1';
-    
-    // WebSocket endpoint for Bright Data's browser API
-    this.browserWSEndpoint = `wss://brd-customer-${customerId}-zone-${zone}:${password}@brd.superproxy.io:9222`;
+    this.customerId = process.env.BRIGHT_DATA_CUSTOMER_ID || 'hl_cd9a1035';
+    this.password = process.env.BRIGHT_DATA_BROWSER_PASSWORD || 'y2w8rf96p2na';
+    this.zone = 'pt_scraping_browser_z1';
+    this.refreshSession();
+  }
+
+  /**
+   * Generate new session for IP rotation
+   */
+  private refreshSession() {
+    // Multiple zones for IP diversity
+    const zones = [
+      'pt_scraping_browser_z1',
+      'pt_scraping_browser_z2',
+      'pt_scraping_browser_z3'
+    ];
+
+    // Rotate zones and include more entropy
+    this.zone = zones[Math.floor(Math.random() * zones.length)];
+    this.sessionId = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 12)}_${Math.floor(Math.random() * 9999)}`;
+    this.browserWSEndpoint = `wss://brd-customer-${this.customerId}-zone-${this.zone}-session-${this.sessionId}:${this.password}@brd.superproxy.io:9222`;
+    this.requestCount = 0;
+    this.lastSessionReset = Date.now();
+
+    console.log(`🔄 New Bright Data session: ${this.sessionId.slice(-12)} (zone: ${this.zone})`);
+  }
+
+  /**
+   * Check if we should rotate session based on requests or time
+   */
+  private shouldRotateSession(): boolean {
+    const timeSinceReset = Date.now() - this.lastSessionReset;
+    const maxSessionTime = 10 * 60 * 1000; // 10 minutes
+
+    return this.requestCount >= this.maxRequestsPerSession ||
+           timeSinceReset >= maxSessionTime;
   }
   
   /**
@@ -21,18 +58,85 @@ export class BrightDataPuppeteer {
   async scrapeBaTResults(modelUrl: string, existingUrls: Set<string> = new Set(), maxPages: number = 2): Promise<any> {
     console.log(`\n🌐 Connecting to Bright Data...`);
 
+    // Check if we should rotate session
+    if (this.shouldRotateSession()) {
+      console.log(`🔄 Session rotation triggered (${this.requestCount} requests, ${Math.round((Date.now() - this.lastSessionReset) / 60000)}min)`);
+      this.refreshSession();
+    }
+
+    this.requestCount++;
     let browser;
-    try {
-      // Connect to Bright Data's browser
-      browser = await puppeteer.connect({
-        browserWSEndpoint: this.browserWSEndpoint,
-      });
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    while (retryCount < maxRetries) {
+      try {
+        // Connect to Bright Data's browser
+        browser = await puppeteer.connect({
+          browserWSEndpoint: this.browserWSEndpoint,
+        });
 
       const page = await browser.newPage();
 
-      // Set viewport and user agent
-      await page.setViewport({ width: 1920, height: 1080 });
-      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+      // Random viewport and user agent for stealth
+      const userAgents = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+      ];
+
+      const viewports = [
+        { width: 1920, height: 1080 },
+        { width: 1366, height: 768 },
+        { width: 1536, height: 864 },
+        { width: 1440, height: 900 }
+      ];
+
+      const randomUA = userAgents[Math.floor(Math.random() * userAgents.length)];
+      const randomViewport = viewports[Math.floor(Math.random() * viewports.length)];
+
+      await page.setViewport(randomViewport);
+      await page.setUserAgent(randomUA);
+
+      // Enhanced headers for stealth
+      await page.setExtraHTTPHeaders({
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+      });
+
+      // Add stealth behaviors
+      await page.evaluateOnNewDocument(() => {
+        // Hide webdriver property
+        Object.defineProperty(navigator, 'webdriver', {
+          get: () => undefined,
+        });
+
+        // Mock plugins
+        Object.defineProperty(navigator, 'plugins', {
+          get: () => [1, 2, 3, 4, 5],
+        });
+
+        // Mock languages
+        Object.defineProperty(navigator, 'languages', {
+          get: () => ['en-US', 'en'],
+        });
+      });
+
+      console.log(`🎭 Using viewport: ${randomViewport.width}x${randomViewport.height}`);
+
+      // Random delay before navigation (human-like behavior)
+      const randomDelay = (min: number, max: number) =>
+        Math.floor(Math.random() * (max - min + 1)) + min;
+
+      const initialDelay = randomDelay(1000, 3000);
+      console.log(`⏳ Random delay: ${initialDelay}ms`);
+      await new Promise(resolve => setTimeout(resolve, initialDelay));
 
       console.log('📄 Loading page...');
       await page.goto(modelUrl, {
@@ -213,18 +317,50 @@ export class BrightDataPuppeteer {
       const html = await page.content();
       
       await browser.close();
-      
-      return { listings: soldListings, html };
-      
-    } catch (error: any) {
-      const errorMsg = error.message.includes('timeout')
-        ? 'Page load timeout (60s)'
-        : error.message;
-      console.error(`❌ Browser error: ${errorMsg}`);
-      if (browser) {
-        await browser.close();
+
+        return { listings: soldListings, html };
+
+      } catch (error: any) {
+        retryCount++;
+        const errorMsg = error.message.includes('timeout')
+          ? 'Page load timeout (60s)'
+          : error.message;
+
+        // Check if it's a retryable error
+        const isRetryableError = error.message.includes('403') ||
+                                error.message.includes('500') ||
+                                error.message.includes('timeout') ||
+                                error.message.includes('Navigation');
+
+        console.error(`❌ Browser error (attempt ${retryCount}/${maxRetries}): ${errorMsg}`);
+
+        if (browser) {
+          try {
+            await browser.close();
+          } catch (closeError) {
+            // Ignore close errors
+          }
+          browser = undefined;
+        }
+
+        if (retryCount < maxRetries && isRetryableError) {
+          // Force session rotation on retryable errors
+          console.log(`🔄 Rotating session due to error: ${errorMsg}`);
+          this.refreshSession();
+
+          // Exponential backoff with jitter
+          const baseDelay = Math.pow(2, retryCount) * 1000; // 2s, 4s, 8s
+          const jitter = Math.random() * 1000; // 0-1s random
+          const delay = baseDelay + jitter;
+
+          console.log(`⏳ Waiting ${Math.round(delay/1000)}s before retry...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue; // Retry the loop
+        }
+
+        // All retries exhausted or non-retryable error
+        throw error;
       }
-      throw error;
     }
   }
   
@@ -232,12 +368,21 @@ export class BrightDataPuppeteer {
    * Scrape a single BaT listing page
    */
   async scrapeListingPage(url: string): Promise<any> {
-    // Silent operation - don't log every listing fetch
+    // Check if we should rotate session for individual listings
+    if (this.shouldRotateSession()) {
+      this.refreshSession();
+    }
+
+    this.requestCount++;
     let browser;
-    try {
-      browser = await puppeteer.connect({
-        browserWSEndpoint: this.browserWSEndpoint,
-      });
+    let retryCount = 0;
+    const maxRetries = 2; // Fewer retries for individual listings
+
+    while (retryCount < maxRetries) {
+      try {
+        browser = await puppeteer.connect({
+          browserWSEndpoint: this.browserWSEndpoint,
+        });
 
       const page = await browser.newPage();
       await page.goto(url, {
@@ -275,15 +420,34 @@ export class BrightDataPuppeteer {
       const html = await page.content();
       
       await browser.close();
-      
-      return { ...listingData, html };
-      
-    } catch (error: any) {
-      // Silent error - will be logged by calling function
-      if (browser) {
-        await browser.close();
+        return { ...listingData, html };
+
+      } catch (error: any) {
+        retryCount++;
+        const isRetryableError = error.message.includes('403') ||
+                                error.message.includes('500') ||
+                                error.message.includes('timeout');
+
+        if (browser) {
+          try {
+            await browser.close();
+          } catch (closeError) {
+            // Ignore close errors
+          }
+          browser = undefined;
+        }
+
+        if (retryCount < maxRetries && isRetryableError) {
+          // Rotate session on error
+          this.refreshSession();
+          const delay = 2000 + Math.random() * 2000; // 2-4s delay
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue; // Retry
+        }
+
+        // Rethrow after exhausting retries
+        throw error;
       }
-      throw error;
     }
   }
 }

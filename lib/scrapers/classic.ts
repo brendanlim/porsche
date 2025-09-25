@@ -151,6 +151,38 @@ export class ClassicScraper extends SharedScraper {
       const isActiveAuction = bodyText.includes('Current Bid') || bodyText.includes('Place bid');
       const status = isSoldAuction ? 'sold' : (isActiveAuction ? 'auction' : 'available');
       
+      // Extract colors from the page
+      // Classic.com shows colors as "Ext. Color Group" and "Int. Color Group"
+      let exterior_color: string | undefined;
+      let interior_color: string | undefined;
+
+      // Method 1: Look for specific patterns in the body text
+      const extColorMatch = bodyText.match(/Ext\.\s*Color\s*Group\s*([A-Za-z\s]+?)(?:Int\.|Year|Make|Model|$)/i);
+      if (extColorMatch) {
+        exterior_color = extColorMatch[1].trim();
+      }
+
+      const intColorMatch = bodyText.match(/Int\.\s*Color\s*Group\s*([A-Za-z\s]+?)(?:Year|Make|Model|Vehicle|Body|$)/i);
+      if (intColorMatch) {
+        interior_color = intColorMatch[1].trim();
+      }
+
+      // Method 2: Check structured data
+      $('dt, dd').each((i, elem) => {
+        const text = $(elem).text().trim();
+        const nextElem = $(elem).next();
+
+        if ((text === 'Ext. Color Group' || text === 'Exterior Color') && nextElem.length && !exterior_color) {
+          exterior_color = nextElem.text().trim();
+        }
+        if ((text === 'Int. Color Group' || text === 'Interior Color') && nextElem.length && !interior_color) {
+          interior_color = nextElem.text().trim();
+        }
+      });
+
+      // Don't normalize here - let the LLM normalizer handle it
+      // The LLM normalizer will handle model-specific mappings like Gray -> Arctic Gray for GT4 RS
+
       // Extract location if available
       const locationText = $(this.config.selectors.location).first().text().trim() || '';
       const locationParts = locationText.split(',').map(s => s.trim());
@@ -171,12 +203,14 @@ export class ClassicScraper extends SharedScraper {
       
       return {
         url,
-        source_url: url, // Add source_url field  
+        source_url: url, // Add source_url field
         title,
         price,
         vin,
         year,
         mileage,
+        exterior_color,
+        interior_color,
         location,
         status,
         images,

@@ -155,15 +155,52 @@ export class BaTScraperPuppeteer extends BaseScraper {
     this.htmlStorage = new HTMLStorageService();
   }
 
-  // Add required abstract method
+  // Direct detail page scraper for testing
   async scrapeDetail(url: string): Promise<ScrapedListing> {
-    // For now, just return a minimal result
-    // This scraper is mainly used for listing pages with puppeteer
-    return {
-      title: '',
-      price: 0,
-      source_url: url
-    };
+    console.log(`🌐 Connecting to Bright Data for: ${url}`);
+
+    try {
+      const result = await this.puppeteerScraper.scrapeListingPage(url);
+      const html = result.html;
+
+      // Store HTML
+      await this.htmlStorage.storeScrapedHTML({
+        source: 'bat',
+        url,
+        html,
+        type: 'detail',
+        metadata: {
+          scraper: 'BaTScraperPuppeteer',
+          timestamp: new Date().toISOString(),
+          htmlLength: html.length,
+          directFetch: true
+        }
+      });
+
+      console.log(`✅ Fetched and stored HTML (${html.length} chars)`);
+
+      // Parse the listing
+      const listing = await this.parseListing(html, url);
+
+      if (!listing) {
+        console.log('⚠️ Parsing returned null');
+        return {
+          title: 'Parse Failed',
+          price: 0,
+          source_url: url
+        };
+      }
+
+      return listing;
+
+    } catch (error) {
+      console.error(`❌ Failed to scrape detail page: ${error}`);
+      return {
+        title: 'Error',
+        price: 0,
+        source_url: url
+      };
+    }
   }
   
   async scrapeListings(options: {

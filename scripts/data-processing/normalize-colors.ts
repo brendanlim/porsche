@@ -59,6 +59,10 @@ const COLOR_NORMALIZATION: Record<string, string> = {
   'atlas grey metallic': 'Atlas Grey Metallic',
   'seal grey': 'Seal Grey',
   'seal grey metallic': 'Seal Grey Metallic',
+  'arctic gray': 'Arctic Gray',
+  'arctic grey': 'Arctic Gray',
+  'gray': 'Arctic Gray', // For GT4 RS, plain gray is Arctic Gray
+  'grey': 'Arctic Gray', // For GT4 RS, plain grey is Arctic Gray
   
   // Red variations
   'guards red': 'Guards Red',
@@ -108,10 +112,12 @@ function extractColorFromDescription(description: string): string | null {
   return null;
 }
 
-async function normalizeWithOpenAI(description: string): Promise<string | null> {
+async function normalizeWithOpenAI(description: string, model?: string, trim?: string): Promise<string | null> {
   const prompt = `Extract ONLY the exterior paint color from this Porsche vehicle description.
-    
+
 Description: "${description}"
+${model ? `Model: ${model}` : ''}
+${trim ? `Trim: ${trim}` : ''}
 
 Rules:
 1. Return ONLY the exterior color name (e.g., "Arctic Silver Metallic", "Speed Yellow", "Black")
@@ -120,6 +126,7 @@ Rules:
 4. Normalize common abbreviations (e.g., "GT Silver" → "GT Silver Metallic")
 5. Do not include interior colors, features, or any other information
 6. Common Porsche colors include: Arctic Silver, Speed Yellow, Guards Red, Black, Basalt Black, Cobalt Blue, Seal Grey, Atlas Grey, Carrara White, GT Silver, Midnight Blue
+7. IMPORTANT: For GT4 RS models (982 generation 718 Cayman), when you see "Gray" or "Grey" without further specification, this should be normalized to "Arctic Gray" as it's the most common GT4 RS color
 
 Return ONLY the color name or NULL, nothing else.`;
 
@@ -245,7 +252,7 @@ async function normalizeColors() {
         }
         
         try {
-          const geminiColor = await normalizeWithOpenAI(item.color);
+          const geminiColor = await normalizeWithOpenAI(item.color, item.model, item.trim);
           
           if (geminiColor && geminiColor !== item.color) {
             updates.push({

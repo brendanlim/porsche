@@ -5,6 +5,7 @@ import fs from 'fs';
 import { createClient } from '@supabase/supabase-js';
 import { ScrapedListing } from '../../lib/types/scraper';
 import { processListingOptions } from '../../lib/services/options-manager';
+import { decodePorscheVIN } from '../../lib/utils/porsche-vin-decoder';
 
 // Function to load environment variables (for local development only)
 async function loadEnvironmentVariables() {
@@ -58,27 +59,68 @@ function validateAndCreateSupabaseClient() {
 
 // Fallback parsing function when fields are missing
 function parseListingDetails(listing: ScrapedListing): ScrapedListing {
-  // If we already have year and generation, return as-is
-  if (listing.year && listing.generation) {
-    return listing;
-  }
-  
   const title = listing.title || '';
   let year = listing.year;
   let model = listing.model;
   let trim = listing.trim;
   let generation = listing.generation;
-  
+
+  // Try VIN decoder first if we have a VIN
+  if (listing.vin) {
+    try {
+      const decoded = decodePorscheVIN(listing.vin);
+
+      if (decoded.valid && decoded.confidence === 'high') {
+        // Use VIN decoder results with high confidence
+        console.log(`    🔍 VIN decoded: ${decoded.modelYear} ${decoded.model} ${decoded.engineType || ''} (${decoded.generation || 'unknown gen'})`);
+
+        // Override with VIN-decoded values if they're more complete
+        if (decoded.modelYear) year = decoded.modelYear;
+        if (decoded.model && decoded.model !== 'Unknown') model = decoded.model;
+        if (decoded.engineType) trim = decoded.engineType;
+        if (decoded.generation) generation = decoded.generation;
+
+        // Update listing with decoded values
+        listing.year = year;
+        listing.model = model;
+        listing.trim = trim;
+        listing.generation = generation;
+
+        // If VIN decoder gave us everything we need, return early
+        if (year && model && generation) {
+          return listing;
+        }
+      } else if (decoded.valid) {
+        // Medium/low confidence - use as hints but continue with title parsing
+        console.log(`    🔍 VIN partially decoded (${decoded.confidence} confidence)`);
+        if (!year && decoded.modelYear) year = decoded.modelYear;
+        if (!model && decoded.model && decoded.model !== 'Unknown') model = decoded.model;
+        if (!trim && decoded.engineType) trim = decoded.engineType;
+        if (!generation && decoded.generation) generation = decoded.generation;
+      }
+    } catch (error) {
+      console.log(`    ⚠️  VIN decode error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  // FALLBACK: Title parsing when VIN decoder doesn't provide complete info
+  // This should only be used when:
+  // 1. No VIN is available
+  // 2. VIN decoder has low confidence
+  // 3. VIN decoder is missing critical fields
+
   // Extract year from title if not set
   if (!year) {
     const yearMatch = title.match(/\b(19\d{2}|20\d{2})\b/);
     if (yearMatch) {
       year = parseInt(yearMatch[1]);
+      console.log(`    📝 Year extracted from title: ${year}`);
     }
   }
-  
+
   // Parse trim if not properly set for 718/Cayman models
   if ((model?.includes('718') || model?.includes('Cayman')) && (!trim || trim === 'Unknown' || trim === 'GT4')) {
+    const originalTrim = trim;
     // Check GT4 RS FIRST (more specific)
     if (title.includes('GT4 RS') || title.includes('GT4RS')) {
       trim = 'GT4 RS';
@@ -96,10 +138,14 @@ function parseListingDetails(listing: ScrapedListing): ScrapedListing {
     } else if (title.includes(' S ') || title.includes(' S')) {
       trim = 'S';
     }
+    if (trim !== originalTrim) {
+      console.log(`    📝 Trim extracted from title: ${trim}`);
+    }
   }
 
   // Parse trim if not properly set for 911 models
   if (model === '911' && (!trim || trim === 'Unknown')) {
+    const originalTrim = trim;
     // GT models (check these first as they're most specific)
     if (title.includes('GT3 RS') || title.includes('GT3RS')) {
       trim = 'GT3 RS';
@@ -129,6 +175,9 @@ function parseListingDetails(listing: ScrapedListing): ScrapedListing {
       trim = 'Carrera S';
     } else if (title.includes('Carrera')) {
       trim = 'Carrera';
+    }
+    if (trim !== originalTrim) {
+      console.log(`    📝 Trim extracted from title: ${trim}`);
     }
   }
 
@@ -186,8 +235,9 @@ function parseListingDetails(listing: ScrapedListing): ScrapedListing {
     }
   }
 
-  // Infer generation from year if not set
+  // FALLBACK: Infer generation from year if VIN decoder didn't provide it
   if (!generation && year) {
+    console.log(`    📝 Generation inferred from year ${year}`);
     if (model === '911') {
       if (year >= 2024) generation = '992.2';
       else if (year >= 2019) generation = '992.1';

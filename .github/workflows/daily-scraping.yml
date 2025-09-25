@@ -2,8 +2,9 @@ name: Daily Data Collection
 
 on:
   # Schedule runs daily at 3 AM UTC (11 PM EST)
-  schedule:
-    - cron: '0 3 * * *'
+  # DISABLED - Using focused-scraping.yml instead for better performance
+  # schedule:
+  #   - cron: '0 3 * * *'
 
   # Allow manual triggering with parameters
   workflow_dispatch:

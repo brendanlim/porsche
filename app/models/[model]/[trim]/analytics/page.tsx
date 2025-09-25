@@ -1098,7 +1098,7 @@ export default function TrimAnalyticsPage() {
               {/* Pie Chart - Color Distribution */}
               <div>
                 <h4 className="text-sm font-medium text-gray-700 mb-3">Color Distribution</h4>
-                <div style={{ width: '100%', height: 260 }}>
+                <div style={{ width: '100%', height: 260, fontSize: '10px' }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -1108,7 +1108,11 @@ export default function TrimAnalyticsPage() {
                         cx="50%"
                         cy="50%"
                         outerRadius={80}
-                        label={(entry: any) => `${entry.color} ${((entry.count / analytics.colorAnalysis.reduce((sum: number, c: any) => sum + c.count, 0)) * 100).toFixed(0)}%`}
+                        label={({ color, count }: any) => {
+                          const total = analytics.colorAnalysis.reduce((sum: number, c: any) => sum + c.count, 0);
+                          const percent = ((count / total) * 100).toFixed(0);
+                          return `${color} ${percent}%`;
+                        }}
                         labelLine={false}
                       >
                         {analytics.colorAnalysis.map((entry, index) => {
@@ -1162,7 +1166,7 @@ export default function TrimAnalyticsPage() {
 
             <h4 className="text-sm font-medium text-gray-700 mt-6 mb-3">Most Common Colors</h4>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {analytics.colorAnalysis
+              {[...analytics.colorAnalysis]
                 .sort((a, b) => b.count - a.count) // Sort by frequency (most common first)
                 .slice(0, 9)
                 .map((color, index) => (
@@ -1410,7 +1414,7 @@ export default function TrimAnalyticsPage() {
                         content={({ active, payload }) => {
                           if (active && payload && payload.length > 0) {
                             const data = payload[0].payload;
-                            const oldestYear = Math.min(...analytics.depreciationByYear.map(d => d.year));
+                            // const oldestYear = Math.min(...analytics.depreciationByYear.map(d => d.year));
                             const newestYear = Math.max(...analytics.depreciationByYear.map(d => d.year));
                             const newestPrice = analytics.depreciationByYear.find(d => d.year === newestYear)?.avgPrice || 0;
                             const depreciationPercent = newestPrice > 0 ?
@@ -1478,8 +1482,8 @@ export default function TrimAnalyticsPage() {
                     const medianYear = sorted[Math.floor(sorted.length / 2)];
                     
                     // Calculate average depreciation per year (using mileage-adjusted values)
-                    const avgDepreciationPerYear = sorted.length > 1 ? 
-                      ((oldest.avgPrice - newest.avgPrice) / (newest.year - oldest.year)) : 0;
+                    // const avgDepreciationPerYear = sorted.length > 1 ?
+                      // ((oldest.avgPrice - newest.avgPrice) / (newest.year - oldest.year)) : 0;
                     
                     const bestValue = [...analytics.depreciationByYear]
                       .filter(d => d.costPer1000Mi > 0)

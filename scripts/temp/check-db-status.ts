@@ -87,33 +87,6 @@ async function main() {
     });
   }
 
-  // Check scrape queue status
-  const { data: queueData, error: queueError } = await supabase
-    .from('scrape_queue')
-    .select('status, source');
-
-  if (queueError) {
-    console.error('Error getting queue status:', queueError);
-    return;
-  }
-
-  if (queueData && queueData.length > 0) {
-    const queueStats: Record<string, Record<string, number>> = {};
-    queueData.forEach(item => {
-      if (!queueStats[item.source]) queueStats[item.source] = {};
-      queueStats[item.source][item.status] = (queueStats[item.source][item.status] || 0) + 1;
-    });
-
-    console.log('\nScrape queue status:');
-    Object.entries(queueStats).forEach(([source, statuses]) => {
-      console.log(`  ${source}:`);
-      Object.entries(statuses).forEach(([status, count]) => {
-        console.log(`    ${status}: ${count}`);
-      });
-    });
-  } else {
-    console.log('\nScrape queue: empty');
-  }
 }
 
 main().catch(console.error);

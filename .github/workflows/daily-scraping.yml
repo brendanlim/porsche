@@ -201,7 +201,7 @@ jobs:
         run: |
           echo "🧹 Running cleanup tasks..."
 
-          # Clean up old scrape queue entries
+          # Clean up old ingestion runs
           npx tsx -e "
           import { createClient } from '@supabase/supabase-js';
 
@@ -210,22 +210,6 @@ jobs:
               process.env.NEXT_PUBLIC_SUPABASE_URL,
               process.env.SUPABASE_SERVICE_ROLE_KEY
             );
-
-            // Delete completed queue entries older than 7 days
-            const sevenDaysAgo = new Date();
-            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-            const { error } = await supabase
-              .from('scrape_queue')
-              .delete()
-              .eq('status', 'completed')
-              .lt('created_at', sevenDaysAgo.toISOString());
-
-            if (error) {
-              console.error('Error cleaning queue:', error);
-            } else {
-              console.log('✅ Cleaned up old queue entries');
-            }
 
             // Clean up old ingestion runs older than 30 days
             const thirtyDaysAgo = new Date();

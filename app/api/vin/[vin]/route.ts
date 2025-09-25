@@ -102,13 +102,12 @@ export async function GET(
       }
     };
 
-    // If VIN is valid but we have no listings, consider storing as a placeholder
-    if (decodedVIN.valid && !hasListings && decodedVIN.model !== 'Unknown') {
-      // Store VIN-only record for future tracking
-      // This creates an opportunity to track cars even before they appear in listings
-      const { error: insertError } = await supabase
+    // Store or update VIN record if VIN is valid
+    if (decodedVIN.valid && decodedVIN.model !== 'Unknown') {
+      // Use upsert to update existing records or insert new ones
+      const { error: upsertError } = await supabase
         .from('vin_records')
-        .insert({
+        .upsert({
           vin: vin.toUpperCase(),
           model_year: decodedVIN.modelYear,
           model: decodedVIN.model,
@@ -119,14 +118,18 @@ export async function GET(
           manufacturer: decodedVIN.manufacturer,
           plant_code: decodedVIN.plantCode,
           decoded_at: new Date().toISOString(),
-          decoded_data: decodedVIN
+          decoded_data: decodedVIN,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'vin',
+          ignoreDuplicates: false
         })
         .select()
         .single();
 
-      // Don't fail if insert fails (table might not exist yet)
-      if (insertError) {
-        console.log('VIN record storage skipped:', insertError.message);
+      // Don't fail if upsert fails (table might not exist yet)
+      if (upsertError) {
+        console.log('VIN record storage skipped:', upsertError.message);
       }
     }
 

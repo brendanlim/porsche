@@ -71,7 +71,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          npx tsx scripts/analytics/generate-chart-predictions.ts \
+          ./node_modules/.bin/tsx scripts/analytics/generate-chart-predictions.ts \
             --days=30 \
             ${{ github.event.inputs.force_regeneration == 'true' && '--force' || '' }}
 
@@ -124,7 +124,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          npx tsx scripts/analytics/generate-chart-predictions.ts \
+          ./node_modules/.bin/tsx scripts/analytics/generate-chart-predictions.ts \
             --days=90 \
             --force
 
@@ -163,7 +163,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          npx tsx scripts/analytics/generate-chart-predictions.ts \
+          ./node_modules/.bin/tsx scripts/analytics/generate-chart-predictions.ts \
             --days=90 \
             ${{ github.event.inputs.force_regeneration == 'true' && '--force' || '' }}
 
@@ -209,7 +209,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          npx tsx scripts/analytics/generate-market-insights.ts \
+          ./node_modules/.bin/tsx scripts/analytics/generate-market-insights.ts \
             --type=model-specific \
             --model="${{ github.event.inputs.model }}" \
             ${{ github.event.inputs.trim != '' && format('--trim="{0}"', github.event.inputs.trim) || '' }} \
@@ -249,7 +249,7 @@ jobs:
         run: |
           # This would run a script to check daily/weekly costs and alert if over threshold
           echo "Checking LLM API usage and costs..."
-          # npx tsx scripts/analytics/monitor-costs.ts
+          # ./node_modules/.bin/tsx scripts/analytics/monitor-costs.ts
 
       - name: Report cost monitoring
         run: |
@@ -349,7 +349,7 @@ jobs:
         run: |
           # This would run a script to clean up insights older than 6 months
           echo "Cleaning up old market insights..."
-          # npx tsx scripts/analytics/cleanup-old-insights.ts
+          # ./node_modules/.bin/tsx scripts/analytics/cleanup-old-insights.ts
 
       - name: Report cleanup status
         run: |

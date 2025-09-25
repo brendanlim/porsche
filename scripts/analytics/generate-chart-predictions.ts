@@ -22,9 +22,15 @@
 
 import OpenAI from 'openai';
 import { supabaseAdmin } from '../../lib/supabase/admin';
-import * as dotenv from 'dotenv';
 
-dotenv.config({ path: '.env.local' });
+// Load environment variables for local development
+try {
+  const dotenv = await import('dotenv');
+  dotenv.config({ path: '.env.local' });
+} catch (error) {
+  // dotenv not available in production, environment variables are already set
+  console.log('Using environment variables from system');
+}
 
 interface PredictionData {
   model: string;

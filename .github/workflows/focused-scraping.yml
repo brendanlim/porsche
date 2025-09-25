@@ -24,7 +24,7 @@ on:
       max_pages:
         description: 'Maximum pages to scrape'
         required: false
-        default: '1'
+        default: '2'
         type: string
 
 env:
@@ -85,13 +85,13 @@ jobs:
           BRIGHT_DATA_ZONE_PASSWORD: ${{ secrets.BRIGHT_DATA_ZONE_PASSWORD }}
         run: |
           echo "🎯 Focused scraping for model: ${{ needs.determine-model.outputs.model }}"
-          echo "Max pages: ${{ github.event.inputs.max_pages || '1' }}"
+          echo "Max pages: ${{ github.event.inputs.max_pages || '2' }}"
           echo "Source: Bring a Trailer"
 
           npx tsx scripts/scraping/scrape-and-save.ts \
             --source=bat \
             --model=${{ needs.determine-model.outputs.model }} \
-            --max-pages=${{ github.event.inputs.max_pages || '1' }}
+            --max-pages=${{ github.event.inputs.max_pages || '2' }}
 
       - name: Run focused scraper for Cars and Bids
         env:
@@ -107,7 +107,7 @@ jobs:
           npx tsx scripts/scraping/scrape-and-save.ts \
             --source=carsandbids \
             --model=${{ needs.determine-model.outputs.model }} \
-            --max-pages=${{ github.event.inputs.max_pages || '1' }}
+            --max-pages=${{ github.event.inputs.max_pages || '2' }}
 
       - name: Generate report
         if: always()

@@ -9,7 +9,10 @@ import { DepreciationTable } from '@/components/DepreciationTable';
 import { OptionsAnalysis } from '@/components/OptionsAnalysis';
 import dynamic from 'next/dynamic';
 
-const ApexChart = dynamic(() => import('react-apexcharts'), { ssr: false });
+const ApexChart = dynamic(() => import('react-apexcharts'), {
+  ssr: false,
+  loading: () => <div className="h-32 flex items-center justify-center">Loading chart...</div>
+});
 
 interface TrimAnalytics {
   model: string;

@@ -94,20 +94,20 @@ async function extractAllMileage() {
     if (!batch || batch.length === 0) break;
     
     allListings = allListings.concat(batch);
-    console.log(\`Fetched \${allListings.length} listings so far...\`);
+    console.log(`Fetched ${allListings.length} listings so far...`);
     
     if (batch.length < limit) break;
     offset += limit;
   }
   
-  console.log(\`\nFound \${allListings.length} listings without mileage\n\`);
+  console.log(`\nFound ${allListings.length} listings without mileage\n`);
   
   // Extract mileage from titles
   const updates: Array<{ id: string; mileage: number; title: string }> = [];
   const modelStats: Record<string, { total: number; extracted: number }> = {};
   
   for (const listing of allListings) {
-    const modelKey = \`\${listing.model} \${listing.trim || ''}\`.trim();
+    const modelKey = `${listing.model} ${listing.trim || ''}`.trim();
     if (!modelStats[modelKey]) {
       modelStats[modelKey] = { total: 0, extracted: 0 };
     }
@@ -124,7 +124,7 @@ async function extractAllMileage() {
     }
   }
   
-  console.log(\`Extracted mileage from \${updates.length} listings (\${(updates.length/allListings.length*100).toFixed(1)}%)\n\`);
+  console.log(`Extracted mileage from ${updates.length} listings (${(updates.length/allListings.length*100).toFixed(1)}%)\n`);
   
   // Show extraction stats by model
   console.log('Extraction success by model/trim:');
@@ -133,18 +133,18 @@ async function extractAllMileage() {
     .slice(0, 15)
     .forEach(([model, stats]) => {
       const percent = ((stats.extracted/stats.total)*100).toFixed(1);
-      console.log(\`  \${model}: \${stats.extracted}/\${stats.total} (\${percent}%)\`);
+      console.log(`  ${model}: ${stats.extracted}/${stats.total} (${percent}%)`);
     });
   
   // Show sample extractions
   console.log('\nSample extractions:');
   updates.slice(0, 10).forEach(update => {
-    console.log(\`  "\${update.title.substring(0, 50)}..." → \${update.mileage.toLocaleString()} miles\`);
+    console.log(`  "${update.title.substring(0, 50)}..." → ${update.mileage.toLocaleString()} miles`);
   });
   
   // Apply updates
   if (updates.length > 0) {
-    console.log(\`\nUpdating database with \${updates.length} mileage values...\`);
+    console.log(`\nUpdating database with ${updates.length} mileage values...`);
     
     let successCount = 0;
     let errorCount = 0;
@@ -158,18 +158,18 @@ async function extractAllMileage() {
       
       if (error) {
         errorCount++;
-        console.error(\`Error updating \${update.id}:\`, error.message);
+        console.error(`Error updating ${update.id}:`, error.message);
       } else {
         successCount++;
         if (successCount % 100 === 0) {
-          console.log(\`  Updated \${successCount}/\${updates.length}...\`);
+          console.log(`  Updated ${successCount}/${updates.length}...`);
         }
       }
     }
     
-    console.log(\`\n✅ Successfully updated \${successCount} listings with mileage\`);
+    console.log(`\n✅ Successfully updated ${successCount} listings with mileage`);
     if (errorCount > 0) {
-      console.log(\`❌ Failed to update \${errorCount} listings\`);
+      console.log(`❌ Failed to update ${errorCount} listings`);
     }
   }
   
@@ -186,9 +186,9 @@ async function extractAllMileage() {
   console.log('\n' + '='.repeat(60));
   console.log('FINAL MILEAGE STATISTICS');
   console.log('='.repeat(60));
-  console.log(\`Total listings: \${totalCount}\`);
-  console.log(\`With mileage: \${hasMileage} (\${((hasMileage/totalCount)*100).toFixed(1)}%)\`);
-  console.log(\`Without mileage: \${totalCount - hasMileage} (\${(((totalCount - hasMileage)/totalCount)*100).toFixed(1)}%)\`);
+  console.log(`Total listings: ${totalCount}`);
+  console.log(`With mileage: ${hasMileage} (${((hasMileage/totalCount)*100).toFixed(1)}%)`);
+  console.log(`Without mileage: ${totalCount - hasMileage} (${(((totalCount - hasMileage)/totalCount)*100).toFixed(1)}%)`);
 }
 
 extractAllMileage().catch(console.error);

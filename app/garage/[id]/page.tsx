@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useUser, useProfile } from '@/lib/auth/hooks';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -21,11 +21,8 @@ import {
 import { formatPrice, formatMileage } from '@/lib/utils';
 import { UserCarDetailed } from '@/lib/types/database';
 
-interface CarDetailPageProps {
-  params: { id: string };
-}
-
-export default function CarDetailPage({ params }: CarDetailPageProps) {
+export default function CarDetailPage() {
+  const params = useParams() as { id: string };
   const { user, loading: userLoading } = useUser();
   const { isSubscribed } = useProfile();
   const router = useRouter();

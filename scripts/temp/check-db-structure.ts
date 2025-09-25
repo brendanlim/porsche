@@ -56,7 +56,7 @@ async function checkData() {
     }
 
     console.log('\nModel distribution:');
-    const sorted = Object.entries(modelCounts).sort((a, b) => b[1] - a[1]);
+    const sorted = Object.entries(modelCounts).sort((a, b) => (b[1] as number) - (a[1] as number));
     for (const [model, count] of sorted.slice(0, 10)) {
       console.log(`  ${model}: ${count}`);
     }

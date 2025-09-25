@@ -7,7 +7,7 @@ import { CarsScraper } from '../../lib/scrapers/cars';
 import { AutoTraderScraper } from '../../lib/scrapers/autotrader';
 import { ScraperResult } from '../../lib/scrapers/base';
 import { normalizeModelTrim } from '../../lib/services/model-trim-normalizer';
-import { normalizeOptions } from '../../lib/services/options-normalizer';
+import { processListingOptions } from '../../lib/services/options-manager';
 
 // Load environment variables
 const envPath = path.resolve(process.cwd(), '.env.local');
@@ -64,16 +64,14 @@ async function saveToDatabase(results: ScraperResult[], source: string) {
       }
 
       // Normalize model and trim
-      const normalized = await normalizeModelTrim(
-        result.model || 'Unknown',
-        result.trim || 'Unknown',
-        result.year || new Date().getFullYear()
-      );
+      const year = result.year || new Date().getFullYear();
+      const title = `${year} ${result.model || 'Unknown'} ${result.trim || ''}`.trim();
+      const normalized = await normalizeModelTrim(title);
 
       // Check if VIN already exists for active listing
       const { data: existing } = await supabase
         .from('listings')
-        .select('id, price, mileage, status')
+        .select('id, price, mileage, status, price_history')
         .eq('vin', result.vin)
         .eq('status', 'active')
         .single();
@@ -88,7 +86,6 @@ async function saveToDatabase(results: ScraperResult[], source: string) {
         model: normalized.model,
         trim: normalized.trim,
         generation: normalized.generation,
-        model_year_id: normalized.modelYearId,
         mileage: result.mileage,
         vin: result.vin,
         exterior_color: result.exterior_color,
@@ -97,7 +94,7 @@ async function saveToDatabase(results: ScraperResult[], source: string) {
         location: result.location,
         is_dealer: result.is_dealer || false,
         status: 'active',
-        list_date: result.listing_date ? new Date(result.listing_date) : new Date(),
+        list_date: result.list_date ? new Date(result.list_date) : new Date(),
         scraped_at: new Date(),
         options_text: result.options_text || '',
         description: result.description || '',
@@ -110,20 +107,19 @@ async function saveToDatabase(results: ScraperResult[], source: string) {
         const mileageChanged = existing.mileage !== result.mileage;
         
         if (priceChanged || mileageChanged) {
+          // Build price history update
+          const priceHistory = existing.price_history || [];
+          priceHistory.push({
+            date: new Date().toISOString(),
+            price: existing.price,
+            mileage: existing.mileage
+          });
+
           await supabase
             .from('listings')
             .update({
               ...listingData,
-              price_history: supabase.sql`
-                array_append(
-                  COALESCE(price_history, '{}'), 
-                  jsonb_build_object(
-                    'date', NOW(), 
-                    'price', ${existing.price},
-                    'mileage', ${existing.mileage}
-                  )
-                )
-              `
+              price_history: priceHistory
             })
             .eq('id', existing.id);
           
@@ -141,10 +137,9 @@ async function saveToDatabase(results: ScraperResult[], source: string) {
       }
 
       // Process options if available
-      if (result.options_text && normalized.modelYearId) {
+      if (result.options_text) {
         try {
-          const optionIds = await normalizeOptions(result.options_text);
-          await processListingOptions(supabase, result.vin!, optionIds);
+          await processListingOptions(result.vin!, result.options_text);
         } catch (error) {
           console.error('Error processing options:', error);
         }
@@ -183,11 +178,10 @@ async function scrapeActiveListings() {
         for (const trim of modelConfig.trims) {
           console.log(`   Searching for ${trim}...`);
           
-          const results = await source.scraper.scrapeListings(
-            modelConfig.model,
-            trim,
-            false // onlySold = false for active listings
-          );
+          const results = await source.scraper.scrapeListings({
+            model: `${modelConfig.model} ${trim}`,
+            onlySold: false // onlySold = false for active listings
+          });
 
           if (results.length > 0) {
             console.log(`   Found ${results.length} ${trim} listings`);

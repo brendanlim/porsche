@@ -1,8 +1,8 @@
 #!/usr/bin/env npx tsx
 import * as dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
-import { BaTScraper } from '../lib/scrapers/bat';
-import { processListingOptions } from '../lib/services/options-manager';
+import { BaTScraperPuppeteer } from '../../lib/scrapers/bat-puppeteer';
+import { processListingOptions } from '../../lib/services/options-manager';
 
 // Load environment variables
 dotenv.config({ path: '.env.local' });
@@ -20,7 +20,7 @@ const supabase = createClient(
 );
 
 async function parseAndSaveFiles(basePath: string) {
-  const scraper = new BaTScraper();
+  const scraper = new BaTScraperPuppeteer();
   let savedCount = 0;
   let updatedCount = 0;
   let errorCount = 0;
@@ -67,7 +67,7 @@ async function parseAndSaveFiles(basePath: string) {
           const url = `https://${encoded.replace(/_/g, '/')}`;
           
           // Use BaTScraper's extraction methods for complete data extraction
-          const batScraper = new BaTScraper();
+          const batScraper = new BaTScraperPuppeteer();
           const $ = require('cheerio').load(html);
           const pageText = $('body').text();
           
@@ -132,7 +132,7 @@ async function parseAndSaveFiles(basePath: string) {
           try {
             // Try OpenAI if API key is available
             if (process.env.OPENAI_API_KEY) {
-              const { normalizeModelTrim } = await import('../lib/services/model-trim-normalizer');
+              const { normalizeModelTrim } = await import('../../lib/services/model-trim-normalizer');
               normalized = await normalizeModelTrim(title);
             }
           } catch (error) {

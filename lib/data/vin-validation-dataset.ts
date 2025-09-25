@@ -946,7 +946,7 @@ export const VIN_VALIDATION_DATASET = {
 
 // High confidence samples only (for core validation)
 export const HIGH_CONFIDENCE_VINS = VIN_VALIDATION_DATASET.vinSamples
-  .filter(sample => sample.confidence === 'high') as const;
+  .filter(sample => sample.confidence === 'high');
 
 // VIN patterns by model for pattern recognition
 export const VIN_PATTERNS_BY_MODEL = VIN_VALIDATION_DATASET.vinSamples

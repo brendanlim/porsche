@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
-import { supabaseAdmin } from '../lib/supabase/admin';
+import { supabaseAdmin } from '../../lib/supabase/admin';
 
 /**
  * Calculate BaT buyer fee: 5% of price, capped at $7,500

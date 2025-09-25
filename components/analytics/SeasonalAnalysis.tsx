@@ -366,11 +366,30 @@ export function SeasonalAnalysis({ model, trim }: SeasonalAnalysisProps) {
     data: m.seasonalPattern.map(d => d.priceIndex)
   }));
 
-  // Find seasonal insights
-  const bestMonth = overallData.reduce((max, d) => d.priceIndex > max.priceIndex ? d : max, overallData[0] || {});
-  const worstMonth = overallData.reduce((min, d) => d.priceIndex < min.priceIndex ? d : min, overallData[0] || {});
-  const highestVolume = overallData.reduce((max, d) => d.volume > max.volume ? d : max, overallData[0] || {});
-  const fastestSelling = overallData.reduce((min, d) => d.daysOnMarket < min.daysOnMarket ? d : min, overallData[0] || {});
+  // Find seasonal insights - provide default object
+  const defaultData: SeasonalData = {
+    month: '',
+    avgPrice: 0,
+    volume: 0,
+    daysOnMarket: 0,
+    priceIndex: 100,
+    volumeIndex: 100,
+    bestSeller: '',
+    worstSeller: ''
+  };
+
+  const bestMonth = overallData.length > 0
+    ? overallData.reduce((max, d) => d.priceIndex > max.priceIndex ? d : max, overallData[0])
+    : defaultData;
+  const worstMonth = overallData.length > 0
+    ? overallData.reduce((min, d) => d.priceIndex < min.priceIndex ? d : min, overallData[0])
+    : defaultData;
+  const highestVolume = overallData.length > 0
+    ? overallData.reduce((max, d) => d.volume > max.volume ? d : max, overallData[0])
+    : defaultData;
+  const fastestSelling = overallData.length > 0
+    ? overallData.reduce((min, d) => d.daysOnMarket < min.daysOnMarket ? d : min, overallData[0])
+    : defaultData;
 
   if (loading) {
     return (

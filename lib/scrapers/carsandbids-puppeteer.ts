@@ -1,4 +1,4 @@
-import { BaseScraper, ScrapedListing } from './base';
+import { BaseScraper, ScraperResult, ScrapedListing } from './base';
 import puppeteer from 'puppeteer-core';
 import * as cheerio from 'cheerio';
 // import { HTMLStorageService } from '../services/html-storage';
@@ -13,7 +13,7 @@ export class CarsAndBidsPuppeteerScraper extends BaseScraper {
   private baseUrl = 'https://carsandbids.com';
 
   constructor() {
-    super('carsandbids', 'https://carsandbids.com');
+    super('carsandbids');
 
     // Set up Bright Data browser connection
     const customerId = process.env.BRIGHT_DATA_CUSTOMER_ID || 'hl_cd9a1035';
@@ -231,17 +231,14 @@ export class CarsAndBidsPuppeteerScraper extends BaseScraper {
 
         listings.push({
           title,
-          url,
           year,
-          make: 'Porsche',
           model,
           trim,
           mileage,
           price: price || 0,
           location,
-          images: thumbnail ? [thumbnail] : [],
-          source: 'carsandbids',
-          scraped_at: new Date().toISOString(),
+          source_url: url,
+          scraped_at: new Date(),
           status: isSold ? 'Sold' : 'Active'
         });
       } catch (error) {
@@ -255,7 +252,7 @@ export class CarsAndBidsPuppeteerScraper extends BaseScraper {
   /**
    * Scrape detailed information from a product page
    */
-  async scrapeDetail(url: string): Promise<Partial<ScrapedListing> | null> {
+  async scrapeDetail(url: string): Promise<ScraperResult> {
     try {
       console.log(`Fetching details: ${url}`);
 
@@ -377,20 +374,17 @@ export class CarsAndBidsPuppeteerScraper extends BaseScraper {
         price: price || 0,
         vin,
         mileage,
-        images: images.filter(Boolean),
         status,
-        sold_date,
         exterior_color,
         interior_color,
         transmission,
-        engine,
-        drivetrain,
-        seller_location: sellerLocation
+        source_url: url,
+        scraped_at: new Date()
       };
 
     } catch (error) {
       console.error(`Error scraping detail page ${url}:`, error);
-      return null;
+      throw new Error(`Failed to scrape detail page: ${error}`);
     }
   }
 

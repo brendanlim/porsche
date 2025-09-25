@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
-import { supabaseAdmin } from '../lib/supabase/admin';
+import { supabaseAdmin } from '../../lib/supabase/admin';
 
 async function main() {
   console.log('\nChecking ALL listings in database...\n');

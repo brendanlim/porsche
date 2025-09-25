@@ -1,7 +1,7 @@
 #!/usr/bin/env npx tsx
 import * as dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
-import { processMultipleListingOptions } from '../lib/services/options-manager';
+import { processMultipleListingOptions } from '../../lib/services/options-manager';
 
 // Load environment variables
 dotenv.config({ path: '.env.local' });

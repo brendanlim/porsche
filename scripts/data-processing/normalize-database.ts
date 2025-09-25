@@ -2,7 +2,7 @@
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
-import { normalizeModelTrim } from '../lib/services/model-trim-normalizer';
+import { normalizeModelTrim } from '../../lib/services/model-trim-normalizer';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 

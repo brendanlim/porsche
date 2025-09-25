@@ -1,7 +1,7 @@
 #!/usr/bin/env npx tsx
 import * as dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
-import { BaTScraperPuppeteer } from '../lib/scrapers/bat-puppeteer';
+import { BaTScraperPuppeteer } from '../../lib/scrapers/bat-puppeteer';
 
 dotenv.config({ path: '.env.local' });
 

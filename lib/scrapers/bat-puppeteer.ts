@@ -148,11 +148,12 @@ function applyBaTFee(price: number): number {
 export class BaTScraperPuppeteer extends BaseScraper {
   private puppeteerScraper: BrightDataPuppeteer;
   private htmlStorage: HTMLStorageService;
-  
+
   constructor() {
     super('bat');
     this.puppeteerScraper = new BrightDataPuppeteer();
     this.htmlStorage = new HTMLStorageService();
+    console.log('🚀 BaT scraper initialized');
   }
 
   // Direct detail page scraper for testing
@@ -210,7 +211,7 @@ export class BaTScraperPuppeteer extends BaseScraper {
     onlySold?: boolean;
     indexOnly?: boolean;
   } = {}): Promise<ScrapedListing[]> {
-    const { model, trim, maxPages = 5, indexOnly = false } = options;
+    const { model, trim, maxPages = 1, indexOnly = false } = options;  // Default to 1 page to save costs
     let allListings: ScrapedListing[] = [];
     
     // Filter models based on provided parameters
@@ -276,10 +277,11 @@ export class BaTScraperPuppeteer extends BaseScraper {
       console.log(`🔗 ${modelConfig.searchUrl}`);
 
       try {
+
         // Use Puppeteer to get the page with all listings loaded, passing existing URLs for duplicate detection
         // Pass maxPages to control how many "Show More" clicks we do
         const result = await this.puppeteerScraper.scrapeBaTResults(modelConfig.searchUrl, existingUrls, maxPages);
-        
+
         if (!result || !result.html) {
           console.log('❌ No HTML returned from scraper');
           continue;

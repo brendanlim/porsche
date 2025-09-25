@@ -1,5 +1,10 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createHash } from 'crypto';
+import { gzip, gunzip } from 'zlib';
+import { promisify } from 'util';
+
+const gzipAsync = promisify(gzip);
+const gunzipAsync = promisify(gunzip);
 
 export class HTMLStorageService {
   private bucketName = 'raw-html';
@@ -124,19 +129,38 @@ export class HTMLStorageService {
       
       // Calculate content hash
       const contentHash = this.calculateHash(html);
-      
+
+      // COST OPTIMIZATION: Compress HTML before storage to reduce data usage
+      const originalSize = Buffer.byteLength(html, 'utf8');
+      let finalContent: Buffer;
+      let compressionRatio = 0;
+
+      try {
+        const compressed = await gzipAsync(Buffer.from(html, 'utf8'));
+        compressionRatio = ((originalSize - compressed.length) / originalSize * 100);
+
+        // Only use compression if it saves significant space (>30%)
+        if (compressionRatio > 30) {
+          finalContent = compressed;
+          console.log(`📦 Compressed HTML: ${(originalSize/1024).toFixed(1)}KB → ${(compressed.length/1024).toFixed(1)}KB (${compressionRatio.toFixed(1)}% savings)`);
+        } else {
+          finalContent = Buffer.from(html, 'utf8');
+          console.log(`📦 Compression not beneficial (${compressionRatio.toFixed(1)}% savings), storing uncompressed`);
+        }
+      } catch (error) {
+        console.warn('📦 Compression failed, storing uncompressed:', error);
+        finalContent = Buffer.from(html, 'utf8');
+      }
+
       // Always store, even if duplicate (we want historical record)
-      // Silent operation - don't log every storage operation
-      
-      // Convert HTML string to Blob
-      const htmlBlob = new Blob([html], { type: 'text/html' });
-      const fileSize = htmlBlob.size;
+      const fileSize = finalContent.length;
       
       // Upload to Supabase Storage
+      const isCompressed = compressionRatio > 30;
       const { data, error } = await supabaseAdmin.storage
         .from(this.bucketName)
-        .upload(storagePath, htmlBlob, {
-          contentType: 'text/html',
+        .upload(storagePath, finalContent, {
+          contentType: isCompressed ? 'application/octet-stream' : 'text/html',
           upsert: true,
           cacheControl: '3600' // Cache for 1 hour
         });
@@ -156,7 +180,13 @@ export class HTMLStorageService {
         content_hash: contentHash,
         scraped_at: timestamp.toISOString(),
         expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days for raw HTML
-        metadata
+        metadata: {
+          ...metadata,
+          originalSize: originalSize,
+          compressed: isCompressed,
+          compressionRatio: compressionRatio.toFixed(1) + '%',
+          compressionSavings: isCompressed ? (originalSize - fileSize) : 0
+        }
       };
       
       await supabaseAdmin
@@ -188,35 +218,49 @@ export class HTMLStorageService {
   }
 
   /**
-   * Retrieve raw HTML content
+   * Retrieve raw HTML content (handles both compressed and uncompressed)
    */
   async retrieveHTML(listingId: string): Promise<string | null> {
     try {
-      // Get storage path from database
+      // Get storage path and metadata from database
       const { data: cache } = await supabaseAdmin
         .from('raw_html_cache')
-        .select('storage_path')
+        .select('storage_path, metadata')
         .eq('listing_id', listingId)
         .single();
-      
+
       if (!cache) {
         console.log(`No cached HTML found for listing ${listingId}`);
         return null;
       }
-      
+
       // Download from storage
       const { data, error } = await supabaseAdmin.storage
         .from(this.bucketName)
         .download(cache.storage_path);
-      
+
       if (error) {
         console.error('Error downloading HTML from storage:', error);
         return null;
       }
-      
-      // Convert blob to text
-      const html = await data.text();
-      return html;
+
+      // Check if content is compressed
+      const isCompressed = cache.metadata?.compressed === true;
+
+      if (isCompressed) {
+        try {
+          // Decompress the content
+          const buffer = await data.arrayBuffer();
+          const decompressed = await gunzipAsync(Buffer.from(buffer));
+          return decompressed.toString('utf8');
+        } catch (decompressError) {
+          console.error('Error decompressing HTML:', decompressError);
+          return null;
+        }
+      } else {
+        // Content is not compressed, return as text
+        return await data.text();
+      }
     } catch (error) {
       console.error('Error retrieving HTML:', error);
       return null;

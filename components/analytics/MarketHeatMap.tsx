@@ -245,11 +245,31 @@ export function MarketHeatMap({ timeRange = '30d' }: MarketHeatMapProps) {
     }
   ];
 
-  // Find market insights
-  const hottestSegment = marketData.reduce((max, s) => s.temperature > max.temperature ? s : max, marketData[0] || {});
-  const coldestSegment = marketData.reduce((min, s) => s.temperature < min.temperature ? s : min, marketData[0] || {});
-  const highestMomentum = marketData.reduce((max, s) => s.momentum > max.momentum ? s : max, marketData[0] || {});
-  const fastestSelling = marketData.reduce((min, s) => s.daysOnMarket < min.daysOnMarket ? s : min, marketData[0] || {});
+  // Find market insights - provide default object with proper structure
+  const defaultSegment: MarketSegment = {
+    model: '',
+    trim: '',
+    temperature: 0,
+    momentum: 0,
+    volume: 0,
+    avgPrice: 0,
+    priceChange: 0,
+    daysOnMarket: 0,
+    inventoryChange: 0
+  };
+
+  const hottestSegment = marketData.length > 0
+    ? marketData.reduce((max, s) => s.temperature > max.temperature ? s : max, marketData[0])
+    : defaultSegment;
+  const coldestSegment = marketData.length > 0
+    ? marketData.reduce((min, s) => s.temperature < min.temperature ? s : min, marketData[0])
+    : defaultSegment;
+  const highestMomentum = marketData.length > 0
+    ? marketData.reduce((max, s) => s.momentum > max.momentum ? s : max, marketData[0])
+    : defaultSegment;
+  const fastestSelling = marketData.length > 0
+    ? marketData.reduce((min, s) => s.daysOnMarket < min.daysOnMarket ? s : min, marketData[0])
+    : defaultSegment;
 
   if (loading) {
     return (

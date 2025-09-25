@@ -699,4 +699,5 @@ if (require.main === module) {
   main();
 }
 
-export { MarketInsightsGenerator, ScriptOptions };
+export { MarketInsightsGenerator };
+export type { ScriptOptions };

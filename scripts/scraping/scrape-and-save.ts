@@ -3,7 +3,7 @@
 import path from 'path';
 import fs from 'fs';
 import { createClient } from '@supabase/supabase-js';
-import { ScrapedListing } from '../../lib/types/scraper';
+import { ScrapedListing } from '../../lib/scrapers/base';
 import { processListingOptions } from '../../lib/services/options-manager';
 import { decodePorscheVIN } from '../../lib/utils/porsche-vin-decoder';
 
@@ -496,7 +496,7 @@ async function main() {
   const model = modelArg ? modelArg.split('=')[1].toLowerCase() : null;
   const trim = trimArg ? trimArg.split('=')[1].toLowerCase() : null;
   const maxPagesOverride = maxPagesArg ? parseInt(maxPagesArg.split('=')[1]) : null;
-  const type = typeArg ? typeArg.split('=')[1].toLowerCase() : 'both'; // 'sold', 'active', or 'both'
+  const type = (typeArg ? typeArg.split('=')[1].toLowerCase() : 'both') as 'sold' | 'active' | 'both';
   
   // Available sources
   const availableSources = ['bat', 'classic', 'carsandbids', 'edmunds', 'cars', 'autotrader', 'sothebys', 'truecar', 'carfax', 'carmax', 'carvana'];
@@ -566,7 +566,7 @@ async function main() {
     console.log('▓'.repeat(80));
     
     // Run only specific source if specified
-    if (source === 'bat' || (!source && type !== 'active')) {
+    if (source === 'bat' || !source) {
       // Run Bring a Trailer scraper (PRIORITY - best data)
       console.log('\n' + '═'.repeat(60));
       console.log('🎯 [1/7] BRING A TRAILER');
@@ -612,7 +612,7 @@ async function main() {
       }
     }
 
-    if (source === 'classic' || (!source && type !== 'active')) {
+    if (source === 'classic' || !source) {
       // Run Classic.com scraper
       console.log('\n' + '═'.repeat(60));
       console.log('🎯 [2/7] CLASSIC.COM');
@@ -664,7 +664,7 @@ async function main() {
       }
     }
 
-    if (source === 'sothebys' || (!source && type !== 'active')) {
+    if (source === 'sothebys' || !source) {
       // Run RM Sotheby's scraper
       console.log('\n' + '═'.repeat(60));
       console.log('🎯 [4/7] RM SOTHEBY\'S');
@@ -673,7 +673,7 @@ async function main() {
       try {
         const sothebysScraper = new SothebysScraper();
         const sothebysResults = await sothebysScraper.scrapeListings({
-          model: model || undefined,
+          models: model ? [model] : undefined,
           maxPages: maxPagesOverride !== null ? maxPagesOverride : 1,  // Default to 1 for daily scraper
           onlySold: true
         });
@@ -849,17 +849,16 @@ async function main() {
     console.log('▓'.repeat(80));
     
     // Cars.com (Active listings)
-    if (source === 'cars' || (!source && type !== 'sold')) {
+    if (source === 'cars' || !source) {
       console.log('='.repeat(50));
       console.log('Cars.com - Active Listings...');
       console.log('='.repeat(50));
       try {
         const carsScraper = new CarsScraper();
-        const carsResults = await carsScraper.scrapeListings(
-          model || '911',
-          trim,
-          false // onlySold = false for active listings
-        );
+        const carsResults = await carsScraper.scrapeListings({
+          model: model || '911',
+          onlySold: false // onlySold = false for active listings
+        });
         results.cars = carsResults.length;
         console.log(`✅ Cars.com: ${carsResults.length} active listings`);
         
@@ -875,17 +874,16 @@ async function main() {
     }
     
     // AutoTrader (Active listings only)
-    if (source === 'autotrader' || (!source && type !== 'sold')) {
+    if (source === 'autotrader' || !source) {
       console.log('='.repeat(50));
       console.log('AutoTrader - Active Listings...');
       console.log('='.repeat(50));
       try {
         const autotraderScraper = new AutoTraderScraper();
-        const autotraderResults = await autotraderScraper.scrapeListings(
-          model || '911',
-          trim,
-          false // onlySold = false (AutoTrader only has active)
-        );
+        const autotraderResults = await autotraderScraper.scrapeListings({
+          model: model || '911',
+          onlySold: false // onlySold = false (AutoTrader only has active)
+        });
         results.autotrader = autotraderResults.length;
         console.log(`✅ AutoTrader: ${autotraderResults.length} active listings`);
         

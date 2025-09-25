@@ -7,6 +7,9 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, L
 import { TrendingUp, TrendingDown, Minus, DollarSign, Calendar, Car, Activity, Trophy, Zap, Filter, ExternalLink } from 'lucide-react';
 import { DepreciationTable } from '@/components/DepreciationTable';
 import { OptionsAnalysis } from '@/components/OptionsAnalysis';
+import dynamic from 'next/dynamic';
+
+const ApexChart = dynamic(() => import('react-apexcharts'), { ssr: false });
 
 interface TrimAnalytics {
   model: string;
@@ -1054,6 +1057,272 @@ export default function TrimAnalyticsPage() {
                     </div>
                   </div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Monthly Seasonal Heatmap */}
+        {analytics.seasonalityAnalysis && analytics.seasonalityAnalysis.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Monthly Market Patterns</CardTitle>
+              <CardDescription>
+                Price and volume trends across all months of the year
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Generate monthly data from historical sales */}
+                {(() => {
+                  // Create monthly aggregation from salesData (has sold_date)
+                  const monthlyData = Array.from({ length: 12 }, (_, i) => {
+                    const month = i + 1;
+                    const monthName = new Date(2024, i, 1).toLocaleString('default', { month: 'short' });
+
+                    // Filter sales for this month across all years using salesData
+                    const monthSales = analytics.salesData?.filter((sale: any) => {
+                      if (!sale.date) return false;
+                      return new Date(sale.date).getMonth() === i;
+                    }) || [];
+
+                    const avgPrice = monthSales.length > 0
+                      ? monthSales.reduce((sum: number, s: any) => sum + s.price, 0) / monthSales.length
+                      : 0;
+
+                    const baselinePrice = analytics.averagePrice || 0;
+                    const priceIndex = baselinePrice > 0 ? (avgPrice / baselinePrice) * 100 : 100;
+
+                    return {
+                      month: monthName,
+                      priceIndex: priceIndex,
+                      volume: monthSales.length,
+                      avgPrice: avgPrice
+                    };
+                  });
+
+                  // ApexCharts heatmap configuration
+                  const heatmapOptions: any = {
+                    chart: {
+                      type: 'heatmap',
+                      toolbar: {
+                        show: false,
+                      },
+                      animations: {
+                        enabled: true,
+                        speed: 400,
+                      }
+                    },
+                    plotOptions: {
+                      heatmap: {
+                        shadeIntensity: 0.5,
+                        radius: 4,
+                        useFillColorAsStroke: false,
+                        colorScale: {
+                          ranges: [
+                            { from: 0, to: 95, name: 'Below Average', color: '#DC2626' },
+                            { from: 95, to: 98, name: 'Slightly Below', color: '#F59E0B' },
+                            { from: 98, to: 102, name: 'Average', color: '#6B7280' },
+                            { from: 102, to: 105, name: 'Slightly Above', color: '#3B82F6' },
+                            { from: 105, to: 200, name: 'Above Average', color: '#10B981' },
+                          ]
+                        }
+                      }
+                    },
+                    dataLabels: {
+                      enabled: true,
+                      style: {
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        colors: ['#FFFFFF']
+                      },
+                      formatter: (val: number) => {
+                        if (val === 0 || val === 100) return '';
+                        return `${val.toFixed(0)}`;
+                      }
+                    },
+                    xaxis: {
+                      categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                      title: {
+                        text: '',
+                      },
+                      labels: {
+                        style: {
+                          fontSize: '12px',
+                        }
+                      }
+                    },
+                    yaxis: {
+                      categories: [`${modelDisplay} ${trimDisplay}`],
+                      title: {
+                        text: '',
+                      }
+                    },
+                    grid: {
+                      padding: {
+                        right: 20
+                      }
+                    },
+                    tooltip: {
+                      theme: 'light',
+                      custom: function({ series, seriesIndex, dataPointIndex, w }: any) {
+                        const data = monthlyData[dataPointIndex];
+                        return `
+                          <div class="p-3 bg-white border rounded-lg shadow-lg">
+                            <div class="font-semibold text-gray-900">${data.month}</div>
+                            <div class="mt-2 space-y-1 text-sm">
+                              <div class="flex justify-between gap-4">
+                                <span class="text-gray-600">Price Index:</span>
+                                <span class="font-medium ${data.priceIndex > 102 ? 'text-green-600' : data.priceIndex < 98 ? 'text-red-600' : 'text-gray-900'}">
+                                  ${data.priceIndex.toFixed(1)}
+                                </span>
+                              </div>
+                              <div class="flex justify-between gap-4">
+                                <span class="text-gray-600">Avg Price:</span>
+                                <span class="font-medium">${formatPrice(data.avgPrice)}</span>
+                              </div>
+                              <div class="flex justify-between gap-4">
+                                <span class="text-gray-600">Sales Volume:</span>
+                                <span class="font-medium">${data.volume} cars</span>
+                              </div>
+                            </div>
+                          </div>
+                        `;
+                      }
+                    }
+                  };
+
+                  const heatmapSeries = [{
+                    name: 'Price Index',
+                    data: monthlyData.map(d => d.priceIndex)
+                  }];
+
+                  // Volume trend chart
+                  const volumeChartOptions: any = {
+                    chart: {
+                      type: 'area',
+                      toolbar: {
+                        show: false,
+                      },
+                      sparkline: {
+                        enabled: true,
+                      }
+                    },
+                    stroke: {
+                      curve: 'smooth',
+                      width: 2,
+                    },
+                    fill: {
+                      type: 'gradient',
+                      gradient: {
+                        shadeIntensity: 0.5,
+                        opacityFrom: 0.4,
+                        opacityTo: 0.1,
+                      }
+                    },
+                    colors: ['#3B82F6'],
+                    tooltip: {
+                      theme: 'light',
+                      y: {
+                        formatter: (val: number) => `${val} sales`
+                      }
+                    }
+                  };
+
+                  const volumeSeries = [{
+                    name: 'Volume',
+                    data: monthlyData.map(d => d.volume)
+                  }];
+
+                  return (
+                    <>
+                      {/* Monthly Heatmap */}
+                      <div className="w-full h-32">
+                        <ApexChart
+                          options={heatmapOptions}
+                          series={heatmapSeries}
+                          type="heatmap"
+                          height={120}
+                        />
+                      </div>
+
+                      {/* Volume Trend */}
+                      <div className="mt-4">
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">Sales Volume by Month</h4>
+                        <div className="w-full h-20">
+                          <ApexChart
+                            options={volumeChartOptions}
+                            series={volumeSeries}
+                            type="area"
+                            height={80}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Monthly Statistics Grid */}
+                      <div className="mt-4 grid grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2">
+                        {monthlyData.map((month, idx) => {
+                          const isCurrentMonth = new Date().getMonth() === idx;
+                          return (
+                            <div
+                              key={idx}
+                              className={`p-2 text-center rounded-lg border ${
+                                isCurrentMonth ? 'border-blue-400 bg-blue-50' : 'border-gray-200'
+                              }`}
+                            >
+                              <div className="text-xs font-medium text-gray-600">{month.month}</div>
+                              <div className={`text-sm font-bold mt-1 ${
+                                month.priceIndex > 102 ? 'text-green-600' :
+                                month.priceIndex < 98 ? 'text-red-600' :
+                                'text-gray-900'
+                              }`}>
+                                {month.priceIndex.toFixed(0)}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-0.5">
+                                {month.volume}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Best/Worst Month Insights */}
+                      <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                        <div className="text-sm space-y-1">
+                          {(() => {
+                            const sorted = [...monthlyData].sort((a, b) => b.priceIndex - a.priceIndex);
+                            const best = sorted[0];
+                            const worst = sorted[sorted.length - 1];
+                            const highVolume = [...monthlyData].sort((a, b) => b.volume - a.volume)[0];
+
+                            return (
+                              <div className="flex flex-wrap gap-4">
+                                <div className="flex items-center gap-2">
+                                  <TrendingUp className="h-4 w-4 text-green-600" />
+                                  <span className="text-gray-700">
+                                    Best: <strong>{best.month}</strong> ({best.priceIndex.toFixed(0)} index)
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <TrendingDown className="h-4 w-4 text-red-600" />
+                                  <span className="text-gray-700">
+                                    Worst: <strong>{worst.month}</strong> ({worst.priceIndex.toFixed(0)} index)
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Activity className="h-4 w-4 text-blue-600" />
+                                  <span className="text-gray-700">
+                                    Most Active: <strong>{highVolume.month}</strong> ({highVolume.volume} sales)
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </CardContent>
           </Card>

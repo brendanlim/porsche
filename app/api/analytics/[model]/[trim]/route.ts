@@ -863,14 +863,16 @@ export async function GET(
         } else if (trimName.toLowerCase().includes('gt3 rs')) {
           defaultYear = 2023; // Latest GT3 RS
         }
-        
+
         const year = l.year || defaultYear;
         return {
           mileage: l.mileage,
           price: l.price,
           year: year,
           color: l.exterior_color || 'Unknown',
-          generation: getGeneration(year, modelName, trim)
+          generation: getGeneration(year, modelName, trim),
+          sold_date: l.sold_date,
+          scraped_at: l.scraped_at
         };
       });
 

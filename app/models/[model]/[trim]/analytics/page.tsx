@@ -474,7 +474,7 @@ export default function TrimAnalyticsPage() {
                 <div style={{ width: '100%', minWidth: '300px', height: 400 }}>
                   <ResponsiveContainer width="100%" height={400}>
                   <ComposedChart 
-                    margin={{ top: 20, right: 20, bottom: 60, left: 20 }}
+                    margin={{ top: 20, right: 20, bottom: 60, left: 5 }}
                     data={(() => {
                       // Sort sales by date
                       const sortedSales = [...analytics.salesData].sort((a, b) => 
@@ -723,7 +723,7 @@ export default function TrimAnalyticsPage() {
                 {analytics.priceVsMileage && analytics.priceVsMileage.length > 0 ? (
                   <ResponsiveContainer width="100%" height={350}>
                   <ComposedChart 
-                    margin={{ top: 20, right: 20, bottom: 60, left: 20 }}
+                    margin={{ top: 20, right: 20, bottom: 60, left: 5 }}
                     data={(() => {
                       // Sort data by mileage for smooth range bands
                       const sortedData = [...analytics.priceVsMileage].sort((a, b) => a.mileage - b.mileage);
@@ -956,7 +956,7 @@ export default function TrimAnalyticsPage() {
                   <h4 className="text-sm font-medium text-gray-700 mb-3">Median Price Variation by Season</h4>
                   <div style={{ width: '100%', height: 300 }}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <ComposedChart data={analytics.seasonalityAnalysis}>
+                      <ComposedChart data={analytics.seasonalityAnalysis} margin={{ top: 5, right: 20, bottom: 5, left: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                         <XAxis dataKey="season" stroke="#6b7280" tick={{ fontSize: 11 }} />
                         <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" tick={{ fontSize: 11 }} 
@@ -1074,7 +1074,7 @@ export default function TrimAnalyticsPage() {
                 <h4 className="text-sm font-medium text-gray-700 mb-3">Price Premium by Color</h4>
                 <div style={{ width: '100%', height: 260 }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={analytics.colorAnalysis}>
+                    <BarChart data={analytics.colorAnalysis} margin={{ top: 5, right: 5, bottom: 50, left: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                       <XAxis dataKey="color" stroke="#6b7280" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={80} />
                       <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} />
@@ -1159,9 +1159,13 @@ export default function TrimAnalyticsPage() {
                 </div>
               </div>
             </div>
-            
-            <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3">
-              {analytics.colorAnalysis.slice(0, 6).map((color, index) => (
+
+            <h4 className="text-sm font-medium text-gray-700 mt-6 mb-3">Most Common Colors</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {analytics.colorAnalysis
+                .sort((a, b) => b.count - a.count) // Sort by frequency (most common first)
+                .slice(0, 9)
+                .map((color, index) => (
                 <div key={`color-${index}`} className={`p-3 rounded-lg border ${
                   color.premiumPercent > 5 ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
                 }`}>
@@ -1378,7 +1382,7 @@ export default function TrimAnalyticsPage() {
                     <ResponsiveContainer width="100%" height={300}>
                     <ComposedChart 
                       data={analytics.depreciationByYear}
-                      margin={{ top: 20, right: 20, bottom: 60, left: 20 }}
+                      margin={{ top: 20, right: 20, bottom: 60, left: 5 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                       <XAxis 

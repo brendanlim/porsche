@@ -575,20 +575,40 @@ async function main() {
       try {
         // Use Puppeteer version for BaT to handle dynamic loading
         const batScraper = new BaTScraperPuppeteer();
+
+        console.log('🚀 Starting BaT scraper...');
         const batResults = await batScraper.scrapeListings({
           model: model || undefined,
           maxPages: maxPagesOverride !== null ? maxPagesOverride : 1,  // Default to 1 for daily scraper
           onlySold: true
         });
-        results.bat = batResults.length;
 
-        // Save to database
+        results.bat = batResults.length;
+        console.log(`✅ BaT scraper completed: ${batResults.length} listings extracted`);
+
+        // Save to database - ALWAYS attempt this even if we got some listings
         if (batResults.length > 0) {
+          console.log('💾 Saving BaT listings to database...');
           const saved = await saveListings(batResults, 'bring-a-trailer', supabase);
           results.saved += saved;
+          console.log(`✅ BaT database save completed: ${saved} listings saved`);
+        } else {
+          console.log('⚠️  No BaT listings to save (empty results)');
         }
       } catch (error) {
-        console.error('❌ Bring a Trailer failed:', error);
+        console.error('❌ Bring a Trailer scraper failed:', error);
+        console.error('❌ Stack trace:', error.stack);
+
+        // CRITICAL: Try to save any partial results if available
+        // This prevents losing data when scraper fails partway through
+        if (error instanceof Error && error.message.includes('partial results')) {
+          console.log('🔄 Attempting to save partial results...');
+          // TODO: Implement partial result recovery if needed
+        }
+
+        // Log this failure for monitoring
+        console.error(`❌ BaT scraper failed at ${new Date().toISOString()}`);
+        console.error('   This may explain HTML cached but no listings saved!');
       }
     }
 

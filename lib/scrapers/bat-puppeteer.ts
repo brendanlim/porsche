@@ -1,6 +1,5 @@
 import { BaseScraper, ScrapedListing } from './base';
 import { BrightDataPuppeteer } from './bright-data-puppeteer';
-import { BaTScraper } from './bat';
 import * as cheerio from 'cheerio';
 import { HTMLStorageService } from '../services/html-storage';
 import { supabaseAdmin } from '@/lib/supabase/admin';
@@ -481,9 +480,11 @@ export class BaTScraperPuppeteer extends BaseScraper {
           const globalIdx = startIdx + i + 1;
 
           // Skip if we've had too many consecutive errors
-          if (totalErrors >= 5) {
-            console.error('\n  ⚠️ Too many consecutive errors, stopping detail fetching');
+          if (totalErrors >= 10) {
+            console.error('\n  ⚠️ Too many consecutive errors (10+), stopping detail fetching');
             console.error('  This may be due to rate limiting or network issues');
+            console.error(`  PARTIAL RESULTS: Returning ${totalFetched} successfully processed listings`);
+            console.error('  HTML has been cached for failed listings - they can be reprocessed later');
             break;
           }
 
@@ -495,9 +496,9 @@ export class BaTScraperPuppeteer extends BaseScraper {
 
             while (retries > 0 && !listingData) {
               try {
-                // Create a timeout promise
+                // Create a timeout promise - increased from 30s to 45s for better stability
                 const timeoutPromise = new Promise((_, reject) =>
-                  setTimeout(() => reject(new Error('Fetch timeout after 30s')), 30000)
+                  setTimeout(() => reject(new Error('Fetch timeout after 45s')), 45000)
                 );
 
                 // Race between fetch and timeout
@@ -578,12 +579,28 @@ export class BaTScraperPuppeteer extends BaseScraper {
           }
         }
 
-        // Break if we've had too many errors
-        if (totalErrors >= 5) break;
+        // Break if we've had too many errors - increased threshold for resilience
+        if (totalErrors >= 10) {
+          console.error(`\n⚠️ Stopping batch processing due to excessive errors (${totalErrors})`);
+          console.error('Returning partial results to prevent total failure');
+          break;
+        }
       }
 
       console.log('\n' + '═'.repeat(70));
       console.log(`📊 DETAIL FETCH COMPLETE: ${totalFetched}/${allListings.length} successfully processed`);
+
+      // Important diagnostic information
+      if (totalFetched < allListings.length) {
+        const failed = allListings.length - totalFetched;
+        console.log(`⚠️  ${failed} listings failed detail fetch - HTML is cached for retry`);
+        console.log(`⚠️  This may explain HTML cached but no listings saved scenarios`);
+      }
+
+      if (totalErrors > 0) {
+        console.log(`⚠️  Total errors encountered: ${totalErrors}`);
+      }
+
       console.log('═'.repeat(70));
     }
     
@@ -591,156 +608,315 @@ export class BaTScraperPuppeteer extends BaseScraper {
   }
   
   async parseListing(html: string, url: string): Promise<ScrapedListing | null> {
-    // Use the comprehensive BaTScraper parsing logic for sold_date, mileage, etc.
-    const batScraper = new BaTScraper();
-    
-    // Create a temporary method to parse HTML directly without fetching
-    // This reuses all the extraction methods from BaTScraper
-    const parseWithBaTScraper = async (): Promise<ScrapedListing | null> => {
-      const $ = cheerio.load(html);
-      const pageText = $('body').text();
-      
-      // Extract listing ID from URL (unused but kept for potential future use)
-      // const sourceId = url.split('/').pop()?.replace(/[^a-zA-Z0-9-]/g, '') || '';
-      
-      // Get title
-      const title = $('h1.listing-title').first().text().trim() || 
-                   $('h1').first().text().trim() || 
-                   $('.auction-title').text().trim();
-      
-      if (!title) return null;
-      
-      // Extract year from title
-      const yearMatch = title.match(/\b(19\d{2}|20\d{2})\b/);
-      const year = yearMatch ? parseInt(yearMatch[1]) : undefined;
-      
-      // Check if sold
-      const isSold = (batScraper as any).checkIfSold($, pageText);
-      if (!isSold) return null;
-      
-      // Extract all the details using BaTScraper's methods
-      const price = (batScraper as any).extractSoldPrice($, pageText);
-      if (!price || price < 15000) return null;
-      
-      const soldDate = (batScraper as any).extractSoldDate($, pageText);
-      const mileage = (batScraper as any).extractMileage($);
-      const vin = (batScraper as any).extractVIN($);
-      const location = (batScraper as any).extractLocation($);
-      const exteriorColor = (batScraper as any).extractExteriorColor($);
-      const interiorColor = (batScraper as any).extractInteriorColor($);
-      const transmission = (batScraper as any).extractTransmission($, title);
-      const options_text = (batScraper as any).extractOptions($);
-      
-      return {
-        source_url: url,
-        url,
-        title,
-        price,
-        mileage,
-        year,
-        status: 'sold',
-        sold_date: soldDate,
-        vin,
-        exterior_color: exteriorColor,
-        interior_color: interiorColor,
-        transmission,
-        options_text,
-        location: location ? `${location.city || ''}, ${location.state || ''}`.trim() : undefined
-      } as ScrapedListing;
-    };
-    
-    const parsed = await parseWithBaTScraper();
-    if (parsed) return parsed;
-    
-    // Fallback to basic parsing if BaTScraper methods fail
     const $ = cheerio.load(html);
-    
-    // Extract basic info
-    const title = $('h1').first().text().trim();
+    const pageText = $('body').text();
+
+    // Get title
+    const title = $('h1.listing-title').first().text().trim() ||
+                 $('h1').first().text().trim() ||
+                 $('.auction-title').text().trim();
+
     if (!title) return null;
-    
-    // Extract price
-    let price = 0;
-    let status: 'sold' | 'active' = 'active';
-    
-    // Try multiple selectors for price
-    const priceSelectors = [
-      '.listing-available-info',  // BaT's main price display
-      '.sold-for',
-      '.final-price',
-      '.winning-bid'
-    ];
-    
-    let priceText = '';
-    for (const selector of priceSelectors) {
-      const element = $(selector).first();
-      if (element.length > 0) {
-        priceText = element.text();
-        break;
-      }
-    }
-    
-    // Get body text for searching (used for price and mileage)
-    const bodyText = $('body').text();
-    
-    // If no specific element, search the body text
-    if (!priceText) {
-      const soldMatch = bodyText.match(/Sold for (?:USD\s*)?\$([0-9,]+)/i);
-      if (soldMatch) {
-        priceText = soldMatch[0];
-      }
-    }
-    
-    // Extract price from text
-    const priceMatch = priceText.match(/\$([0-9,]+)/);
-    if (priceMatch) {
-      price = parseInt(priceMatch[1].replace(/,/g, ''));
-      status = 'sold';
-    }
-    
-    // Extract other details
-    const yearMatch = title.match(/(\d{4})/);
+
+    // Extract year from title
+    const yearMatch = title.match(/\b(19\d{2}|20\d{2})\b/);
     const year = yearMatch ? parseInt(yearMatch[1]) : undefined;
-    
-    const mileageMatch = bodyText.match(/([0-9,]+)\s+miles/i);
-    const mileage = mileageMatch ? parseInt(mileageMatch[1].replace(/,/g, '')) : undefined;
-    
-    // Extract model and trim from URL
-    let model = 'Unknown';
-    let trim = undefined;
-    
-    const urlParts = url.split('/');
-    const modelSlug = urlParts[urlParts.length - 2] || '';
-    
-    if (modelSlug.includes('911') || modelSlug.includes('991') || modelSlug.includes('992')) {
-      model = '911';
-      if (modelSlug.includes('gt3')) {
-        trim = modelSlug.includes('rs') ? 'GT3 RS' : 'GT3';
-      } else if (modelSlug.includes('turbo')) {
-        trim = modelSlug.includes('-s') ? 'Turbo S' : 'Turbo';
-      }
-    } else if (modelSlug.includes('cayman') || modelSlug.includes('718')) {
-      model = modelSlug.includes('718') ? '718 Cayman' : 'Cayman';
-      if (modelSlug.includes('gt4')) {
-        trim = modelSlug.includes('rs') ? 'GT4 RS' : 'GT4';
-      }
-    } else if (modelSlug.includes('boxster')) {
-      model = modelSlug.includes('718') ? '718 Boxster' : 'Boxster';
-      if (modelSlug.includes('spyder')) {
-        trim = 'Spyder';
+
+    // Check if sold - inline the checkIfSold logic
+    const lowerText = pageText.toLowerCase();
+    const isSold = lowerText.includes('sold for') && (lowerText.includes('$') || lowerText.includes('usd'));
+    if (!isSold) return null;
+
+    // Extract sold price - inline the extractSoldPrice logic
+    let price = 0;
+    const listingInfo = $('.listing-available-info').text();
+    if (listingInfo) {
+      const match = listingInfo.match(/\$?([\d,]+)/);
+      if (match) {
+        price = parseInt(match[1].replace(/,/g, ''));
       }
     }
-    
+    if (!price) {
+      const patterns = [
+        /sold for[:\s]*(?:USD\s*)?\$?([\d,]+)/i,
+        /winning bid[:\s]*\$?([\d,]+)/i,
+        /final price[:\s]*\$?([\d,]+)/i
+      ];
+      for (const pattern of patterns) {
+        const match = pageText.match(pattern);
+        if (match) {
+          price = parseInt(match[1].replace(/,/g, ''));
+          break;
+        }
+      }
+    }
+    if (!price || price < 15000) return null;
+
+    // Extract sold date
+    const soldDate = this.extractSoldDate($, pageText);
+
+    // Extract VIN
+    const vin = this.extractVIN($);
+
+    // Extract mileage
+    const mileage = this.extractMileage($);
+
+    // Extract location
+    const location = this.extractLocation($);
+
+    // Extract colors
+    const exteriorColor = this.extractExteriorColor($);
+    const interiorColor = this.extractInteriorColor($);
+
+    // Extract transmission
+    const transmission = this.extractTransmission($, title);
+
+    // Extract options
+    const options_text = this.extractOptions($);
+
     return {
       source_url: url,
       url,
       title,
       price,
-      status,
-      model,
-      trim,
-      year,
       mileage,
+      year,
+      status: 'sold',
+      sold_date: soldDate,
+      vin,
+      exterior_color: exteriorColor,
+      interior_color: interiorColor,
+      transmission,
+      options_text,
+      location: location ? `${location.city || ''}, ${location.state || ''}`.trim() : undefined
+    } as ScrapedListing;
+  }
+
+  // Extraction helper methods (ported from original BaTScraper)
+  private extractSoldDate($: cheerio.CheerioAPI, pageText: string): Date | undefined {
+    const minValidDate = new Date(2010, 0, 1);
+    const maxValidDate = new Date(2030, 0, 1);
+
+    const parseDate = (dateStr: string): Date | null => {
+      let date = new Date(dateStr);
+
+      const twoDigitYearMatch = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{2})/);
+      if (twoDigitYearMatch) {
+        const month = parseInt(twoDigitYearMatch[1]) - 1;
+        const day = parseInt(twoDigitYearMatch[2]);
+        let year = parseInt(twoDigitYearMatch[3]);
+
+        if (year < 30) {
+          year += 2000;
+        } else {
+          year += 1900;
+        }
+
+        date = new Date(year, month, day);
+      }
+
+      if (isNaN(date.getTime()) || date < minValidDate || date > maxValidDate) {
+        return null;
+      }
+
+      return date;
     };
+
+    // Try specific date container first
+    const dateText = $('.date-ended').text() || $('.sold-date').text();
+    if (dateText) {
+      const date = parseDate(dateText);
+      if (date) return date;
+    }
+
+    // Look for date patterns in text
+    const datePatterns = [
+      /sold[^$]*?on\s+([\w\s,]+)/i,
+      /ended[^$]*?on\s+([\w\s,]+)/i
+    ];
+
+    for (const pattern of datePatterns) {
+      const match = pageText.match(pattern);
+      if (match) {
+        const date = parseDate(match[1]);
+        if (date) return date;
+      }
+    }
+
+    return undefined;
+  }
+
+  private extractVIN($: cheerio.CheerioAPI): string | undefined {
+    let vin: string | undefined;
+
+    $('ul li').each((i, el) => {
+      const text = $(el).text().trim();
+      if (text.includes('Chassis:')) {
+        const match = text.match(/WP[01][A-Z0-9]{14}/);
+        if (match) {
+          vin = match[0];
+          return false;
+        }
+      }
+    });
+
+    if (vin) return vin;
+
+    const bodyText = $('body').text();
+    const vinMatch = bodyText.match(/WP[01][A-Z0-9]{14}/);
+    return vinMatch ? vinMatch[0] : undefined;
+  }
+
+  private extractMileage($: cheerio.CheerioAPI): number | undefined {
+    const mileageLocations = [
+      $('.essentials-item:contains("Mileage")').text(),
+      $('dt:contains("Mileage")').next('dd').text(),
+      $('[class*="mileage"]').text()
+    ];
+
+    for (const location of mileageLocations) {
+      const match = location.match(/[\d,]+/);
+      if (match) {
+        const mileage = parseInt(match[0].replace(/,/g, ''));
+        if (!isNaN(mileage) && mileage > 0 && mileage < 500000) {
+          return mileage;
+        }
+      }
+    }
+
+    const title = $('h1.listing-title').text().trim() || $('h1').first().text().trim();
+    const titleMatch = title.match(/(\d{1,3},?\d{0,3})\s*(?:miles?|mi\b)/i);
+    if (titleMatch) {
+      const mileage = parseInt(titleMatch[1].replace(/,/g, ''));
+      if (!isNaN(mileage) && mileage > 0 && mileage < 500000) {
+        return mileage;
+      }
+    }
+
+    return undefined;
+  }
+
+  private extractLocation($: cheerio.CheerioAPI): { city?: string; state?: string; zip?: string } | undefined {
+    let location: { city?: string; state?: string; zip?: string } | undefined;
+
+    $('ul li').each((i, el) => {
+      const text = $(el).text().trim();
+      if (text.includes('Location:')) {
+        const match = text.match(/Location:\s*([^,]+),\s*([A-Za-z\s]+?)\s*(\d{5})?$/);
+        if (match) {
+          location = {
+            city: match[1].trim(),
+            state: match[2].trim(),
+            zip: match[3] || undefined
+          };
+          return false;
+        }
+      }
+    });
+
+    return location;
+  }
+
+  private extractExteriorColor($: cheerio.CheerioAPI): string | undefined {
+    const colorText = $('.essentials-item:contains("Exterior Color")').text() ||
+                     $('dt:contains("Exterior")').next('dd').text() ||
+                     $('.essentials-item:contains("Color")').text();
+
+    if (colorText) {
+      const color = colorText.replace(/.*:/, '').trim();
+      if (color) return color;
+    }
+
+    let paintColor: string | undefined;
+    $('ul li').each((i, el) => {
+      const text = $(el).text().trim();
+      if (text.includes('Paint-To-Sample') || text.includes('Paint')) {
+        const match = text.match(/Paint-To-Sample\s+([\w\s]+?)(?:\s+Paint)?$/i) ||
+                     text.match(/([\w\s]+?)\s+(?:Metallic\s+)?Paint$/i);
+        if (match) {
+          paintColor = match[1].trim();
+          return false;
+        }
+      }
+    });
+
+    return paintColor;
+  }
+
+  private extractInteriorColor($: cheerio.CheerioAPI): string | undefined {
+    const colorText = $('.essentials-item:contains("Interior Color")').text() ||
+                     $('dt:contains("Interior")').next('dd').text();
+
+    if (colorText) {
+      const color = colorText.replace(/.*:/, '').trim();
+      if (color) return color;
+    }
+
+    let interiorColor: string | undefined;
+    $('ul li').each((i, el) => {
+      const text = $(el).text().trim();
+      if (text.includes('Upholstery') || text.includes('Leather') || text.includes('Race-Tex')) {
+        const match = text.match(/^([\w\s]+?)\s+(?:Leather|Race-Tex|Upholstery)/i);
+        if (match) {
+          interiorColor = match[1].trim();
+          return false;
+        }
+      }
+    });
+
+    return interiorColor;
+  }
+
+  private extractTransmission($: cheerio.CheerioAPI, title: string): string | undefined {
+    const transText = $('.essentials-item:contains("Transmission")').text() ||
+                     $('dt:contains("Transmission")').next('dd').text();
+
+    if (transText) {
+      const trans = transText.replace(/.*:/, '').trim();
+      if (trans) return trans;
+    }
+
+    const titleLower = title.toLowerCase();
+    if (titleLower.includes('6-speed') || titleLower.includes('six-speed')) return '6-Speed Manual';
+    if (titleLower.includes('7-speed') || titleLower.includes('seven-speed')) {
+      return titleLower.includes('pdk') ? '7-Speed PDK' : '7-Speed Manual';
+    }
+    if (titleLower.includes('5-speed') || titleLower.includes('five-speed')) return '5-Speed Manual';
+    if (titleLower.includes('pdk')) return 'PDK';
+    if (titleLower.includes('tiptronic')) return 'Tiptronic';
+
+    return undefined;
+  }
+
+  private extractOptions($: cheerio.CheerioAPI): string {
+    const options: string[] = [];
+
+    let essentialsList: cheerio.Cheerio<any> | null = null;
+
+    $('ul').each((i, ul) => {
+      const items = $(ul).find('li');
+      const hasVIN = items.toArray().some(li => $(li).text().includes('Chassis:'));
+      if (hasVIN) {
+        essentialsList = $(ul);
+        return false;
+      }
+    });
+
+    if (essentialsList) {
+      essentialsList.find('li').each((i, el) => {
+        const text = $(el).text().trim();
+
+        // Skip non-option items
+        if (text.match(/^(Chassis:|Location:|Mileage:|Year:|Make:|Model:|Title Status:|Seller:)/)) {
+          return;
+        }
+
+        if (text.length > 3 && text.length < 200) {
+          options.push(text);
+        }
+      });
+    }
+
+    return options.join('; ');
   }
 }

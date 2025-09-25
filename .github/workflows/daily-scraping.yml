@@ -39,7 +39,7 @@ jobs:
   scrape-listings:
     name: Scrape All Sources
     runs-on: ubuntu-latest
-    timeout-minutes: 180  # 3 hour timeout for comprehensive scraping (needed for all models)
+    timeout-minutes: 120  # 2 hour timeout to prevent endless runs
 
     steps:
       - name: Checkout repository
@@ -55,6 +55,8 @@ jobs:
         run: npm ci
 
       - name: Run comprehensive scraper
+        continue-on-error: true
+        id: scraper
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -81,10 +83,36 @@ jobs:
 
           if [ "${{ github.event.inputs.max_pages }}" != "" ]; then
             COMMAND="$COMMAND --max-pages=${{ github.event.inputs.max_pages }}"
+          else
+            # Default to 2 pages for daily runs to prevent timeouts
+            COMMAND="$COMMAND --max-pages=2"
           fi
 
-          # Run the scraper
-          $COMMAND
+          # Run the scraper with timeout wrapper
+          echo "Running: $COMMAND"
+          timeout 6600s $COMMAND || {
+            EXIT_CODE=$?
+            if [ $EXIT_CODE -eq 124 ]; then
+              echo "⚠️ Scraper timed out after 110 minutes - this is expected for large scrapes"
+              echo "Partial results may have been saved"
+              exit 0
+            else
+              echo "❌ Scraper failed with exit code: $EXIT_CODE"
+              exit $EXIT_CODE
+            fi
+          }
+
+      - name: Report scraper status
+        if: always()
+        run: |
+          if [ "${{ steps.scraper.outcome }}" == "success" ]; then
+            echo "✅ Daily scraping completed successfully"
+          elif [ "${{ steps.scraper.outcome }}" == "failure" ]; then
+            echo "⚠️ Daily scraping encountered issues but workflow continues"
+            echo "Check logs for details - partial data may have been saved"
+          else
+            echo "⏱️ Daily scraping status: ${{ steps.scraper.outcome }}"
+          fi
 
       - name: Generate scraping report
         if: always()

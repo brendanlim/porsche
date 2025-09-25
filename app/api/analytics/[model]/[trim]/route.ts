@@ -409,22 +409,28 @@ export async function GET(
 
     // Only use real data - no fake trends!
 
-    // Color analysis
+    // Color analysis - only use real colors from the database
     const colorGroups = new Map();
-    const defaultColors = ['Guards Red', 'GT Silver', 'Black', 'White', 'Shark Blue', 'Racing Yellow'];
-    
-    filteredListings.forEach((listing, index) => {
-      // Use index-based selection for consistent default colors
-      const color = listing.exterior_color || defaultColors[index % defaultColors.length];
-      if (!colorGroups.has(color)) {
-        colorGroups.set(color, {
-          prices: [],
-          count: 0
-        });
+
+    filteredListings.forEach((listing) => {
+      // Only include listings with actual color data
+      if (listing.exterior_color) {
+        // Normalize color names for consistency
+        let color = listing.exterior_color;
+        // Normalize Arctic Grey vs Arctic Gray
+        if (color === 'Arctic Grey') {
+          color = 'Arctic Gray';
+        }
+        if (!colorGroups.has(color)) {
+          colorGroups.set(color, {
+            prices: [],
+            count: 0
+          });
+        }
+        const group = colorGroups.get(color);
+        if (listing.price > 0) group.prices.push(listing.price);
+        group.count++;
       }
-      const group = colorGroups.get(color);
-      if (listing.price > 0) group.prices.push(listing.price);
-      group.count++;
     });
 
     // Only use real color data, no fake additions
@@ -444,7 +450,7 @@ export async function GET(
         };
       })
       .sort((a, b) => b.premiumPercent - a.premiumPercent)
-      .slice(0, 6);
+      .slice(0, 12);  // Show more colors to include common ones like Arctic Gray
 
     // Mileage distribution with normalization
     const mileageRanges = [

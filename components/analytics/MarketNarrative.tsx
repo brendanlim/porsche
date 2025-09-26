@@ -85,14 +85,24 @@ export function MarketNarrativeCard({
   const [narrative, setNarrative] = useState<MarketNarrative | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastFetchKey, setLastFetchKey] = useState<string>('');
 
   useEffect(() => {
     if (!trends || !currentPrice) {
       setLoading(false);
       return;
     }
-    fetchNarrative();
-  }, [model, trim, generation, trends, currentPrice]);
+
+    // Create a stable key based on the actual values, not object references
+    const fetchKey = `${model}-${trim}-${generation}-${trends.threeMonth}-${trends.sixMonth}-${trends.oneYear}-${currentPrice}`;
+
+    // Only fetch if the key actually changed
+    if (fetchKey !== lastFetchKey) {
+      console.log(`MarketNarrative: Fetching for new key: ${fetchKey}`);
+      setLastFetchKey(fetchKey);
+      fetchNarrative();
+    }
+  }, [model, trim, generation, trends, currentPrice, lastFetchKey]);
 
   const fetchNarrative = async () => {
     try {
@@ -132,6 +142,12 @@ export function MarketNarrativeCard({
   };
 
   const generateFallbackNarrative = () => {
+    // Don't generate fallback if we already have a narrative
+    if (narrative) {
+      console.log('Skipping fallback - narrative already exists');
+      return;
+    }
+
     // Simple client-side fallback
     const { threeMonth, sixMonth, oneYear } = trends;
 

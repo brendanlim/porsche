@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter, AreaChart, Area, Cell, PieChart, Pie, ComposedChart } from 'recharts';
@@ -474,24 +474,26 @@ export default function TrimAnalyticsPage() {
         </div>
 
         {/* Market Analysis - Only show for specific generation */}
-        {selectedGeneration !== 'all' && (
+        {selectedGeneration !== 'all' && analytics && (
           <MarketNarrativeCard
             key={`${model}-${trim}-${selectedGeneration}`}
             model={modelDisplay}
             trim={trimDisplay}
             generation={selectedGeneration}
-            trends={{
+            trends={useMemo(() => ({
               threeMonth: analytics.wowAppreciation,
               sixMonth: analytics.momAppreciation,
               oneYear: analytics.yoyAppreciation
-            }}
+            }), [analytics.wowAppreciation, analytics.momAppreciation, analytics.yoyAppreciation])}
             currentPrice={analytics.averagePrice}
-            historicalData={analytics.salesData && analytics.salesData.length > 0 ? {
-              avgPrice30Days: analytics.averagePrice,
-              avgPrice90Days: analytics.averagePrice,
-              volumeLast30Days: Math.min(analytics.totalListings, 10),
-              volumeLast90Days: Math.min(analytics.totalListings, 30)
-            } : undefined}
+            historicalData={useMemo(() =>
+              analytics.salesData && analytics.salesData.length > 0 ? {
+                avgPrice30Days: analytics.averagePrice,
+                avgPrice90Days: analytics.averagePrice,
+                volumeLast30Days: Math.min(analytics.totalListings, 10),
+                volumeLast90Days: Math.min(analytics.totalListings, 30)
+              } : undefined,
+            [analytics.salesData, analytics.averagePrice, analytics.totalListings])}
           />
         )}
 

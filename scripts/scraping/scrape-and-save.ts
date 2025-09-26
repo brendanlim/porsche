@@ -530,7 +530,16 @@ async function main() {
   console.log('─'.repeat(40));
   
   // Import scrapers after dotenv is loaded
-  const { BaTScraperPuppeteer } = await import('../../lib/scrapers/bat-puppeteer');
+  // Use ScrapingBee if available, otherwise fall back to BrightData
+  let BaTScraperClass;
+  if (process.env.SCRAPINGBEE_API_KEY && source === 'bat-sb') {
+    console.log('🐝 Using ScrapingBee for BaT scraping');
+    const { BaTScraperSB } = await import('../../lib/scrapers/bat-sb');
+    BaTScraperClass = BaTScraperSB;
+  } else {
+    const { BaTScraperPuppeteer } = await import('../../lib/scrapers/bat-puppeteer');
+    BaTScraperClass = BaTScraperPuppeteer;
+  }
   const { ClassicScraper } = await import('../../lib/scrapers/classic');
   // Use Puppeteer version for Cars and Bids since it's a React SPA
   const { CarsAndBidsPuppeteerScraper } = await import('../../lib/scrapers/carsandbids-puppeteer');
@@ -573,8 +582,8 @@ async function main() {
       console.log('═'.repeat(60));
 
       try {
-        // Use Puppeteer version for BaT to handle dynamic loading
-        const batScraper = new BaTScraperPuppeteer();
+        // Use selected scraper class (ScrapingBee or BrightData)
+        const batScraper = new BaTScraperClass();
 
         console.log('🚀 Starting BaT scraper...');
         const batResults = await batScraper.scrapeListings({

@@ -12,7 +12,11 @@ export class BrightDataPuppeteer {
 
   constructor() {
     this.customerId = process.env.BRIGHT_DATA_CUSTOMER_ID || 'hl_cd9a1035';
-    this.password = process.env.BRIGHT_DATA_BROWSER_PASSWORD || 'y2w8rf96p2na';
+    // Try multiple env vars for password
+    this.password = process.env.BRIGHT_DATA_BROWSER_PASSWORD ||
+                    process.env.BRIGHT_DATA_PASSWORD ||
+                    process.env.BRIGHT_DATA_ZONE_PASSWORD ||
+                    'y2w8rf96p2na';
     this.zone = 'pt_scraping_browser_z1';
     this.refreshSession();
   }
@@ -47,6 +51,26 @@ export class BrightDataPuppeteer {
 
     return this.requestCount >= this.maxRequestsPerSession ||
            timeSinceReset >= maxSessionTime;
+  }
+
+  /**
+   * Connect to Bright Data browser and return the browser instance
+   * Caller is responsible for closing the browser
+   */
+  async connectBrowser(): Promise<any> {
+    // Check if we should rotate session
+    if (this.shouldRotateSession()) {
+      console.log(`🔄 Session rotation triggered`);
+      this.refreshSession();
+    }
+
+    this.requestCount++;
+
+    const browser = await puppeteer.connect({
+      browserWSEndpoint: this.browserWSEndpoint,
+    });
+
+    return browser;
   }
   
   /**
@@ -100,15 +124,16 @@ export class BrightDataPuppeteer {
       await page.setViewport(randomViewport);
       await page.setUserAgent(randomUA);
 
-      // Enhanced headers for stealth
-      await page.setExtraHTTPHeaders({
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-      });
+      // Enhanced headers for stealth - DISABLED for Bright Data
+      // Bright Data doesn't allow overriding these headers
+      // await page.setExtraHTTPHeaders({
+      //   'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      //   'Accept-Language': 'en-US,en;q=0.5',
+      //   'Accept-Encoding': 'gzip, deflate, br',
+      //   'DNT': '1',
+      //   'Connection': 'keep-alive',
+      //   'Upgrade-Insecure-Requests': '1',
+      // });
 
       // Add stealth behaviors
       await page.evaluateOnNewDocument(() => {

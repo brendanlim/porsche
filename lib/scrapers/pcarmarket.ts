@@ -12,29 +12,19 @@ interface PCarMarketModel {
   searchUrl: string;
 }
 
-// PCarMarket URLs for completed Porsche auctions
+// PCarMarket URLs for completed Porsche auctions by generation
 const PCARMARKET_MODELS: PCarMarketModel[] = [
-  // 911 Models - Using their completed auction filters
-  { name: '911', slug: '911', searchUrl: 'https://pcarmarket.com/auction/completed/?make=porsche&model=911' },
-  { name: '911', slug: '911', trim: 'GT3', searchUrl: 'https://pcarmarket.com/auction/completed/?make=porsche&model=911&trim=gt3' },
-  { name: '911', slug: '911', trim: 'GT3 RS', searchUrl: 'https://pcarmarket.com/auction/completed/?make=porsche&model=911&trim=gt3-rs' },
-  { name: '911', slug: '911', trim: 'GT2', searchUrl: 'https://pcarmarket.com/auction/completed/?make=porsche&model=911&trim=gt2' },
-  { name: '911', slug: '911', trim: 'GT2 RS', searchUrl: 'https://pcarmarket.com/auction/completed/?make=porsche&model=911&trim=gt2-rs' },
-  { name: '911', slug: '911', trim: 'Turbo', searchUrl: 'https://pcarmarket.com/auction/completed/?make=porsche&model=911&trim=turbo' },
-  { name: '911', slug: '911', trim: 'Turbo S', searchUrl: 'https://pcarmarket.com/auction/completed/?make=porsche&model=911&trim=turbo-s' },
-  { name: '911', slug: '911', trim: 'Carrera', searchUrl: 'https://pcarmarket.com/auction/completed/?make=porsche&model=911&trim=carrera' },
-  { name: '911', slug: '911', trim: 'Targa', searchUrl: 'https://pcarmarket.com/auction/completed/?make=porsche&model=911&trim=targa' },
+  // 911 Models by generation
+  { name: '911', slug: '991', generation: '991', searchUrl: 'https://www.pcarmarket.com/auction/completed/?category=all&make=porsche&year_beg=2016&year_end=2024&series=991' },
+  { name: '911', slug: '992', generation: '992', searchUrl: 'https://www.pcarmarket.com/auction/completed/?category=all&make=porsche&year_beg=2013&year_end=2016&series=992' },
+  { name: '911', slug: '996', generation: '996', searchUrl: 'https://www.pcarmarket.com/auction/completed/?category=all&make=porsche&year_beg=2012&year_end=2020&series=996' },
+  { name: '911', slug: '997', generation: '997', searchUrl: 'https://www.pcarmarket.com/auction/completed/?category=all&make=porsche&year_beg=1993&year_end=2025&series=997' },
 
-  // Cayman/718 Models
-  { name: '718 Cayman', slug: '718-cayman', searchUrl: 'https://pcarmarket.com/auction/completed/?make=porsche&model=718-cayman' },
-  { name: 'Cayman', slug: 'cayman', searchUrl: 'https://pcarmarket.com/auction/completed/?make=porsche&model=cayman' },
-  { name: '718 Cayman', slug: '718-cayman', trim: 'GT4', searchUrl: 'https://pcarmarket.com/auction/completed/?make=porsche&model=718-cayman&trim=gt4' },
-  { name: '718 Cayman', slug: '718-cayman', trim: 'GT4 RS', searchUrl: 'https://pcarmarket.com/auction/completed/?make=porsche&model=718-cayman&trim=gt4-rs' },
-
-  // Boxster Models
-  { name: '718 Boxster', slug: '718-boxster', searchUrl: 'https://pcarmarket.com/auction/completed/?make=porsche&model=718-boxster' },
-  { name: 'Boxster', slug: 'boxster', searchUrl: 'https://pcarmarket.com/auction/completed/?make=porsche&model=boxster' },
-  { name: '718 Boxster', slug: '718-boxster', trim: 'Spyder', searchUrl: 'https://pcarmarket.com/auction/completed/?make=porsche&model=718-boxster&trim=spyder' },
+  // Cayman/Boxster by generation
+  { name: 'Cayman', slug: '982', generation: '982', searchUrl: 'https://www.pcarmarket.com/auction/completed/?category=all&make=porsche&year_beg=1920&year_end=2025&series=982' },
+  { name: 'Cayman', slug: '981', generation: '981', searchUrl: 'https://www.pcarmarket.com/auction/completed/?category=all&make=porsche&year_beg=1951&year_end=2025&series=981' },
+  { name: 'Cayman', slug: '987', generation: '987', searchUrl: 'https://www.pcarmarket.com/auction/completed/?category=all&make=porsche&year_beg=2005&year_end=2013&series=987' },
+  { name: 'Boxster', slug: '986', generation: '986', searchUrl: 'https://www.pcarmarket.com/auction/completed/?category=all&make=porsche&year_beg=1999&year_end=2005&series=986' },
 ];
 
 /**
@@ -289,7 +279,7 @@ export class PCarMarketScraper extends BaseScraper {
   }
 
   /**
-   * Scrape PCarMarket completed auctions page
+   * Scrape PCarMarket completed auctions page with authentication
    */
   private async scrapeCompletedAuctions(
     url: string,
@@ -298,25 +288,258 @@ export class PCarMarketScraper extends BaseScraper {
   ): Promise<any> {
     console.log(`\n🌐 Connecting to Bright Data for PCarMarket...`);
 
-    // Note: This is a simplified version. In a real implementation, we'd need:
-    // 1. Login functionality to see prices
-    // 2. Pagination handling
-    // 3. More sophisticated duplicate detection
+    let browser;
+    try {
+      browser = await this.puppeteerScraper.connectBrowser();
+    } catch (error: any) {
+      console.error(`❌ Failed to connect to Bright Data: ${error.message}`);
+      throw error;
+    }
+    const page = await browser.newPage();
 
-    // For now, we'll implement basic page fetching
-    // This will need to be enhanced with authentication once we have PCarMarket credentials
+    try {
+      // First, navigate to home page to get proper login link
+      console.log('🔐 Navigating to PCarMarket...');
+      await page.goto('https://www.pcarmarket.com', {
+        waitUntil: 'networkidle2',
+        timeout: 60000
+      });
 
-    throw new Error('PCarMarket scraping requires authentication - login credentials needed to access sold prices');
+      // Click on Log In link
+      const loginLinkSelector = 'a:contains("Log In"), a[href*="login"]';
+      await page.waitForSelector('a', { timeout: 30000 });
+
+      // Click the login link
+      await page.evaluate(() => {
+        const links = Array.from(document.querySelectorAll('a'));
+        const loginLink = links.find(a => a.textContent?.trim() === 'Log In');
+        if (loginLink) {
+          (loginLink as HTMLElement).click();
+        }
+      });
+
+      // Wait for navigation to login page
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      // Check current URL to see if we're on the login page
+      const loginPageUrl = page.url();
+      console.log(`    Current URL: ${loginPageUrl}`);
+
+      // Now we should be on the login page
+      // Wait for the username/email field (first required textbox)
+      try {
+        await page.waitForSelector('input[type="text"], input[type="email"], input[type="password"]', { timeout: 10000 });
+      } catch (error) {
+        // Take a screenshot for debugging
+        const html = await page.content();
+        console.log(`    Page title: ${await page.title()}`);
+        console.log(`    HTML snippet: ${html.substring(0, 500)}`);
+        throw new Error(`Login form not found at ${loginPageUrl}`);
+      }
+
+      const email = process.env.PCARMARKET_EMAIL;
+      const username = 'brendanlim';  // Fallback username
+      const password = process.env.PCARMARKET_PASSWORD;
+
+      if (!password) {
+        throw new Error('PCARMARKET_PASSWORD environment variable is required');
+      }
+
+      // Find and fill the form fields
+      // The form has two text inputs - username/email and password
+      const inputs = await page.$$('input');
+      console.log(`    Found ${inputs.length} input fields`);
+
+      // Filter for visible text/email and password inputs
+      let usernameInput = null;
+      let passwordInput = null;
+
+      for (const input of inputs) {
+        const type = await input.evaluate((el: any) => el.type);
+        const isVisible = await input.evaluate((el: any) => {
+          const style = window.getComputedStyle(el);
+          return style.display !== 'none' && style.visibility !== 'hidden';
+        });
+
+        if (isVisible) {
+          if ((type === 'text' || type === 'email') && !usernameInput) {
+            usernameInput = input;
+          } else if (type === 'password' && !passwordInput) {
+            passwordInput = input;
+          }
+        }
+      }
+
+      if (usernameInput && passwordInput) {
+        await usernameInput.type(email || username);
+        await passwordInput.type(password);
+      } else {
+        throw new Error('Could not find login form inputs');
+      }
+
+      // Click the Log in button
+      await page.evaluate(() => {
+        const buttons = Array.from(document.querySelectorAll('button'));
+        const loginBtn = buttons.find(b => b.textContent?.includes('Log in') || b.textContent?.includes('LOGIN'));
+        if (loginBtn) {
+          (loginBtn as HTMLElement).click();
+        } else {
+          // Fallback to any submit button
+          const submitBtn = document.querySelector('button[type="submit"], input[type="submit"]');
+          if (submitBtn) (submitBtn as HTMLElement).click();
+        }
+      });
+
+      // Wait for navigation after login
+      await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 });
+
+      // Check if we're logged in by checking the URL or looking for logout link
+      const currentUrl = page.url();
+      const isLoggedIn = !currentUrl.includes('/login') && !currentUrl.includes('/sign');
+
+      if (!isLoggedIn) {
+        console.log('⚠️ Email login failed, trying username...');
+        // Navigate back to login
+        await page.goto('https://www.pcarmarket.com', { waitUntil: 'networkidle2' });
+        await page.evaluate(() => {
+          const links = Array.from(document.querySelectorAll('a'));
+          const loginLink = links.find(a => a.textContent?.trim() === 'Log In');
+          if (loginLink) (loginLink as HTMLElement).click();
+        });
+        await new Promise(resolve => setTimeout(resolve, 3000));
+
+        // Try with username
+        const inputs2 = await page.$$('input[type="text"], input[type="email"], input[type="password"]');
+        if (inputs2.length >= 2) {
+          await inputs2[0].clear();
+          await inputs2[0].type(username);
+          await inputs2[1].clear();
+          await inputs2[1].type(password);
+        }
+        await page.evaluate(() => {
+        const buttons = Array.from(document.querySelectorAll('button'));
+        const loginBtn = buttons.find(b => b.textContent?.includes('Log in'));
+        if (loginBtn) (loginBtn as HTMLElement).click();
+      });
+        await page.waitForNavigation({ waitUntil: 'networkidle2' });
+      }
+
+      console.log('✅ Successfully logged into PCarMarket');
+
+      // Now navigate to the completed auctions page
+      console.log(`📄 Loading completed auctions: ${url}`);
+      await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+
+      // Handle pagination - PCarMarket uses Load More or pagination
+      let currentPage = 1;
+      let allHtml = '';
+
+      while (currentPage <= maxPages) {
+        console.log(`  📄 Page ${currentPage}/${maxPages}`);
+
+        // Get current page HTML
+        const pageHtml = await page.content();
+        allHtml += pageHtml;
+
+        // Check for next page button
+        const hasNextPage = await page.evaluate(() => {
+          const nextBtn = document.querySelector('.pagination .next:not(.disabled)');
+          const loadMoreBtn = document.querySelector('button:contains("Load More"), button:contains("Show More")');
+          return nextBtn !== null || loadMoreBtn !== null;
+        });
+
+        if (!hasNextPage || currentPage >= maxPages) {
+          break;
+        }
+
+        // Click next page or load more
+        const clicked = await page.evaluate(() => {
+          const nextBtn = document.querySelector('.pagination .next:not(.disabled) a');
+          const loadMoreBtn = document.querySelector('button:contains("Load More"), button:contains("Show More")');
+
+          if (nextBtn) {
+            (nextBtn as HTMLElement).click();
+            return true;
+          } else if (loadMoreBtn) {
+            (loadMoreBtn as HTMLElement).click();
+            return true;
+          }
+          return false;
+        });
+
+        if (clicked) {
+          // Wait for new content to load
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          currentPage++;
+        } else {
+          break;
+        }
+      }
+
+      console.log(`✅ Scraped ${currentPage} page(s) of completed auctions`);
+
+      return { html: allHtml, pageCount: currentPage };
+
+    } catch (error: any) {
+      console.error(`❌ Error scraping PCarMarket: ${error.message}`);
+      throw error;
+    } finally {
+      await browser.close();
+    }
   }
 
   /**
-   * Scrape a single PCarMarket listing page
+   * Scrape a single PCarMarket listing page (authenticated)
    */
   private async scrapeListingPage(url: string): Promise<any> {
-    // This would use Bright Data Puppeteer to fetch individual listing pages
-    // For now, placeholder implementation
+    const browser = await this.puppeteerScraper.connectBrowser();
+    const page = await browser.newPage();
 
-    throw new Error('PCarMarket listing page scraping not yet implemented - requires authentication');
+    try {
+      // Login first
+      console.log('    🔐 Logging in...');
+      await page.goto('https://www.pcarmarket.com', { waitUntil: 'networkidle2' });
+
+      // Click login link
+      await page.evaluate(() => {
+        const links = Array.from(document.querySelectorAll('a'));
+        const loginLink = links.find(a => a.textContent?.trim() === 'Log In');
+        if (loginLink) (loginLink as HTMLElement).click();
+      });
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      const email = process.env.PCARMARKET_EMAIL || 'brendanlim';
+      const password = process.env.PCARMARKET_PASSWORD;
+
+      // Fill login form
+      const inputs = await page.$$('input[type="text"], input[type="email"], input[type="password"]');
+      if (inputs.length >= 2) {
+        await inputs[0].type(email);
+        await inputs[1].type(password);
+      }
+
+      await page.evaluate(() => {
+        const buttons = Array.from(document.querySelectorAll('button'));
+        const loginBtn = buttons.find(b => b.textContent?.includes('Log in'));
+        if (loginBtn) (loginBtn as HTMLElement).click();
+      });
+      await page.waitForNavigation({ waitUntil: 'networkidle2' });
+
+      // Navigate to listing
+      await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+
+      // Wait for content to load
+      await page.waitForSelector('.auction-details, .listing-details', { timeout: 30000 });
+
+      const html = await page.content();
+      return { html };
+
+    } catch (error: any) {
+      console.error(`    ❌ Error fetching listing: ${error.message}`);
+      throw error;
+    } finally {
+      await browser.close();
+    }
   }
 
   /**
@@ -325,14 +548,53 @@ export class PCarMarketScraper extends BaseScraper {
   private async extractListingsFromPage($: cheerio.CheerioAPI, modelConfig: PCarMarketModel): Promise<ScrapedListing[]> {
     const listings: ScrapedListing[] = [];
 
-    // This would parse the completed auctions page structure
-    // Based on the research, we'd look for:
-    // - Listing cards with auction details
-    // - Final sale prices (if logged in)
-    // - Auction end dates
-    // - Links to individual listing pages
+    // PCarMarket uses auction cards in grid layout
+    const auctionCards = $('.auction-card, .listing-card, article.auction').toArray();
 
-    // Placeholder implementation
+    console.log(`  Found ${auctionCards.length} auction cards`);
+
+    for (const card of auctionCards) {
+      const $card = $(card);
+
+      // Extract listing URL
+      const link = $card.find('a[href*="/auction/"]').first();
+      const relativeUrl = link.attr('href');
+      if (!relativeUrl) continue;
+
+      const listingUrl = `https://www.pcarmarket.com${relativeUrl}`;
+
+      // Extract title
+      const title = $card.find('.title, h3, h4').first().text().trim();
+
+      // Extract year from title
+      const yearMatch = title.match(/\b(19\d{2}|20\d{2})\b/);
+      const year = yearMatch ? parseInt(yearMatch[1]) : undefined;
+
+      // Extract price (if visible when logged in)
+      const priceText = $card.find('.price, .sold-price, .winning-bid').first().text().trim();
+      const priceMatch = priceText.match(/\$([\d,]+)/);
+      const price = priceMatch ? parseInt(priceMatch[1].replace(/,/g, '')) : undefined;
+
+      // Extract sold date
+      const dateText = $card.find('.date, .end-date, .sold-date').first().text().trim();
+
+      // Extract mileage if visible
+      const detailsText = $card.find('.details, .specs').text();
+      const mileageMatch = detailsText.match(/([\d,]+)\s*(miles?|mi)/i);
+      const mileage = mileageMatch ? parseInt(mileageMatch[1].replace(/,/g, '')) : undefined;
+
+      listings.push({
+        source_url: listingUrl,
+        title,
+        year,
+        price,
+        mileage,
+        status: 'sold',
+        model: modelConfig.name,
+        generation_code: modelConfig.generation,
+      });
+    }
+
     return listings;
   }
 
@@ -342,29 +604,104 @@ export class PCarMarketScraper extends BaseScraper {
   private async parseListing(html: string, url: string): Promise<ScrapedListing | null> {
     const $ = cheerio.load(html);
 
-    // Extract basic info
-    const title = $('h1').first().text().trim();
+    // Extract title
+    const title = $('h1, .auction-title').first().text().trim();
     if (!title) return null;
 
-    // This would extract:
-    // - VIN from listing details
-    // - Mileage
-    // - Final sale price (if available)
-    // - Sale date
-    // - Vehicle details (color, transmission, etc.)
-
-    // Extract year from title
+    // Extract year
     const yearMatch = title.match(/\b(19\d{2}|20\d{2})\b/);
     const year = yearMatch ? parseInt(yearMatch[1]) : undefined;
 
-    // Placeholder parsing - would need to be implemented based on actual PCarMarket HTML structure
+    // Extract VIN
+    let vin: string | undefined;
+    const vinSection = $('dt:contains("VIN")').next('dd').text().trim();
+    if (vinSection) {
+      vin = vinSection;
+    } else {
+      // Alternative selectors
+      const vinMatch = html.match(/VIN[:\s]+([A-HJ-NPR-Z0-9]{17})/i);
+      if (vinMatch) vin = vinMatch[1];
+    }
+
+    // Extract mileage
+    let mileage: number | undefined;
+    const mileageSection = $('dt:contains("Mileage"), dt:contains("Odometer")').next('dd').text().trim();
+    if (mileageSection) {
+      const mileageMatch = mileageSection.match(/([\d,]+)/);
+      if (mileageMatch) {
+        mileage = parseInt(mileageMatch[1].replace(/,/g, ''));
+      }
+    }
+
+    // Extract sold price (when logged in)
+    let price: number | undefined;
+    const priceSelectors = [
+      '.sold-price',
+      '.winning-bid',
+      '.final-price',
+      'dt:contains("Sold For")~dd',
+      'dt:contains("Winning Bid")~dd'
+    ];
+
+    for (const selector of priceSelectors) {
+      const priceText = $(selector).first().text().trim();
+      if (priceText) {
+        const priceMatch = priceText.match(/\$([\d,]+)/);
+        if (priceMatch) {
+          price = parseInt(priceMatch[1].replace(/,/g, ''));
+          break;
+        }
+      }
+    }
+
+    // Extract sold date
+    let soldDate: string | undefined;
+    const dateSection = $('dt:contains("Ended"), dt:contains("Sold")').next('dd').text().trim();
+    if (dateSection) {
+      // Try to parse the date
+      const date = new Date(dateSection);
+      if (!isNaN(date.getTime())) {
+        soldDate = date.toISOString();
+      }
+    }
+
+    // Extract color
+    const colorSection = $('dt:contains("Exterior Color"), dt:contains("Color")').next('dd').text().trim();
+    const exterior_color = colorSection || undefined;
+
+    // Extract transmission
+    const transSection = $('dt:contains("Transmission")').next('dd').text().trim();
+    const transmission = transSection ? (transSection.toLowerCase().includes('manual') ? 'Manual' : 'Automatic') : undefined;
+
+    // Extract model details from title
+    let model = '911'; // default
+    let trim: string | undefined;
+
+    if (title.toLowerCase().includes('cayman')) model = 'Cayman';
+    else if (title.toLowerCase().includes('boxster')) model = 'Boxster';
+
+    // Extract trim
+    const trimPatterns = ['GT4 RS', 'GT4', 'GT3 RS', 'GT3', 'GT2 RS', 'GT2', 'Turbo S', 'Turbo', 'Spyder', 'GTS', 'S', 'Carrera', 'Targa'];
+    for (const pattern of trimPatterns) {
+      if (title.includes(pattern)) {
+        trim = pattern;
+        break;
+      }
+    }
+
     return {
       source_url: url,
       title,
-      price: 0, // Would extract from page
+      price,
       status: 'sold',
       year,
-      // Additional fields would be extracted here
+      vin,
+      mileage,
+      sold_date: soldDate,
+      exterior_color,
+      transmission,
+      model,
+      trim,
     };
   }
 }

@@ -3,13 +3,14 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, Activity, AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, AlertTriangle, CheckCircle, Info, ChevronRight, BarChart3, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { MarketNarrative, MarketPhase, TrendData } from '@/lib/analytics/market-narrative';
 
 interface MarketNarrativeProps {
   model: string;
   trim: string;
+  generation: string;
   trends: TrendData;
   currentPrice: number;
   historicalData?: {
@@ -26,48 +27,56 @@ const phaseConfig: Record<MarketPhase['phase'], {
   icon: React.ReactNode;
   bgColor: string;
   borderColor: string;
+  gradient: string;
 }> = {
   bubble: {
     color: 'text-red-600',
     icon: <AlertTriangle className="w-4 h-4" />,
     bgColor: 'bg-red-50',
-    borderColor: 'border-red-200'
+    borderColor: 'border-red-200',
+    gradient: 'from-red-500 to-red-600'
   },
   peak: {
     color: 'text-orange-600',
     icon: <TrendingUp className="w-4 h-4" />,
     bgColor: 'bg-orange-50',
-    borderColor: 'border-orange-200'
+    borderColor: 'border-orange-200',
+    gradient: 'from-orange-500 to-orange-600'
   },
   correction: {
     color: 'text-yellow-600',
     icon: <TrendingDown className="w-4 h-4" />,
     bgColor: 'bg-yellow-50',
-    borderColor: 'border-yellow-200'
+    borderColor: 'border-yellow-200',
+    gradient: 'from-yellow-500 to-yellow-600'
   },
   recovery: {
     color: 'text-emerald-600',
     icon: <TrendingUp className="w-4 h-4" />,
     bgColor: 'bg-emerald-50',
-    borderColor: 'border-emerald-200'
+    borderColor: 'border-emerald-200',
+    gradient: 'from-emerald-500 to-emerald-600'
   },
   stable: {
     color: 'text-blue-600',
     icon: <CheckCircle className="w-4 h-4" />,
     bgColor: 'bg-blue-50',
-    borderColor: 'border-blue-200'
+    borderColor: 'border-blue-200',
+    gradient: 'from-blue-500 to-blue-600'
   },
   volatile: {
     color: 'text-purple-600',
     icon: <Activity className="w-4 h-4" />,
     bgColor: 'bg-purple-50',
-    borderColor: 'border-purple-200'
+    borderColor: 'border-purple-200',
+    gradient: 'from-purple-500 to-purple-600'
   }
 };
 
 export function MarketNarrativeCard({
   model,
   trim,
+  generation,
   trends,
   currentPrice,
   historicalData,
@@ -78,37 +87,45 @@ export function MarketNarrativeCard({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!trends || !currentPrice) {
+      setLoading(false);
+      return;
+    }
     fetchNarrative();
-  }, [model, trim, trends.threeMonth, trends.sixMonth, trends.oneYear]);
+  }, [model, trim, generation, trends, currentPrice]);
 
   const fetchNarrative = async () => {
     try {
-      setLoading(true);
-      setError(null);
-
       const response = await fetch('/api/analytics/narrative', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model,
           trim,
+          generation,
           trends,
           currentPrice,
           historicalData
         })
       });
 
-      if (!response.ok) {
+      if (response.status === 404) {
+        // No narrative available for this model/trim - this is expected for models with insufficient data
+        setNarrative(null);
+        setError(null);
+      } else if (!response.ok) {
         throw new Error('Failed to generate narrative');
+      } else {
+        const data = await response.json();
+        setNarrative(data);
       }
-
-      const data = await response.json();
-      setNarrative(data);
     } catch (err) {
       console.error('Error fetching narrative:', err);
       setError('Unable to generate market narrative');
-      // Use fallback narrative generation
-      generateFallbackNarrative();
+      // Only use fallback for actual errors, not for 404s
+      if (trends && currentPrice) {
+        generateFallbackNarrative();
+      }
     } finally {
       setLoading(false);
     }
@@ -123,16 +140,16 @@ export function MarketNarrativeCard({
 
     if (Math.abs(sixMonth) > Math.abs(oneYear) && Math.abs(sixMonth) > Math.abs(threeMonth) && sixMonth < -10) {
       phase = 'correction';
-      summary = `The ${model} ${trim} market peaked around 6 months ago and has corrected ${Math.abs(sixMonth).toFixed(1)}%.`;
+      summary = `The ${generation} ${model} ${trim} market peaked around 6 months ago and has corrected ${Math.abs(sixMonth).toFixed(1)}%.`;
     } else if (threeMonth > 10 && threeMonth > sixMonth) {
       phase = 'bubble';
-      summary = `The ${model} ${trim} market is accelerating with ${threeMonth.toFixed(1)}% gains in 3 months.`;
+      summary = `The ${generation} ${model} ${trim} market is accelerating with ${threeMonth.toFixed(1)}% gains in 3 months.`;
     } else if (threeMonth > 0 && sixMonth > 0 && oneYear > 0) {
       phase = 'stable';
-      summary = `The ${model} ${trim} market shows steady appreciation across all timeframes.`;
+      summary = `The ${generation} ${model} ${trim} market shows steady appreciation across all timeframes.`;
     } else {
       phase = 'volatile';
-      summary = `The ${model} ${trim} market shows mixed signals with varying trends.`;
+      summary = `The ${generation} ${model} ${trim} market shows mixed signals with varying trends.`;
     }
 
     setNarrative({
@@ -157,7 +174,7 @@ export function MarketNarrativeCard({
     return (
       <Card className={cn("animate-pulse", className)}>
         <CardHeader>
-          <CardTitle>Market Story</CardTitle>
+          <CardTitle>Market Analysis</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
@@ -177,108 +194,128 @@ export function MarketNarrativeCard({
   const phaseStyle = phaseConfig[narrative.marketPhase.phase];
 
   return (
-    <Card className={cn("relative overflow-hidden", className)}>
-      <div className={cn("absolute top-0 left-0 right-0 h-1", phaseStyle.bgColor)} />
+    <Card className={cn("relative overflow-hidden shadow-xl border-0 bg-gradient-to-br from-white to-gray-50", className)}>
+      {/* Top accent bar with gradient */}
+      <div className={cn("absolute top-0 left-0 right-0 h-2 bg-gradient-to-r", phaseStyle.gradient)} />
 
-      <CardHeader>
+      <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-semibold">Market Analysis</CardTitle>
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg">
+              <BarChart3 className="w-5 h-5 text-gray-700" />
+            </div>
+            <CardTitle className="text-xl font-bold text-gray-900">
+              {generation} {model} {trim} Market Analysis
+            </CardTitle>
+          </div>
           <Badge
             variant="outline"
             className={cn(
-              "flex items-center gap-1",
+              "flex items-center gap-1.5 px-4 py-2 font-semibold text-sm shadow-md border-2",
               phaseStyle.color,
               phaseStyle.bgColor,
               phaseStyle.borderColor
             )}
           >
             {phaseStyle.icon}
-            <span className="capitalize">{narrative.marketPhase.phase}</span>
+            <span className="capitalize font-bold">{narrative.marketPhase.phase}</span>
           </Badge>
         </div>
       </CardHeader>
 
-      <CardContent>
-        <div className="grid gap-4 md:grid-cols-2">
-          {/* Left Column - Summary & Recommendation */}
-          <div className="space-y-4">
-            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              Market Overview
-            </h4>
-            {/* Summary with Icon */}
-            <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
-              <div className={cn("p-1.5 rounded-full", phaseStyle.bgColor)}>
-                {phaseStyle.icon}
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900 leading-relaxed">
-                  {narrative.summary}
-                </p>
-                <p className="text-xs text-gray-600 mt-2">
-                  {narrative.detailedStory}
-                </p>
-              </div>
+      <CardContent className="space-y-6 pt-2">
+        {/* Market Story Section - Full Width */}
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-transparent to-purple-50/50 rounded-2xl" />
+          <div className="relative p-6 rounded-2xl backdrop-blur-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <div className={cn("w-3 h-3 rounded-full animate-pulse", phaseStyle.bgColor.replace('50', '500').replace('bg-', 'bg-'))} />
+              <h3 className="text-sm font-black text-gray-900 uppercase tracking-wide">
+                Market Story
+              </h3>
             </div>
 
-            {/* Recommendation Box */}
+            <p className="text-lg font-semibold text-gray-900 leading-relaxed mb-4">
+              {narrative.summary}
+            </p>
+
+            <div className="pl-4 border-l-4 border-gray-200">
+              <p className="text-sm text-gray-600 leading-relaxed italic">
+                {narrative.detailedStory}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Key Insights */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="w-5 h-5 text-gray-700" />
+              <h4 className="text-sm font-black text-gray-900 uppercase tracking-wide">
+                Key Insights
+              </h4>
+            </div>
+            <div className="space-y-3">
+              {narrative.keyInsights.map((insight, index) => (
+                <div key={index} className="flex items-start gap-3 group hover:bg-gray-50 p-2 rounded-lg transition-colors">
+                  <div className={cn(
+                    "w-2 h-2 rounded-full mt-1.5 flex-shrink-0 transition-all group-hover:scale-150",
+                    phaseStyle.bgColor.replace('50', '400').replace('bg-', 'bg-')
+                  )} />
+                  <p className="text-sm text-gray-700 font-medium leading-relaxed">
+                    {insight}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Recommendation & Confidence */}
+          <div className="space-y-4">
+            {/* Recommendation */}
             <div className={cn(
-              "p-4 rounded-lg border-2",
+              "p-5 rounded-2xl border-2 shadow-md",
               phaseStyle.bgColor,
               phaseStyle.borderColor
             )}>
               <div className="flex items-center gap-2 mb-3">
-                <div className={cn("p-1 rounded", phaseStyle.color)}>
-                  {phaseStyle.icon}
-                </div>
-                <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wide">
-                  Action Plan
+                <Target className={cn("w-5 h-5", phaseStyle.color)} />
+                <h4 className="text-sm font-black text-gray-900 uppercase tracking-wide">
+                  Recommendation
                 </h4>
               </div>
-              <p className="text-sm text-gray-700 font-medium leading-relaxed ml-7">
+              <p className="text-sm text-gray-800 leading-relaxed font-semibold">
                 {narrative.recommendation}
               </p>
             </div>
-          </div>
-
-          {/* Right Column - Insights & Confidence */}
-          <div className="space-y-4">
-            {/* Key Insights as Cards */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                Key Insights
-              </h4>
-              <div className="grid gap-2">
-                {narrative.keyInsights.map((insight, index) => (
-                  <div key={index} className="flex items-center gap-2 p-3 bg-blue-50 rounded-md border-l-3 border-blue-400">
-                    <Info className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                    <span className="text-sm text-blue-900 font-medium">{insight}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
 
             {/* Confidence Meter */}
-            <div className="p-4 bg-gray-50 rounded-lg">
+            <div className="p-5 bg-gradient-to-br from-gray-100 to-gray-50 rounded-2xl shadow-inner">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-gray-600">Analysis Confidence</span>
-                <span className="text-lg font-bold text-gray-800">
-                  {Math.round(narrative.confidence * 100)}%
+                <span className="text-xs font-black uppercase tracking-wide text-gray-600">
+                  Analysis Confidence
+                </span>
+                <span className="text-2xl font-black text-gray-900">
+                  {(narrative.confidence * 100).toFixed(0)}%
                 </span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-3">
+              <div className="w-full bg-gray-300 rounded-full h-3 overflow-hidden shadow-inner">
                 <div
                   className={cn(
-                    "h-3 rounded-full transition-all duration-300",
-                    narrative.confidence > 0.8 ? "bg-green-500" :
-                    narrative.confidence > 0.6 ? "bg-yellow-500" : "bg-red-500"
+                    "h-3 rounded-full transition-all duration-1000 ease-out bg-gradient-to-r shadow-sm",
+                    narrative.confidence >= 0.8 ? "from-green-400 to-green-600" :
+                    narrative.confidence >= 0.6 ? "from-yellow-400 to-yellow-600" :
+                    "from-orange-400 to-orange-600"
                   )}
                   style={{ width: `${narrative.confidence * 100}%` }}
                 />
               </div>
-              <div className="flex justify-between text-xs text-gray-500 mt-2">
-                <span>Low</span>
-                <span>High</span>
-              </div>
+              <p className="text-xs text-gray-500 mt-3 font-medium">
+                {narrative.confidence >= 0.8 ? "✓ High confidence based on robust data" :
+                 narrative.confidence >= 0.6 ? "⚡ Moderate confidence, trends emerging" :
+                 "⚠ Limited data available for analysis"}
+              </p>
             </div>
           </div>
         </div>
@@ -287,75 +324,9 @@ export function MarketNarrativeCard({
   );
 }
 
-/**
- * Compact version for inline display
- */
-export function MarketNarrativeInline({
-  narrative,
-  className
-}: {
-  narrative: MarketNarrative;
-  className?: string;
-}) {
-  const phaseStyle = phaseConfig[narrative.marketPhase.phase];
-
-  return (
-    <div className={cn("flex items-center gap-3", className)}>
-      <Badge
-        variant="outline"
-        className={cn(
-          "flex items-center gap-1",
-          phaseStyle.color,
-          phaseStyle.bgColor,
-          phaseStyle.borderColor
-        )}
-      >
-        {phaseStyle.icon}
-        <span className="capitalize">{narrative.marketPhase.phase}</span>
-      </Badge>
-      <p className="text-sm text-gray-600 flex-1">
-        {narrative.summary}
-      </p>
-    </div>
-  );
-}
-
-/**
- * Market phase indicator badge
- */
-export function MarketPhaseBadge({
-  phase,
-  size = 'default',
-  showIcon = true,
-  className
-}: {
-  phase: MarketPhase['phase'];
-  size?: 'small' | 'default' | 'large';
-  showIcon?: boolean;
-  className?: string;
-}) {
-  const phaseStyle = phaseConfig[phase];
-
-  const sizeClasses = {
-    small: 'text-xs px-2 py-0.5',
-    default: 'text-sm px-3 py-1',
-    large: 'text-base px-4 py-2'
-  };
-
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "inline-flex items-center gap-1 font-medium",
-        sizeClasses[size],
-        phaseStyle.color,
-        phaseStyle.bgColor,
-        phaseStyle.borderColor,
-        className
-      )}
-    >
-      {showIcon && phaseStyle.icon}
-      <span className="capitalize">{phase}</span>
-    </Badge>
-  );
+// Simplified export for backward compatibility
+export function MarketNarrative({ model, trim, generation }: { model: string; trim: string; generation: string }) {
+  // This is a placeholder that would need to fetch the actual data
+  // In real usage, the parent component should provide the trends and price data
+  return null;
 }

@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS market_narratives (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   model TEXT NOT NULL,
   trim TEXT NOT NULL,
+  generation TEXT NOT NULL,
   summary TEXT NOT NULL,
   detailed_story TEXT NOT NULL,
   market_phase JSONB NOT NULL,
@@ -14,12 +15,12 @@ CREATE TABLE IF NOT EXISTS market_narratives (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 
-  -- Unique constraint on model+trim combination
-  UNIQUE(model, trim)
+  -- Unique constraint on model+trim+generation combination
+  UNIQUE(model, trim, generation)
 );
 
 -- Create index for faster lookups
-CREATE INDEX IF NOT EXISTS idx_market_narratives_model_trim ON market_narratives(model, trim);
+CREATE INDEX IF NOT EXISTS idx_market_narratives_model_trim_gen ON market_narratives(model, trim, generation);
 CREATE INDEX IF NOT EXISTS idx_market_narratives_updated_at ON market_narratives(updated_at);
 
 -- Add RLS policies

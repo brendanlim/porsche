@@ -100,6 +100,7 @@ export function interpretTrends(trends: TrendData): {
 export async function generateMarketNarrative(
   model: string,
   trim: string,
+  generation: string,
   trends: TrendData,
   currentPrice: number,
   historicalData?: {
@@ -118,7 +119,7 @@ export async function generateMarketNarrative(
 
   // Build context for OpenAI
   const trendContext = `
-    Model: ${model} ${trim}
+    Model: ${generation} ${model} ${trim}
     Current Average Price: $${currentPrice.toLocaleString()}
 
     Price Trends:
@@ -191,7 +192,7 @@ export async function generateMarketNarrative(
     console.error('Error generating narrative with OpenAI:', error);
 
     // Fallback to rule-based narrative
-    return generateFallbackNarrative(model, trim, trends, pattern, phase, interpretation);
+    return generateFallbackNarrative(model, trim, generation, trends, pattern, phase, interpretation);
   }
 }
 
@@ -201,6 +202,7 @@ export async function generateMarketNarrative(
 function generateFallbackNarrative(
   model: string,
   trim: string,
+  generation: string,
   trends: TrendData,
   pattern: string,
   phase: MarketPhase['phase'],

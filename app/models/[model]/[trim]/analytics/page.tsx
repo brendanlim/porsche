@@ -299,6 +299,12 @@ export default function TrimAnalyticsPage() {
       // Always update all generations if we're fetching with 'all'
       if (selectedGeneration === 'all' && data.generations && data.generations.length > 0) {
         setAllGenerations(data.generations);
+
+        // If there's only one generation and we're on 'all', automatically select it
+        if (data.generations.length === 1 && !searchParams.get('generation')) {
+          setSelectedGeneration(data.generations[0]);
+          updateUrlParams(data.generations[0], timeRange);
+        }
       }
     } catch (error) {
       console.error('Failed to fetch analytics:', error);
@@ -467,23 +473,27 @@ export default function TrimAnalyticsPage() {
           />
         </div>
 
-        {/* Market Analysis */}
-        <MarketNarrativeCard
-          model={modelDisplay}
-          trim={trimDisplay}
-          trends={{
-            threeMonth: analytics.wowAppreciation,
-            sixMonth: analytics.momAppreciation,
-            oneYear: analytics.yoyAppreciation
-          }}
-          currentPrice={analytics.averagePrice}
-          historicalData={analytics.salesData && analytics.salesData.length > 0 ? {
-            avgPrice30Days: analytics.averagePrice,
-            avgPrice90Days: analytics.averagePrice,
-            volumeLast30Days: Math.min(analytics.totalListings, 10),
-            volumeLast90Days: Math.min(analytics.totalListings, 30)
-          } : undefined}
-        />
+        {/* Market Analysis - Only show for specific generation */}
+        {selectedGeneration !== 'all' && (
+          <MarketNarrativeCard
+            key={`${model}-${trim}-${selectedGeneration}`}
+            model={modelDisplay}
+            trim={trimDisplay}
+            generation={selectedGeneration}
+            trends={{
+              threeMonth: analytics.wowAppreciation,
+              sixMonth: analytics.momAppreciation,
+              oneYear: analytics.yoyAppreciation
+            }}
+            currentPrice={analytics.averagePrice}
+            historicalData={analytics.salesData && analytics.salesData.length > 0 ? {
+              avgPrice30Days: analytics.averagePrice,
+              avgPrice90Days: analytics.averagePrice,
+              volumeLast30Days: Math.min(analytics.totalListings, 10),
+              volumeLast90Days: Math.min(analytics.totalListings, 30)
+            } : undefined}
+          />
+        )}
 
         {/* Historical Price Trends */}
         <Card>

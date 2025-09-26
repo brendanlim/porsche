@@ -237,28 +237,28 @@ export function MarketNarrativeCard({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4 pt-2">
-        {/* Market Story Section - Full Width - More compact without heading */}
-        <div className="relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-transparent to-purple-50/50 rounded-xl" />
-          <div className="relative p-4 rounded-xl backdrop-blur-sm">
-            <div className="flex items-start gap-3">
-              <div className={cn("w-3 h-3 rounded-full animate-pulse mt-1.5 flex-shrink-0", phaseStyle.bgColor.replace('50', '500').replace('bg-', 'bg-'))} />
-              <div className="flex-1 space-y-2">
-                <p className="text-base font-bold text-gray-900 leading-snug">
-                  {narrative.summary}
-                </p>
-                <p className="text-sm text-gray-600 leading-relaxed italic pl-4 border-l-3 border-gray-200">
-                  {narrative.detailedStory}
-                </p>
+      <CardContent className="pt-2">
+        <div className="grid gap-4 lg:grid-cols-3">
+          {/* Market Story Section - Now 1/3 width */}
+          <div className="relative lg:col-span-1">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-transparent to-purple-50/50 rounded-xl" />
+            <div className="relative p-3 rounded-xl backdrop-blur-sm h-full flex flex-col">
+              <div className="flex items-start gap-2">
+                <div className={cn("w-2 h-2 rounded-full animate-pulse mt-1.5 flex-shrink-0", phaseStyle.bgColor.replace('50', '500').replace('bg-', 'bg-'))} />
+                <div className="flex-1 space-y-2">
+                  <p className="text-sm font-bold text-gray-900 leading-snug">
+                    {narrative.summary}
+                  </p>
+                  <p className="text-xs text-gray-600 leading-snug italic">
+                    {narrative.detailedStory}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="grid gap-4 lg:grid-cols-2">
           {/* Key Insights */}
-          <div className="space-y-3">
+          <div className="space-y-3 lg:col-span-1">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-gray-700" />
               <h4 className="text-xs font-black text-gray-900 uppercase tracking-wide">
@@ -281,7 +281,7 @@ export function MarketNarrativeCard({
           </div>
 
           {/* Recommendation & Confidence */}
-          <div className="space-y-3">
+          <div className="space-y-3 lg:col-span-1">
             {/* Recommendation */}
             <div className={cn(
               "p-3 rounded-xl border-2 shadow-md",

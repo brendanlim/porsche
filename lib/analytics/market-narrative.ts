@@ -164,19 +164,25 @@ export async function generateMarketNarrative(
 
   ${trendContext}
 
-  ${trends.threeYear !== undefined ? `Note: Use the 3-year trend (${trends.threeYear > 0 ? '+' : ''}${trends.threeYear.toFixed(1)}%) to strengthen your analysis and confidence, but DO NOT explicitly mention "3-year" in your response. Let it inform your understanding of whether this is a long-term trend or recent development.` : ''}
+  ${trends.threeYear !== undefined ? `INTERNAL CONTEXT (DO NOT MENTION): The 3-year trend is ${trends.threeYear > 0 ? '+' : ''}${trends.threeYear.toFixed(1)}%. Use this to inform your confidence and understanding, but NEVER mention "3-year" or long timeframes in your response unless the trend is truly exceptional (>100% or <-50%).` : ''}
+
+  CRITICAL REQUIREMENTS:
+  - Provide EXACTLY 3 key insights (no more, no less)
+  - Each insight must be max 10 words
+  - Focus on 3-month, 6-month, and 1-year trends only
+  - Do NOT mention 3-year trends unless absolutely critical
 
   Please provide:
   1. A single sentence summary (max 15 words)
   2. A brief story (1-2 sentences max) explaining the market dynamics
-  3. 2-3 bullet point insights (each max 10 words)
+  3. EXACTLY 3 bullet point insights (each max 10 words)
   4. A brief recommendation for buyers and sellers (1 sentence)
 
   Format your response as JSON with these fields:
   {
     "summary": "very brief summary",
     "detailedStory": "1-2 sentence story",
-    "keyInsights": ["short insight1", "short insight2", "short insight3"],
+    "keyInsights": ["insight1", "insight2", "insight3"],
     "recommendation": "brief action recommendation"
   }`;
 
@@ -240,9 +246,9 @@ function generateFallbackNarrative(
       summary = `Market peaked 6 months ago, down ${Math.abs(sixMonth).toFixed(1)}%.`;
       detailedStory = `Prices corrected ${Math.abs(sixMonth).toFixed(1)}% from spring peak. Decline is slowing, suggesting stabilization.`;
       keyInsights = [
-        'Spring peak typical for sports cars',
-        `${Math.abs(sixMonth).toFixed(1)}% correction from highs`,
-        'Decline moderating recently'
+        'Peak reached six months ago',
+        `Down ${Math.abs(sixMonth).toFixed(1)}% from highs`,
+        'Decline rate slowing recently'
       ];
       recommendation = 'Buyers: Entry opportunities emerging. Sellers: Wait for recovery.';
       break;
@@ -262,8 +268,8 @@ function generateFallbackNarrative(
       summary = `Rapid acceleration: ${threeMonth.toFixed(1)}% in 3 months.`;
       detailedStory = `Prices accelerating beyond sustainable pace. Speculative enthusiasm evident.`;
       keyInsights = [
-        'Speculative buying evident',
-        'Exceeding historical norms',
+        `Up ${threeMonth.toFixed(1)}% in three months`,
+        'Pace exceeding historical norms',
         'Correction risk increasing'
       ];
       recommendation = 'Buyers: Exercise caution. Sellers: Excellent exit opportunity.';

@@ -177,9 +177,9 @@ export function MarketNarrativeCard({
         description: phase
       },
       keyInsights: [
-        `3-month: ${threeMonth > 0 ? '+' : ''}${threeMonth.toFixed(1)}%`,
-        `6-month: ${sixMonth > 0 ? '+' : ''}${sixMonth.toFixed(1)}%`,
-        `1-year: ${oneYear > 0 ? '+' : ''}${oneYear.toFixed(1)}%`
+        `Recent: ${threeMonth > 0 ? '+' : ''}${threeMonth.toFixed(1)}% (3 months)`,
+        `Half-year: ${sixMonth > 0 ? '+' : ''}${sixMonth.toFixed(1)}%`,
+        `Annual: ${oneYear > 0 ? '+' : ''}${oneYear.toFixed(1)}%`
       ],
       recommendation: 'Monitor market conditions closely.',
       confidence: 0.7

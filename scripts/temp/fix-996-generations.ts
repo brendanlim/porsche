@@ -17,14 +17,14 @@ async function fixGenerations() {
   // Check GT3 generation distribution
   const { data: generations } = await supabase
     .from('listings')
-    .select('generation, generation_code')
+    .select('generation')
     .eq('model', '911')
     .ilike('trim', '%GT3%')
     .not('generation', 'is', null);
 
   const genCounts: Record<string, number> = {};
   generations?.forEach(row => {
-    const gen = row.generation || row.generation_code || 'unknown';
+    const gen = row.generation || 'unknown';
     genCounts[gen] = (genCounts[gen] || 0) + 1;
   });
 
@@ -40,8 +40,8 @@ async function fixGenerations() {
 
   const { data: variantListings, error } = await supabase
     .from('listings')
-    .select('id, generation, generation_code, model, trim')
-    .or('generation.like.%.1,generation.like.%.2,generation_code.like.%.1,generation_code.like.%.2');
+    .select('id, generation, model, trim')
+    .like('generation', '%.%');
 
   if (error) {
     console.error('Error fetching variants:', error);
@@ -61,18 +61,10 @@ async function fixGenerations() {
   variantListings.forEach(row => {
     if (row.generation?.includes('.')) {
       const base = row.generation.split('.')[0];
-      if (!updateMap[`generation:${row.generation}→${base}`]) {
-        updateMap[`generation:${row.generation}→${base}`] = [];
+      if (!updateMap[`${row.generation}→${base}`]) {
+        updateMap[`${row.generation}→${base}`] = [];
       }
-      updateMap[`generation:${row.generation}→${base}`].push(row.id);
-    }
-
-    if (row.generation_code?.includes('.')) {
-      const base = row.generation_code.split('.')[0];
-      if (!updateMap[`generation_code:${row.generation_code}→${base}`]) {
-        updateMap[`generation_code:${row.generation_code}→${base}`] = [];
-      }
-      updateMap[`generation_code:${row.generation_code}→${base}`].push(row.id);
+      updateMap[`${row.generation}→${base}`].push(row.id);
     }
   });
 
@@ -88,47 +80,41 @@ async function fixGenerations() {
   // Perform the updates
   console.log('\n🔧 Normalizing generations...');
 
-  // Fix generation field
-  const { error: genError, count: genCount } = await supabase
-    .from('listings')
-    .update({
-      generation: supabase.sql`SPLIT_PART(generation, '.', 1)`
-    })
-    .like('generation', '%.%');
+  // Fix generation field by removing .1 and .2 suffixes
+  let totalUpdated = 0;
 
-  if (genError) {
-    console.error('Error updating generation:', genError);
-  } else {
-    console.log(`✅ Updated ${genCount || 0} listings with generation normalization`);
+  // Update each variant type separately for better control
+  for (const [change, ids] of Object.entries(updateMap)) {
+    const [oldGen, newGen] = change.split('→');
+
+    const { error, count } = await supabase
+      .from('listings')
+      .update({ generation: newGen })
+      .in('id', ids);
+
+    if (error) {
+      console.error(`Error updating ${oldGen}→${newGen}:`, error);
+    } else {
+      console.log(`✅ Updated ${count || 0} listings: ${oldGen} → ${newGen}`);
+      totalUpdated += count || 0;
+    }
   }
 
-  // Fix generation_code field
-  const { error: codeError, count: codeCount } = await supabase
-    .from('listings')
-    .update({
-      generation_code: supabase.sql`SPLIT_PART(generation_code, '.', 1)`
-    })
-    .like('generation_code', '%.%');
-
-  if (codeError) {
-    console.error('Error updating generation_code:', codeError);
-  } else {
-    console.log(`✅ Updated ${codeCount || 0} listings with generation_code normalization`);
-  }
+  console.log(`\n✅ Total: Updated ${totalUpdated} listings with generation normalization`);
 
   // Verify the fix
   console.log('\n📊 Verifying normalization...');
 
   const { data: afterCheck } = await supabase
     .from('listings')
-    .select('generation, generation_code')
+    .select('generation')
     .eq('model', '911')
     .ilike('trim', '%GT3%')
     .not('generation', 'is', null);
 
   const afterCounts: Record<string, number> = {};
   afterCheck?.forEach(row => {
-    const gen = row.generation || row.generation_code || 'unknown';
+    const gen = row.generation || 'unknown';
     afterCounts[gen] = (afterCounts[gen] || 0) + 1;
   });
 

@@ -23,12 +23,12 @@ interface ModelTrimGenerationCombo {
 async function getModelsWithSufficientData(): Promise<ModelTrimGenerationCombo[]> {
   console.log('Finding models/trims/generations with sufficient data for analysis...');
 
-  // Get models and trims that have enough data points for trend analysis
-  // We need at least 10 sales in the past year for reliable trends
+  // Get models and trims that have any sales data
+  // Work with whatever data is available - even rare models with few sales
   const { data, error } = await supabase.rpc('get_models_with_sufficient_data', {
-    min_listings_year: 10,
-    min_listings_six_months: 5,
-    min_listings_three_months: 3
+    min_listings_year: 1,  // Even 1 sale provides market signal
+    min_listings_six_months: 0,  // Optional
+    min_listings_three_months: 0  // Optional
   });
 
   if (error) {
@@ -57,9 +57,7 @@ async function getModelsWithSufficientData(): Promise<ModelTrimGenerationCombo[]
         year_count as listing_count,
         avg_price
       FROM model_trim_gen_counts
-      WHERE year_count >= 10
-        AND six_month_count >= 5
-        AND three_month_count >= 3
+      WHERE year_count >= 1  -- Any sales data is valuable
       ORDER BY model, trim, generation;
     `;
 
@@ -96,10 +94,10 @@ async function getModelsWithSufficientData(): Promise<ModelTrimGenerationCombo[]
       });
     });
 
-    // Filter for sufficient data and format
+    // Include any model with sales data
     const result: ModelTrimGenerationCombo[] = [];
     counts.forEach((count, key) => {
-      if (count >= 10) {
+      if (count >= 1) {  // Even single sales provide value for rare models
         const mtg = modelTrimGens.get(key);
         const prices = avgPrices.get(key) || [];
         if (mtg) {

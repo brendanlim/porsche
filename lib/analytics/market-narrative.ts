@@ -1,10 +1,12 @@
 import OpenAI from 'openai';
 
 export interface TrendData {
-  threeMonth: number;
-  sixMonth: number;
-  oneYear: number;
+  threeMonth?: number;  // May not have enough recent data
+  sixMonth?: number;   // May not have enough data
+  oneYear?: number;    // May not have enough data
   threeYear?: number; // Optional 3-year trend as minor data point
+  allTime?: number;   // All-time trend for rare models
+  dataPoints?: number; // Number of sales used for analysis
 }
 
 export interface MarketPhase {
@@ -30,7 +32,37 @@ export function interpretTrends(trends: TrendData): {
   phase: MarketPhase['phase'];
   interpretation: string;
 } {
-  const { threeMonth, sixMonth, oneYear, threeYear } = trends;
+  const { threeMonth = 0, sixMonth = 0, oneYear = 0, threeYear, allTime, dataPoints } = trends;
+
+  // Handle limited data scenarios
+  if (dataPoints && dataPoints < 10) {
+    // For rare models with limited sales, focus on all-time or available trends
+    if (allTime !== undefined) {
+      if (allTime > 50) {
+        return {
+          pattern: 'strong all-time appreciation',
+          phase: 'stable',
+          interpretation: `Rare model showing strong long-term value appreciation. Limited but consistent market activity.`
+        };
+      } else if (allTime < -20) {
+        return {
+          pattern: 'long-term depreciation',
+          phase: 'correction',
+          interpretation: `Values have softened over time. Limited market activity suggests selective demand.`
+        };
+      }
+    }
+
+    // If we only have partial data, work with what we have
+    const availableTrend = oneYear || sixMonth || threeMonth || 0;
+    if (availableTrend !== 0) {
+      return {
+        pattern: 'limited data trend',
+        phase: availableTrend > 0 ? 'stable' : 'correction',
+        interpretation: `Limited sales data shows ${availableTrend > 0 ? 'positive' : 'negative'} trend. Rare model with selective market activity.`
+      };
+    }
+  }
 
   // Peak Detection - 6 month is the most negative
   if (Math.abs(sixMonth) > Math.abs(oneYear) && Math.abs(sixMonth) > Math.abs(threeMonth) && sixMonth < -10) {

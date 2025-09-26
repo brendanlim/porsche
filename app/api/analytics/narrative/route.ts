@@ -91,14 +91,33 @@ export async function POST(req: NextRequest) {
       .not('sold_date', 'is', null)
       .gte('sold_date', new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString());
 
-    // Check if we have sufficient data (at least 10 listings in past year)
-    if (!listingCount || listingCount < 10) {
-      console.log(`Insufficient data for ${generation} ${model} ${trim}: only ${listingCount || 0} listings in past year`);
-      console.log('Note: This might be due to model name mismatch. Check if model names in DB match the request.');
-      return NextResponse.json(
-        { error: 'Insufficient data for market narrative' },
-        { status: 404 }
-      );
+    // Dynamic threshold based on actual data availability
+    // If we have ANY sales data, we can generate a narrative
+    // More data = higher confidence, but even 1-2 sales provide market signal for rare models
+
+    if (!listingCount || listingCount < 1) {
+      console.log(`No sales data for ${generation} ${model} ${trim} in past year`);
+
+      // Try to get ANY historical data for this model/trim/generation
+      const { count: allTimeCount } = await supabase
+        .from('listings')
+        .select('*', { count: 'exact', head: true })
+        .ilike('model', `%${model.replace('-', ' ')}%`)
+        .ilike('trim', trim)
+        .eq('generation', generation)
+        .not('sold_date', 'is', null);
+
+      if (!allTimeCount || allTimeCount < 1) {
+        console.log(`No historical sales data available for ${generation} ${model} ${trim}`);
+        return NextResponse.json(
+          { error: 'No sales data available for market narrative' },
+          { status: 404 }
+        );
+      }
+
+      console.log(`Using all-time data for ${generation} ${model} ${trim} (${allTimeCount} total sales)`);
+    } else {
+      console.log(`Generating narrative for ${generation} ${model} ${trim} (${listingCount} sales in past year)`);
     }
 
     console.log(`Generating new narrative for ${generation} ${model} ${trim} (${listingCount} listings)`);

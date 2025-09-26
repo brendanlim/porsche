@@ -4,6 +4,7 @@ export interface TrendData {
   threeMonth: number;
   sixMonth: number;
   oneYear: number;
+  threeYear?: number; // Optional 3-year trend as minor data point
 }
 
 export interface MarketPhase {
@@ -29,7 +30,7 @@ export function interpretTrends(trends: TrendData): {
   phase: MarketPhase['phase'];
   interpretation: string;
 } {
-  const { threeMonth, sixMonth, oneYear } = trends;
+  const { threeMonth, sixMonth, oneYear, threeYear } = trends;
 
   // Peak Detection - 6 month is the most negative
   if (Math.abs(sixMonth) > Math.abs(oneYear) && Math.abs(sixMonth) > Math.abs(threeMonth) && sixMonth < -10) {
@@ -67,13 +68,28 @@ export function interpretTrends(trends: TrendData): {
     };
   }
 
-  // Steady Appreciation
+  // Steady Appreciation - Use 3-year trend internally for better analysis
   if (threeMonth > 0 && sixMonth > 0 && oneYear > 0 &&
       Math.abs(threeMonth - sixMonth) < 5 && Math.abs(sixMonth - oneYear) < 5) {
+    let pattern = 'steady appreciation';
+    let interpretation = 'The market is showing healthy, consistent appreciation. This sustainable growth pattern typically indicates strong fundamentals.';
+
+    // Use 3-year data to refine our understanding (without mentioning it explicitly)
+    if (threeYear !== undefined) {
+      if (threeYear > oneYear * 2) {
+        // Long-term gains strengthen our confidence
+        interpretation = 'The market demonstrates exceptional strength with sustained appreciation. Collector demand remains robust.';
+      } else if (threeYear < 0 && oneYear > 0) {
+        // Recovery context changes the narrative
+        interpretation = 'Strong recovery momentum is building. Values are returning to historical norms as market confidence returns.';
+        pattern = 'recovery momentum';
+      }
+    }
+
     return {
-      pattern: 'steady appreciation',
+      pattern,
       phase: 'stable',
-      interpretation: 'The market is showing healthy, consistent appreciation. This sustainable growth pattern typically indicates strong fundamentals.'
+      interpretation
     };
   }
 
@@ -126,6 +142,7 @@ export async function generateMarketNarrative(
     - 3-Month: ${trends.threeMonth > 0 ? '+' : ''}${trends.threeMonth.toFixed(2)}%
     - 6-Month: ${trends.sixMonth > 0 ? '+' : ''}${trends.sixMonth.toFixed(2)}%
     - 1-Year: ${trends.oneYear > 0 ? '+' : ''}${trends.oneYear.toFixed(2)}%
+    ${trends.threeYear !== undefined ? `- 3-Year: ${trends.threeYear > 0 ? '+' : ''}${trends.threeYear.toFixed(2)}% (long-term context)` : ''}
 
     Detected Pattern: ${pattern}
     Market Phase: ${phase}
@@ -146,6 +163,8 @@ export async function generateMarketNarrative(
   const userPrompt = `Based on the following market data, generate a concise market narrative:
 
   ${trendContext}
+
+  ${trends.threeYear !== undefined ? `Note: Use the 3-year trend (${trends.threeYear > 0 ? '+' : ''}${trends.threeYear.toFixed(1)}%) to strengthen your analysis and confidence, but DO NOT explicitly mention "3-year" in your response. Let it inform your understanding of whether this is a long-term trend or recent development.` : ''}
 
   Please provide:
   1. A single sentence summary (max 15 words)
@@ -208,7 +227,7 @@ function generateFallbackNarrative(
   phase: MarketPhase['phase'],
   interpretation: string
 ): MarketNarrative {
-  const { threeMonth, sixMonth, oneYear } = trends;
+  const { threeMonth, sixMonth, oneYear, threeYear } = trends;
 
   let summary = '';
   let detailedStory = '';
@@ -279,7 +298,7 @@ function generateFallbackNarrative(
  * Calculates confidence score based on trend consistency
  */
 function calculateConfidence(trends: TrendData): number {
-  const { threeMonth, sixMonth, oneYear } = trends;
+  const { threeMonth, sixMonth, oneYear, threeYear } = trends;
 
   // Start with base confidence
   let confidence = 0.5;
@@ -297,6 +316,16 @@ function calculateConfidence(trends: TrendData): number {
   // Large movements increase confidence (more signal)
   if (Math.abs(sixMonth) > 15) {
     confidence += 0.1;
+  }
+
+  // 3-year data significantly boosts confidence when available
+  if (threeYear !== undefined) {
+    confidence += 0.15; // Having long-term data increases confidence
+
+    // Consistent long-term trend adds more confidence
+    if (Math.sign(threeYear) === Math.sign(oneYear) && Math.sign(oneYear) === Math.sign(sixMonth)) {
+      confidence += 0.1;
+    }
   }
 
   // Very small movements decrease confidence

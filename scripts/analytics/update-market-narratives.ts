@@ -158,14 +158,19 @@ async function updateNarrative(model: string, trim: string, generation: string, 
       .lte('sold_date', new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000 + 30 * 24 * 60 * 60 * 1000).toISOString())
       .limit(30);
 
+    // Only calculate 3-year trend if we have sufficient historical data
+    // Many models won't have 3 years of history and that's perfectly fine
     if (historicalData && historicalData.length >= 5) {
       const avgThreeYearPrice = historicalData.reduce((sum, d) => sum + (d.price || 0), 0) / historicalData.length;
       const currentPrice = avgPrice || analytics.averagePrice;
       if (avgThreeYearPrice > 0 && currentPrice > 0) {
         threeYearTrend = ((currentPrice - avgThreeYearPrice) / avgThreeYearPrice) * 100;
-        console.log(`    📊 3-year trend: ${threeYearTrend > 0 ? '+' : ''}${threeYearTrend.toFixed(1)}% (strengthens confidence)`);
+        console.log(`    📊 3-year trend available: ${threeYearTrend > 0 ? '+' : ''}${threeYearTrend.toFixed(1)}% (strengthens confidence)`);
       }
+    } else if (historicalData && historicalData.length > 0) {
+      console.log(`    📊 Limited historical data (${historicalData.length} sales from 3 years ago)`);
     }
+    // No log if no 3-year data - this is expected for newer models
 
     const trends: TrendData = {
       threeMonth: analytics.wowAppreciation || 0,

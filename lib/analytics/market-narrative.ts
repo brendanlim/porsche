@@ -324,15 +324,21 @@ function calculateConfidence(trends: TrendData): number {
     confidence += 0.1;
   }
 
-  // 3-year data significantly boosts confidence when available
-  if (threeYear !== undefined) {
+  // 3-year data boosts confidence when available (but many models won't have it)
+  if (threeYear !== undefined && !isNaN(threeYear)) {
     confidence += 0.15; // Having long-term data increases confidence
 
     // Consistent long-term trend adds more confidence
     if (Math.sign(threeYear) === Math.sign(oneYear) && Math.sign(oneYear) === Math.sign(sixMonth)) {
       confidence += 0.1;
     }
+
+    // Very strong 3-year trends (>50% change) add extra confidence
+    if (Math.abs(threeYear) > 50) {
+      confidence += 0.05;
+    }
   }
+  // Note: No penalty for missing 3-year data - it's expected for newer models
 
   // Very small movements decrease confidence
   if (Math.abs(threeMonth) < 2 && Math.abs(sixMonth) < 2 && Math.abs(oneYear) < 2) {

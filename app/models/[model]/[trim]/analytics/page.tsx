@@ -284,6 +284,27 @@ export default function TrimAnalyticsPage() {
     }
   };
 
+  // Memoize narrative props to prevent unnecessary re-renders
+  // Must be OUTSIDE conditionals to follow Rules of Hooks
+  const narrativeTrends = useMemo(() =>
+    analytics ? {
+      threeMonth: analytics.wowAppreciation,
+      sixMonth: analytics.momAppreciation,
+      oneYear: analytics.yoyAppreciation
+    } : null,
+    [analytics?.wowAppreciation, analytics?.momAppreciation, analytics?.yoyAppreciation]
+  );
+
+  const narrativeHistoricalData = useMemo(() =>
+    analytics?.salesData && analytics.salesData.length > 0 ? {
+      avgPrice30Days: analytics.averagePrice,
+      avgPrice90Days: analytics.averagePrice,
+      volumeLast30Days: Math.min(analytics.totalListings, 10),
+      volumeLast90Days: Math.min(analytics.totalListings, 30)
+    } : undefined,
+    [analytics?.salesData, analytics?.averagePrice, analytics?.totalListings]
+  );
+
   const fetchAnalytics = async () => {
     try {
       const genParam = selectedGeneration !== 'all' ? `&generation=${selectedGeneration}` : '';
@@ -474,26 +495,15 @@ export default function TrimAnalyticsPage() {
         </div>
 
         {/* Market Analysis - Only show for specific generation */}
-        {selectedGeneration !== 'all' && analytics && (
+        {selectedGeneration !== 'all' && analytics && narrativeTrends && (
           <MarketNarrativeCard
             key={`${model}-${trim}-${selectedGeneration}`}
             model={modelDisplay}
             trim={trimDisplay}
             generation={selectedGeneration}
-            trends={useMemo(() => ({
-              threeMonth: analytics.wowAppreciation,
-              sixMonth: analytics.momAppreciation,
-              oneYear: analytics.yoyAppreciation
-            }), [analytics.wowAppreciation, analytics.momAppreciation, analytics.yoyAppreciation])}
+            trends={narrativeTrends}
             currentPrice={analytics.averagePrice}
-            historicalData={useMemo(() =>
-              analytics.salesData && analytics.salesData.length > 0 ? {
-                avgPrice30Days: analytics.averagePrice,
-                avgPrice90Days: analytics.averagePrice,
-                volumeLast30Days: Math.min(analytics.totalListings, 10),
-                volumeLast90Days: Math.min(analytics.totalListings, 30)
-              } : undefined,
-            [analytics.salesData, analytics.averagePrice, analytics.totalListings])}
+            historicalData={narrativeHistoricalData}
           />
         )}
 

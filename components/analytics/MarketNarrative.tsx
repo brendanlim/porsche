@@ -212,22 +212,20 @@ export function MarketNarrativeCard({
   return (
     <Card className={cn("relative overflow-hidden shadow-xl border-0 bg-gradient-to-br from-white to-gray-50", className)}>
       {/* Top accent bar with gradient */}
-      <div className={cn("absolute top-0 left-0 right-0 h-2 bg-gradient-to-r", phaseStyle.gradient)} />
+      <div className={cn("absolute top-0 left-0 right-0 h-1 bg-gradient-to-r", phaseStyle.gradient)} />
 
-      <CardHeader className="pb-4">
+      <CardHeader className="pb-3 pt-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg">
-              <BarChart3 className="w-5 h-5 text-gray-700" />
-            </div>
-            <CardTitle className="text-xl font-bold text-gray-900">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-gray-700" />
+            <CardTitle className="text-lg font-bold text-gray-900">
               {generation} {model} {trim} Market Analysis
             </CardTitle>
           </div>
           <Badge
             variant="outline"
             className={cn(
-              "flex items-center gap-1.5 px-4 py-2 font-semibold text-sm shadow-md border-2",
+              "flex items-center gap-1 px-3 py-1.5 font-semibold text-xs shadow-md border-2",
               phaseStyle.color,
               phaseStyle.bgColor,
               phaseStyle.borderColor
@@ -239,47 +237,42 @@ export function MarketNarrativeCard({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-6 pt-2">
-        {/* Market Story Section - Full Width */}
+      <CardContent className="space-y-4 pt-2">
+        {/* Market Story Section - Full Width - More compact without heading */}
         <div className="relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-transparent to-purple-50/50 rounded-2xl" />
-          <div className="relative p-6 rounded-2xl backdrop-blur-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <div className={cn("w-3 h-3 rounded-full animate-pulse", phaseStyle.bgColor.replace('50', '500').replace('bg-', 'bg-'))} />
-              <h3 className="text-sm font-black text-gray-900 uppercase tracking-wide">
-                Market Story
-              </h3>
-            </div>
-
-            <p className="text-lg font-semibold text-gray-900 leading-relaxed mb-4">
-              {narrative.summary}
-            </p>
-
-            <div className="pl-4 border-l-4 border-gray-200">
-              <p className="text-sm text-gray-600 leading-relaxed italic">
-                {narrative.detailedStory}
-              </p>
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-transparent to-purple-50/50 rounded-xl" />
+          <div className="relative p-4 rounded-xl backdrop-blur-sm">
+            <div className="flex items-start gap-3">
+              <div className={cn("w-3 h-3 rounded-full animate-pulse mt-1.5 flex-shrink-0", phaseStyle.bgColor.replace('50', '500').replace('bg-', 'bg-'))} />
+              <div className="flex-1 space-y-2">
+                <p className="text-base font-bold text-gray-900 leading-snug">
+                  {narrative.summary}
+                </p>
+                <p className="text-sm text-gray-600 leading-relaxed italic pl-4 border-l-3 border-gray-200">
+                  {narrative.detailedStory}
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           {/* Key Insights */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-3">
-              <TrendingUp className="w-5 h-5 text-gray-700" />
-              <h4 className="text-sm font-black text-gray-900 uppercase tracking-wide">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-gray-700" />
+              <h4 className="text-xs font-black text-gray-900 uppercase tracking-wide">
                 Key Insights
               </h4>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2">
               {narrative.keyInsights.map((insight, index) => (
-                <div key={index} className="flex items-start gap-3 group hover:bg-gray-50 p-2 rounded-lg transition-colors">
+                <div key={index} className="flex items-start gap-2 group hover:bg-gray-50 p-1.5 rounded-lg transition-colors">
                   <div className={cn(
-                    "w-2 h-2 rounded-full mt-1.5 flex-shrink-0 transition-all group-hover:scale-150",
+                    "w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0 transition-all group-hover:scale-150",
                     phaseStyle.bgColor.replace('50', '400').replace('bg-', 'bg-')
                   )} />
-                  <p className="text-sm text-gray-700 font-medium leading-relaxed">
+                  <p className="text-sm text-gray-700 font-medium leading-snug">
                     {insight}
                   </p>
                 </div>
@@ -288,38 +281,38 @@ export function MarketNarrativeCard({
           </div>
 
           {/* Recommendation & Confidence */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* Recommendation */}
             <div className={cn(
-              "p-5 rounded-2xl border-2 shadow-md",
+              "p-3 rounded-xl border-2 shadow-md",
               phaseStyle.bgColor,
               phaseStyle.borderColor
             )}>
-              <div className="flex items-center gap-2 mb-3">
-                <Target className={cn("w-5 h-5", phaseStyle.color)} />
-                <h4 className="text-sm font-black text-gray-900 uppercase tracking-wide">
+              <div className="flex items-center gap-2 mb-2">
+                <Target className={cn("w-4 h-4", phaseStyle.color)} />
+                <h4 className="text-xs font-black text-gray-900 uppercase tracking-wide">
                   Recommendation
                 </h4>
               </div>
-              <p className="text-sm text-gray-800 leading-relaxed font-semibold">
+              <p className="text-sm text-gray-800 leading-snug font-semibold">
                 {narrative.recommendation}
               </p>
             </div>
 
-            {/* Confidence Meter */}
-            <div className="p-5 bg-gradient-to-br from-gray-100 to-gray-50 rounded-2xl shadow-inner">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-black uppercase tracking-wide text-gray-600">
-                  Analysis Confidence
+            {/* Confidence Meter - More compact */}
+            <div className="p-3 bg-gradient-to-br from-gray-100 to-gray-50 rounded-xl shadow-inner">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold uppercase tracking-wide text-gray-600">
+                  Confidence
                 </span>
-                <span className="text-2xl font-black text-gray-900">
+                <span className="text-lg font-black text-gray-900">
                   {(narrative.confidence * 100).toFixed(0)}%
                 </span>
               </div>
-              <div className="w-full bg-gray-300 rounded-full h-3 overflow-hidden shadow-inner">
+              <div className="w-full bg-gray-300 rounded-full h-2 overflow-hidden shadow-inner">
                 <div
                   className={cn(
-                    "h-3 rounded-full transition-all duration-1000 ease-out bg-gradient-to-r shadow-sm",
+                    "h-2 rounded-full transition-all duration-1000 ease-out bg-gradient-to-r shadow-sm",
                     narrative.confidence >= 0.8 ? "from-green-400 to-green-600" :
                     narrative.confidence >= 0.6 ? "from-yellow-400 to-yellow-600" :
                     "from-orange-400 to-orange-600"
@@ -327,10 +320,10 @@ export function MarketNarrativeCard({
                   style={{ width: `${narrative.confidence * 100}%` }}
                 />
               </div>
-              <p className="text-xs text-gray-500 mt-3 font-medium">
-                {narrative.confidence >= 0.8 ? "✓ High confidence based on robust data" :
-                 narrative.confidence >= 0.6 ? "⚡ Moderate confidence, trends emerging" :
-                 "⚠ Limited data available for analysis"}
+              <p className="text-xs text-gray-500 mt-2 font-medium">
+                {narrative.confidence >= 0.8 ? "✓ High confidence" :
+                 narrative.confidence >= 0.6 ? "⚡ Moderate confidence" :
+                 "⚠ Limited data"}
               </p>
             </div>
           </div>

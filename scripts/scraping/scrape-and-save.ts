@@ -498,8 +498,16 @@ async function main() {
   const maxPagesOverride = maxPagesArg ? parseInt(maxPagesArg.split('=')[1]) : null;
   const type = (typeArg ? typeArg.split('=')[1].toLowerCase() : 'both') as 'sold' | 'active' | 'both';
   
-  // Available sources
-  const availableSources = ['bat', 'classic', 'carsandbids', 'edmunds', 'cars', 'autotrader', 'sothebys', 'truecar', 'carfax', 'carmax', 'carvana'];
+  // Available sources (with -sb suffix for ScrapingBee versions)
+  const availableSources = [
+    'bat', 'bat-sb',
+    'classic', 'classic-sb',
+    'carsandbids', 'carsandbids-sb',
+    'edmunds', 'edmunds-sb',
+    'cars', 'cars-sb',
+    'autotrader', 'autotrader-sb',
+    'sothebys', 'truecar', 'carfax', 'carmax', 'carvana'
+  ];
   
   if (source && !availableSources.includes(source)) {
     console.error(`Invalid source: ${source}`);
@@ -530,9 +538,12 @@ async function main() {
   console.log('─'.repeat(40));
   
   // Import scrapers after dotenv is loaded
-  // Use ScrapingBee if available, otherwise fall back to BrightData
+  // Determine which scraper implementations to use based on source suffix
+  const useScrapingBee = source?.endsWith('-sb') && process.env.SCRAPINGBEE_API_KEY;
+
+  // BaT scraper
   let BaTScraperClass;
-  if (process.env.SCRAPINGBEE_API_KEY && source === 'bat-sb') {
+  if (useScrapingBee || source === 'bat-sb') {
     console.log('🐝 Using ScrapingBee for BaT scraping');
     const { BaTScraperSB } = await import('../../lib/scrapers/bat-sb');
     BaTScraperClass = BaTScraperSB;
@@ -540,12 +551,57 @@ async function main() {
     const { BaTScraperPuppeteer } = await import('../../lib/scrapers/bat-puppeteer');
     BaTScraperClass = BaTScraperPuppeteer;
   }
-  const { ClassicScraper } = await import('../../lib/scrapers/classic');
-  // Use Puppeteer version for Cars and Bids since it's a React SPA
-  const { CarsAndBidsPuppeteerScraper } = await import('../../lib/scrapers/carsandbids-puppeteer');
-  const { EdmundsScraper } = await import('../../lib/scrapers/edmunds');
-  const { CarsScraper } = await import('../../lib/scrapers/cars');
-  const { AutoTraderScraper } = await import('../../lib/scrapers/autotrader');
+
+  // Classic scraper
+  let ClassicScraperClass;
+  if (source === 'classic-sb') {
+    console.log('🐝 Using ScrapingBee for Classic.com scraping');
+    const { ClassicScraperSB } = await import('../../lib/scrapers/classic-sb');
+    ClassicScraperClass = ClassicScraperSB;
+  } else {
+    const { ClassicScraper } = await import('../../lib/scrapers/classic');
+    ClassicScraperClass = ClassicScraper;
+  }
+  // Cars and Bids scraper
+  let CarsAndBidsScraperClass;
+  if (source === 'carsandbids-sb') {
+    console.log('🐝 Using ScrapingBee for Cars & Bids scraping');
+    const { CarsAndBidsScraperSB } = await import('../../lib/scrapers/carsandbids-sb');
+    CarsAndBidsScraperClass = CarsAndBidsScraperSB;
+  } else {
+    const { CarsAndBidsPuppeteerScraper } = await import('../../lib/scrapers/carsandbids-puppeteer');
+    CarsAndBidsScraperClass = CarsAndBidsPuppeteerScraper;
+  }
+
+  // Inventory site scrapers (Cars.com, Edmunds, AutoTrader)
+  let CarsScraperClass, EdmundsScraperClass, AutoTraderScraperClass;
+
+  if (source === 'cars-sb') {
+    console.log('🐝 Using ScrapingBee for Cars.com scraping');
+    const { CarsScraperSB } = await import('../../lib/scrapers/inventory-sb');
+    CarsScraperClass = CarsScraperSB;
+  } else {
+    const { CarsScraper } = await import('../../lib/scrapers/cars');
+    CarsScraperClass = CarsScraper;
+  }
+
+  if (source === 'edmunds-sb') {
+    console.log('🐝 Using ScrapingBee for Edmunds scraping');
+    const { EdmundsScraperSB } = await import('../../lib/scrapers/inventory-sb');
+    EdmundsScraperClass = EdmundsScraperSB;
+  } else {
+    const { EdmundsScraper } = await import('../../lib/scrapers/edmunds');
+    EdmundsScraperClass = EdmundsScraper;
+  }
+
+  if (source === 'autotrader-sb') {
+    console.log('🐝 Using ScrapingBee for AutoTrader scraping');
+    const { AutoTraderScraperSB } = await import('../../lib/scrapers/inventory-sb');
+    AutoTraderScraperClass = AutoTraderScraperSB;
+  } else {
+    const { AutoTraderScraper } = await import('../../lib/scrapers/autotrader');
+    AutoTraderScraperClass = AutoTraderScraper;
+  }
   const { SothebysScraper } = await import('../../lib/scrapers/sothebys');
   const { TrueCarScraper } = await import('../../lib/scrapers/truecar');
   const { CarfaxScraper } = await import('../../lib/scrapers/carfax');
@@ -575,7 +631,7 @@ async function main() {
     console.log('▓'.repeat(80));
     
     // Run only specific source if specified
-    if (source === 'bat' || !source) {
+    if (source === 'bat' || source === 'bat-sb' || !source) {
       // Run Bring a Trailer scraper (PRIORITY - best data)
       console.log('\n' + '═'.repeat(60));
       console.log('🎯 [1/7] BRING A TRAILER');
@@ -628,8 +684,8 @@ async function main() {
       console.log('═'.repeat(60));
 
       try {
-      const classicScraper = new ClassicScraper();
-      const classicResults = await classicScraper.scrapeListings({
+        const classicScraper = new ClassicScraperClass();
+        const classicResults = await classicScraper.scrapeListings({
         model: model || undefined,
         maxPages: maxPagesOverride !== null ? maxPagesOverride : 1,  // Default to 1 for daily scraper
         onlySold: false  // Classic.com has auctions (status='auction') that we want to include
@@ -654,7 +710,7 @@ async function main() {
       console.log('═'.repeat(60));
 
       try {
-      const carsAndBidsScraper = new CarsAndBidsPuppeteerScraper();
+        const carsAndBidsScraper = new CarsAndBidsScraperClass();
       const carsAndBidsResults = await carsAndBidsScraper.scrapeListings({
         model: model || undefined,
         maxPages: maxPagesOverride !== null ? maxPagesOverride : 1,  // Default to 1 for daily scraper
@@ -704,7 +760,7 @@ async function main() {
     console.log('🎯 [5/7] EDMUNDS');
     console.log('═'.repeat(60));
     try {
-      const edmundsScraper = new EdmundsScraper();
+        const edmundsScraper = new EdmundsScraperClass();
       const edmundsResults = await edmundsScraper.scrapeListings({
         model: model || undefined,
         maxPages: maxPagesOverride !== null ? maxPagesOverride : 1,  // Default to 1 for daily scraper
@@ -730,7 +786,7 @@ async function main() {
     console.log('🎯 [6/7] CARS.COM (SOLD)');
     console.log('═'.repeat(60));
     try {
-      const carsScraper = new CarsScraper();
+        const carsScraper = new CarsScraperClass();
       const carsResults = await carsScraper.scrapeListings({
         model: model || undefined,
         maxPages: maxPagesOverride !== null ? maxPagesOverride : 1,  // Default to 1 for daily scraper
@@ -863,7 +919,7 @@ async function main() {
       console.log('Cars.com - Active Listings...');
       console.log('='.repeat(50));
       try {
-        const carsScraper = new CarsScraper();
+          const carsScraper = new CarsScraperClass();
         const carsResults = await carsScraper.scrapeListings({
           model: model || '911',
           onlySold: false // onlySold = false for active listings
@@ -888,7 +944,7 @@ async function main() {
       console.log('AutoTrader - Active Listings...');
       console.log('='.repeat(50));
       try {
-        const autotraderScraper = new AutoTraderScraper();
+        const autotraderScraper = new AutoTraderScraperClass();
         const autotraderResults = await autotraderScraper.scrapeListings({
           model: model || '911',
           onlySold: false // onlySold = false (AutoTrader only has active)

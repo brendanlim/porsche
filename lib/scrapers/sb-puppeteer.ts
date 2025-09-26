@@ -123,74 +123,78 @@ export class ScrapingBeePuppeteer {
           // Try to click Show More button
           instructions.push({
             evaluate: `
-              const showMoreButton = document.querySelector('button.button.button-show-more[data-bind="click: loadNextPage"]');
-              if (showMoreButton) {
-                const loadingSpan = showMoreButton.querySelector('span[data-bind="visible: itemsLoading"]');
-                const showSpan = showMoreButton.querySelector('span[data-bind="hidden: itemsLoading"]');
+              (function() {
+                const showMoreButton = document.querySelector('button.button.button-show-more[data-bind="click: loadNextPage"]');
+                if (showMoreButton) {
+                  const loadingSpan = showMoreButton.querySelector('span[data-bind="visible: itemsLoading"]');
+                  const showSpan = showMoreButton.querySelector('span[data-bind="hidden: itemsLoading"]');
 
-                // Check if button is visible and not loading
-                if (showSpan && window.getComputedStyle(showSpan).display !== 'none') {
-                  showMoreButton.click();
-                  console.log('Clicked Show More button ${i + 1}');
-                  return true;
+                  // Check if button is visible and not loading
+                  if (showSpan && window.getComputedStyle(showSpan).display !== 'none') {
+                    showMoreButton.click();
+                    console.log('Clicked Show More button ${i + 1}');
+                    return true;
+                  }
                 }
-              }
-              return false;
+                return false;
+              })()
             `
           });
           instructions.push({ wait: 3000 });
         }
 
-        // Final extraction of listings
+        // Final extraction of listings - wrap in IIFE to allow return
         instructions.push({
           evaluate: `
-            const listings = [];
-            const items = document.querySelectorAll('.content');
+            (function() {
+              const listings = [];
+              const items = document.querySelectorAll('.content');
 
-            items.forEach((item) => {
-              const resultsEl = item.querySelector('.item-results');
-              if (!resultsEl) return;
+              items.forEach((item) => {
+                const resultsEl = item.querySelector('.item-results');
+                if (!resultsEl) return;
 
-              const resultsText = resultsEl.textContent || '';
+                const resultsText = resultsEl.textContent || '';
 
-              if (resultsText.includes('Sold for')) {
-                const parentLink = item.closest('a.listing-card');
-                const titleEl = item.querySelector('h3');
+                if (resultsText.includes('Sold for')) {
+                  const parentLink = item.closest('a.listing-card');
+                  const titleEl = item.querySelector('h3');
 
-                if (!parentLink || !titleEl) return;
+                  if (!parentLink || !titleEl) return;
 
-                const url = parentLink.href;
-                const title = titleEl.textContent?.trim() || '';
+                  const url = parentLink.href;
+                  const title = titleEl.textContent?.trim() || '';
 
-                const priceMatch = resultsText.match(/\\$([0-9,]+)/);
-                const price = priceMatch ? parseInt(priceMatch[1].replace(/,/g, '')) : 0;
+                  const priceMatch = resultsText.match(/\\$([0-9,]+)/);
+                  const price = priceMatch ? parseInt(priceMatch[1].replace(/,/g, '')) : 0;
 
-                if (price < 15000) return;
+                  if (price < 15000) return;
 
-                // Skip non-car items
-                const titleLower = title.toLowerCase();
-                if (titleLower.includes('wheel') || titleLower.includes('seat') ||
-                    titleLower.includes('tool') || titleLower.includes('kit') ||
-                    titleLower.includes('emblem') || titleLower.includes('manual')) {
-                  // But don't skip if it's actually a car
-                  if (!titleLower.includes('911') && !titleLower.includes('718') &&
-                      !titleLower.includes('boxster') && !titleLower.includes('cayman') &&
-                      !titleLower.includes('gt3') && !titleLower.includes('gt2') &&
-                      !titleLower.includes('gt4') && !titleLower.includes('turbo')) {
-                    return;
+                  // Skip non-car items
+                  const titleLower = title.toLowerCase();
+                  if (titleLower.includes('wheel') || titleLower.includes('seat') ||
+                      titleLower.includes('tool') || titleLower.includes('kit') ||
+                      titleLower.includes('emblem') || titleLower.includes('manual')) {
+                    // But don't skip if it's actually a car
+                    if (!titleLower.includes('911') && !titleLower.includes('718') &&
+                        !titleLower.includes('boxster') && !titleLower.includes('cayman') &&
+                        !titleLower.includes('gt3') && !titleLower.includes('gt2') &&
+                        !titleLower.includes('gt4') && !titleLower.includes('turbo')) {
+                      return;
+                    }
                   }
+
+                  listings.push({
+                    url: url,
+                    title: title,
+                    price: price,
+                    text: resultsText
+                  });
                 }
+              });
 
-                listings.push({
-                  url: url,
-                  title: title,
-                  price: price,
-                  text: resultsText
-                });
-              }
-            });
-
-            return listings;
+              return listings;
+            })()
           `
         });
 

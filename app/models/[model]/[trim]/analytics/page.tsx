@@ -7,6 +7,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, L
 import { TrendingUp, TrendingDown, Minus, DollarSign, Calendar, Car, Activity, Trophy, Zap, Filter, ExternalLink } from 'lucide-react';
 import { DepreciationTable } from '@/components/DepreciationTable';
 import { OptionsAnalysis } from '@/components/OptionsAnalysis';
+import { MarketNarrativeCard } from '@/components/analytics/MarketNarrative';
 import dynamic from 'next/dynamic';
 
 const ApexChart = dynamic(() => import('react-apexcharts'), {
@@ -205,7 +206,7 @@ export default function TrimAnalyticsPage() {
     searchParams.get('generation') || 'all'
   );
   const [timeRange, setTimeRange] = useState(
-    searchParams.get('range') || '2y'
+    searchParams.get('range') || '3y'
   );
   const [chartWidth, setChartWidth] = useState(800);
   const [allGenerations, setAllGenerations] = useState<string[]>([]);
@@ -465,6 +466,24 @@ export default function TrimAnalyticsPage() {
             icon={Zap}
           />
         </div>
+
+        {/* Market Analysis */}
+        <MarketNarrativeCard
+          model={modelDisplay}
+          trim={trimDisplay}
+          trends={{
+            threeMonth: analytics.wowAppreciation,
+            sixMonth: analytics.momAppreciation,
+            oneYear: analytics.yoyAppreciation
+          }}
+          currentPrice={analytics.averagePrice}
+          historicalData={analytics.salesData && analytics.salesData.length > 0 ? {
+            avgPrice30Days: analytics.averagePrice,
+            avgPrice90Days: analytics.averagePrice,
+            volumeLast30Days: Math.min(analytics.totalListings, 10),
+            volumeLast90Days: Math.min(analytics.totalListings, 30)
+          } : undefined}
+        />
 
         {/* Historical Price Trends */}
         <Card>

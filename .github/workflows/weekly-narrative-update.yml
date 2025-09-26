@@ -1,0 +1,76 @@
+name: Weekly Market Narrative Update
+
+on:
+  schedule:
+    # Runs every Sunday at 2:00 AM UTC (before daily scraping at 3 AM)
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (no database updates)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+env:
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+jobs:
+  update-narratives:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Update market narratives
+        run: |
+          echo "📊 Starting weekly market narrative update..."
+          echo "🕐 Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+
+          # Run the narrative update script
+          npx tsx scripts/analytics/update-market-narratives.ts
+
+          echo "✅ Market narrative update complete"
+
+      - name: Log completion
+        if: success()
+        run: |
+          echo "🎉 Successfully updated market narratives at $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+
+      - name: Error notification
+        if: failure()
+        run: |
+          echo "❌ Market narrative update failed at $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "Check the logs above for details"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Market Narrative Update Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Date**: $(date -u '+%Y-%m-%d')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Time**: $(date -u '+%H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Market narratives have been successfully updated and cached in the database." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Market narrative update encountered an error. Please check the workflow logs." >> $GITHUB_STEP_SUMMARY
+          fi

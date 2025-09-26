@@ -145,6 +145,32 @@ export async function GET(
       const currentMonthAvg = currentMonthListings.reduce((sum, l) => sum + l.price, 0) / currentMonthListings.length;
       const prevMonthAvg = prevMonthListings.reduce((sum, l) => sum + l.price, 0) / prevMonthListings.length;
       momAppreciation = ((currentMonthAvg - prevMonthAvg) / prevMonthAvg) * 100;
+    } else if (filteredListings.length >= 4) {
+      // Fallback: If we don't have exact month-over-month data, estimate from available data
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+      const recentListings = filteredListings.filter(l =>
+        l.sold_date && new Date(l.sold_date) >= oneMonthAgo
+      );
+      const olderListings = filteredListings.filter(l =>
+        l.sold_date && new Date(l.sold_date) < oneMonthAgo && new Date(l.sold_date) >= sixMonthsAgo
+      );
+
+      if (recentListings.length > 0 && olderListings.length > 0) {
+        const recentAvg = recentListings.reduce((sum, l) => sum + l.price, 0) / recentListings.length;
+        const olderAvg = olderListings.reduce((sum, l) => sum + l.price, 0) / olderListings.length;
+
+        // Calculate average date for older listings
+        const avgOlderDate = new Date(
+          olderListings.reduce((sum, l) => sum + new Date(l.sold_date).getTime(), 0) / olderListings.length
+        );
+        const monthsDiff = (now.getTime() - avgOlderDate.getTime()) / (1000 * 60 * 60 * 24 * 30);
+
+        // Scale to monthly trend
+        const totalTrend = ((recentAvg - olderAvg) / olderAvg) * 100;
+        momAppreciation = totalTrend / monthsDiff;
+      }
     }
 
     // Year-over-year: Compare recent average to same period last year (with wider window)
@@ -164,6 +190,30 @@ export async function GET(
     if (recentListings.length > 0 && yearAgoListings.length > 0) {
       const yearAgoAvg = yearAgoListings.reduce((sum, l) => sum + l.price, 0) / yearAgoListings.length;
       yoyAppreciation = ((currentAvg - yearAgoAvg) / yearAgoAvg) * 100;
+    } else if (filteredListings.length >= 4) {
+      // Fallback: If we don't have data from exactly 1 year ago, find any older data
+      const sixteenMonthsAgo = new Date();
+      sixteenMonthsAgo.setMonth(sixteenMonthsAgo.getMonth() - 16);
+
+      const olderListings = filteredListings.filter(l =>
+        l.sold_date &&
+        new Date(l.sold_date) < elevenMonthsAgo &&
+        new Date(l.sold_date) >= sixteenMonthsAgo
+      );
+
+      if (recentListings.length > 0 && olderListings.length > 0) {
+        const olderAvg = olderListings.reduce((sum, l) => sum + l.price, 0) / olderListings.length;
+
+        // Calculate average date for older listings
+        const avgOlderDate = new Date(
+          olderListings.reduce((sum, l) => sum + new Date(l.sold_date).getTime(), 0) / olderListings.length
+        );
+        const monthsDiff = (now.getTime() - avgOlderDate.getTime()) / (1000 * 60 * 60 * 24 * 30);
+
+        // Scale to 12 month equivalent
+        const totalTrend = ((currentAvg - olderAvg) / olderAvg) * 100;
+        yoyAppreciation = (totalTrend / monthsDiff) * 12;
+      }
     }
 
     // Market trends over time (group by day) - use sold_date for accurate market analysis

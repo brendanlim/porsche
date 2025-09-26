@@ -45,30 +45,28 @@ export async function POST(req: NextRequest) {
 
     // Check if we have a cached narrative that's less than 7 days old (skip if force refresh)
     if (!forceRefresh) {
-      // For caching, we need to handle model name variations
-      // "cayman" should match "718 Cayman", "Cayman", etc.
-      let modelQuery = supabaseAdmin
+      console.log(`Checking cache for ${generation} ${model} ${trim}...`);
+
+      // Simple direct query first - exact match
+      const { data: cachedNarrative, error: cacheError } = await supabaseAdmin
         .from('market_narratives')
-        .select('*');
-
-      // Handle Cayman variations
-      if (model.toLowerCase().includes('cayman')) {
-        modelQuery = modelQuery.or('model.ilike.%cayman%,model.ilike.%718%');
-      } else {
-        modelQuery = modelQuery.ilike('model', model);
-      }
-
-      const { data: cachedNarrative, error: cacheError } = await modelQuery
-        .ilike('trim', trim)
+        .select('*')
+        .eq('model', model)
+        .eq('trim', trim)
         .eq('generation', generation)
         .gte('updated_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
         .order('updated_at', { ascending: false })
         .limit(1)
         .single();
 
+      console.log(`Cache check result: ${cachedNarrative ? 'FOUND' : 'NOT FOUND'}`);
+      if (cacheError) {
+        console.log(`Cache error:`, cacheError);
+      }
+
       // If we have a valid cached narrative, return it
       if (cachedNarrative && !cacheError) {
-        console.log(`Using cached narrative for ${generation} ${model} ${trim}`);
+        console.log(`✅ Using CACHED narrative for ${generation} ${model} ${trim}`);
         return NextResponse.json({
           summary: cachedNarrative.summary,
           detailedStory: cachedNarrative.detailed_story,
@@ -83,22 +81,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Before generating, check if we have sufficient data for a meaningful narrative
-    // We need the same thresholds as the weekly update script
-    // Build query for counting listings with flexible model matching
-    let countQuery = supabaseAdmin
+    // For now, use simple ilike matching to handle model variations
+    const { count: listingCount } = await supabaseAdmin
       .from('listings')
-      .select('*', { count: 'exact', head: true });
-
-    // Handle model variations
-    if (model.toLowerCase().includes('cayman')) {
-      countQuery = countQuery.or('model.ilike.%cayman%,model.ilike.%718%');
-    } else if (model.toLowerCase().includes('boxster')) {
-      countQuery = countQuery.or('model.ilike.%boxster%,model.ilike.%718%');
-    } else {
-      countQuery = countQuery.ilike('model', model);
-    }
-
-    const { count: listingCount } = await countQuery
+      .select('*', { count: 'exact', head: true })
+      .ilike('model', `%${model.replace('-', ' ')}%`)  // Handle "911", "718-cayman" -> "718 cayman", etc.
       .ilike('trim', trim)
       .eq('generation', generation)
       .not('sold_date', 'is', null)
@@ -127,7 +114,9 @@ export async function POST(req: NextRequest) {
     );
 
     // Store the narrative in the database
-    const { error: insertError } = await supabaseAdmin
+    console.log(`Attempting to store narrative in DB for ${generation} ${model} ${trim}`);
+
+    const { data: insertData, error: insertError } = await supabaseAdmin
       .from('market_narratives')
       .upsert({
         model,
@@ -143,12 +132,17 @@ export async function POST(req: NextRequest) {
         current_price: currentPrice,
         updated_at: new Date().toISOString()
       }, {
-        onConflict: 'model,trim,generation'
-      });
+        onConflict: 'model,trim,generation',
+        ignoreDuplicates: false
+      })
+      .select();
 
     if (insertError) {
-      console.error(`Error caching narrative for ${generation} ${model} ${trim}:`, insertError);
+      console.error(`❌ ERROR caching narrative for ${generation} ${model} ${trim}:`, insertError);
+      console.error('Full error details:', JSON.stringify(insertError, null, 2));
       // Continue anyway, don't fail the request
+    } else {
+      console.log(`✅ Successfully cached narrative, ID: ${insertData?.[0]?.id}`);
     }
 
     return NextResponse.json({

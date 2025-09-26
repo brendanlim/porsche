@@ -168,7 +168,7 @@ export async function generateMarketNarrative(
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      temperature: 0.7,
+      temperature: 0.2,  // Low temperature for more consistent outputs
       max_tokens: 500,
       response_format: { type: 'json_object' }
     });

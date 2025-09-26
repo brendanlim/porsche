@@ -45,10 +45,20 @@ export async function POST(req: NextRequest) {
 
     // Check if we have a cached narrative that's less than 7 days old (skip if force refresh)
     if (!forceRefresh) {
-      const { data: cachedNarrative, error: cacheError } = await supabaseAdmin
+      // For caching, we need to handle model name variations
+      // "cayman" should match "718 Cayman", "Cayman", etc.
+      let modelQuery = supabaseAdmin
         .from('market_narratives')
-        .select('*')
-        .ilike('model', `%${model}%`)  // Use flexible matching like analytics API
+        .select('*');
+
+      // Handle Cayman variations
+      if (model.toLowerCase().includes('cayman')) {
+        modelQuery = modelQuery.or('model.ilike.%cayman%,model.ilike.%718%');
+      } else {
+        modelQuery = modelQuery.ilike('model', model);
+      }
+
+      const { data: cachedNarrative, error: cacheError } = await modelQuery
         .ilike('trim', trim)
         .eq('generation', generation)
         .gte('updated_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
@@ -74,10 +84,21 @@ export async function POST(req: NextRequest) {
 
     // Before generating, check if we have sufficient data for a meaningful narrative
     // We need the same thresholds as the weekly update script
-    const { count: listingCount } = await supabaseAdmin
+    // Build query for counting listings with flexible model matching
+    let countQuery = supabaseAdmin
       .from('listings')
-      .select('*', { count: 'exact', head: true })
-      .ilike('model', `%${model}%`)  // Match "Cayman", "718 Cayman", etc.
+      .select('*', { count: 'exact', head: true });
+
+    // Handle model variations
+    if (model.toLowerCase().includes('cayman')) {
+      countQuery = countQuery.or('model.ilike.%cayman%,model.ilike.%718%');
+    } else if (model.toLowerCase().includes('boxster')) {
+      countQuery = countQuery.or('model.ilike.%boxster%,model.ilike.%718%');
+    } else {
+      countQuery = countQuery.ilike('model', model);
+    }
+
+    const { count: listingCount } = await countQuery
       .ilike('trim', trim)
       .eq('generation', generation)
       .not('sold_date', 'is', null)

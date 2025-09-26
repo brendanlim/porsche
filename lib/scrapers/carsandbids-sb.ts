@@ -55,14 +55,14 @@ export class CarsAndBidsScraperSB extends BaseScraper {
     maxPages?: number;
     onlySold?: boolean;
   }): Promise<ScrapedListing[]> {
-    const { model, trim, maxPages = 1, onlySold = true } = params || {};
+    const { model: inputModel, trim, maxPages = 1, onlySold = true } = params || {};
     const allListings: ScrapedListing[] = [];
 
     console.log('\n' + '█'.repeat(70));
     console.log(' '.repeat(20) + 'CARS & BIDS SCRAPER - SCRAPINGBEE VERSION');
     console.log('█'.repeat(70));
     console.log(`📋 Configuration:`);
-    console.log(`   • Model: ${model || 'all Porsche'}`);
+    console.log(`   • Model: ${inputModel || 'all Porsche'}`);
     console.log(`   • Only sold: ${onlySold}`);
     console.log(`   • Max pages: ${maxPages}`);
 
@@ -71,6 +71,7 @@ export class CarsAndBidsScraperSB extends BaseScraper {
       let searchUrl: string;
 
       // We need to search for specific models, not just "porsche"
+      let model = inputModel;
       if (!model) {
         // If no model specified, we'll need to search for each model separately
         model = '911';  // Default to 911 if not specified
@@ -324,6 +325,7 @@ export class CarsAndBidsScraperSB extends BaseScraper {
               }
 
               // Extract mileage
+              const bodyText = $.text();
               const mileageMatch = bodyText.match(/([\d,]+)\s*(?:miles?|mi\b)/i);
               if (mileageMatch) {
                 listing.mileage = parseInt(mileageMatch[1].replace(/,/g, ''));
@@ -355,5 +357,161 @@ export class CarsAndBidsScraperSB extends BaseScraper {
     console.log(`✅ Found ${allListings.length} total listings`);
 
     return allListings;
+  }
+
+  async scrapeDetail(url: string): Promise<ScrapedListing> {
+    console.log(`🔍 Scraping detail page: ${url}`);
+
+    try {
+      // Fetch detail page with longer wait for JS to load
+      const detailParams: any = {
+        api_key: this.apiKey,
+        url: url,
+        render_js: 'true',
+        premium_proxy: 'true',
+        country_code: 'us',
+        wait: '8000',  // Wait longer for JS to load VIN
+        wait_for: '.quick-facts, .vehicle-details, [data-vin]',  // Wait for specific elements
+        json_response: 'true'
+      };
+
+      const urlParams = new URLSearchParams(detailParams);
+      const response = await fetch(`https://app.scrapingbee.com/api/v1?${urlParams.toString()}`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch detail page: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.body) {
+        throw new Error('No HTML body in response');
+      }
+
+      // Parse HTML to extract details
+      const $ = cheerio.load(data.body);
+
+      // Extract title
+      const title = $('h1').first().text().trim() ||
+                   $('.auction-title').first().text().trim() ||
+                   $('title').text().trim();
+
+      // Extract VIN
+      let vin: string | undefined;
+      $('.quick-facts dt').each((_, el) => {
+        const label = $(el).text().trim().toLowerCase();
+        if (label.includes('vin')) {
+          const value = $(el).next('dd').text().trim();
+          if (value && value.match(/[A-Z0-9]{17}/)) {
+            vin = value;
+          }
+        }
+      });
+
+      // Fallback VIN extraction
+      if (!vin) {
+        const bodyText = $.text();
+        const vinMatch = bodyText.match(/VIN[:\s]*([A-Z0-9]{17})/i);
+        const porscheVinMatch = bodyText.match(/WP[A-Z0-9]{15}/);
+        vin = vinMatch?.[1] || porscheVinMatch?.[0];
+      }
+
+      // Extract price
+      let price = 0;
+      let status = 'active';
+      const bodyText = $.text();
+
+      const soldMatch = bodyText.match(/Sold (?:for|after for) \$([0-9,]+)/i);
+      if (soldMatch) {
+        price = parseInt(soldMatch[1].replace(/,/g, ''));
+        status = 'sold';
+      } else {
+        const bidMatch = bodyText.match(/Bid \$([0-9,]+)/);
+        if (bidMatch) {
+          price = parseInt(bidMatch[1].replace(/,/g, ''));
+        }
+      }
+
+      // Extract mileage
+      let mileage: number | undefined;
+      const mileageMatch = bodyText.match(/([\d,]+)\s*(?:miles?|mi\b)/i);
+      if (mileageMatch) {
+        mileage = parseInt(mileageMatch[1].replace(/,/g, ''));
+      }
+
+      // Extract year from title
+      const yearMatch = title.match(/\b(19\d{2}|20\d{2})\b/);
+      let year = yearMatch ? parseInt(yearMatch[1]) : undefined;
+
+      // Parse model and trim from title
+      const titleLower = title.toLowerCase();
+      let model: string | undefined;
+      let trim: string | undefined;
+      let generation: string | undefined;
+
+      // Model detection
+      if (titleLower.includes('911')) model = '911';
+      else if (titleLower.includes('718') || titleLower.includes('cayman')) model = '718-cayman';
+      else if (titleLower.includes('boxster')) model = '718-boxster';
+
+      // Trim detection
+      if (titleLower.includes('gt4 rs')) trim = 'gt4-rs';
+      else if (titleLower.includes('gt4')) trim = 'gt4';
+      else if (titleLower.includes('gt3 rs')) trim = 'gt3-rs';
+      else if (titleLower.includes('gt3')) trim = 'gt3';
+      else if (titleLower.includes('gt2 rs')) trim = 'gt2-rs';
+      else if (titleLower.includes('gt2')) trim = 'gt2';
+      else if (titleLower.includes('turbo s')) trim = 'turbo-s';
+      else if (titleLower.includes('turbo')) trim = 'turbo';
+      else if (titleLower.includes('gts')) trim = 'gts';
+      else if (titleLower.includes('carrera 4s')) trim = 'carrera-4s';
+      else if (titleLower.includes('carrera s')) trim = 'carrera-s';
+      else if (titleLower.includes('carrera')) trim = 'carrera';
+      else if (titleLower.includes('targa')) trim = 'targa';
+      else if (titleLower.includes('spyder')) trim = 'spyder';
+
+      // Decode VIN if available
+      if (vin) {
+        const decoded = decodePorscheVIN(vin);
+        if (decoded.valid && decoded.confidence === 'high') {
+          if (decoded.model) model = decoded.model;
+          if (decoded.engineType) trim = decoded.engineType;
+          if (decoded.generation) generation = decoded.generation;
+          if (decoded.modelYear) year = decoded.modelYear;
+        }
+      }
+
+      // Store HTML
+      await this.htmlStorage.storeScrapedHTML({
+        source: 'carsandbids',
+        url: url,
+        html: data.body,
+        type: 'detail',
+        metadata: {
+          scraper: 'CarsAndBidsScraperSB',
+          vin
+        }
+      });
+
+      const listing: ScrapedListing = {
+        source_url: url,
+        url: url,
+        title,
+        price,
+        status,
+        vin,
+        mileage,
+        year,
+        model,
+        trim,
+        generation
+      };
+
+      return listing;
+
+    } catch (error) {
+      console.error('❌ Error scraping detail page:', error);
+      throw error;
+    }
   }
 }

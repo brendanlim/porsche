@@ -591,7 +591,7 @@ export class PCarMarketScraper extends BaseScraper {
         mileage,
         status: 'sold',
         model: modelConfig.name,
-        generation_code: modelConfig.generation,
+        generation: modelConfig.generation,
       });
     }
 
@@ -655,13 +655,13 @@ export class PCarMarketScraper extends BaseScraper {
     }
 
     // Extract sold date
-    let soldDate: string | undefined;
+    let soldDate: Date | undefined;
     const dateSection = $('dt:contains("Ended"), dt:contains("Sold")').next('dd').text().trim();
     if (dateSection) {
       // Try to parse the date
       const date = new Date(dateSection);
       if (!isNaN(date.getTime())) {
-        soldDate = date.toISOString();
+        soldDate = date;
       }
     }
 

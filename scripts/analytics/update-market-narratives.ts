@@ -142,10 +142,36 @@ async function updateNarrative(model: string, trim: string, generation: string, 
 
     const analytics = await response.json();
 
+    // Calculate 3-year trend if we have enough historical data
+    let threeYearTrend: number | undefined;
+    const threeYearsAgo = new Date();
+    threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
+
+    const { data: historicalData } = await supabase
+      .from('listings')
+      .select('price')
+      .eq('model', model)
+      .eq('trim', trim)
+      .eq('generation', generation)
+      .not('sold_date', 'is', null)
+      .gte('sold_date', new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000 - 30 * 24 * 60 * 60 * 1000).toISOString())
+      .lte('sold_date', new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000 + 30 * 24 * 60 * 60 * 1000).toISOString())
+      .limit(30);
+
+    if (historicalData && historicalData.length >= 5) {
+      const avgThreeYearPrice = historicalData.reduce((sum, d) => sum + (d.price || 0), 0) / historicalData.length;
+      const currentPrice = avgPrice || analytics.averagePrice;
+      if (avgThreeYearPrice > 0 && currentPrice > 0) {
+        threeYearTrend = ((currentPrice - avgThreeYearPrice) / avgThreeYearPrice) * 100;
+        console.log(`    📊 3-year trend: ${threeYearTrend > 0 ? '+' : ''}${threeYearTrend.toFixed(1)}% (strengthens confidence)`);
+      }
+    }
+
     const trends: TrendData = {
       threeMonth: analytics.wowAppreciation || 0,
       sixMonth: analytics.momAppreciation || 0,
-      oneYear: analytics.yoyAppreciation || 0
+      oneYear: analytics.yoyAppreciation || 0,
+      threeYear: threeYearTrend
     };
 
     // Generate the narrative using the market narrative function

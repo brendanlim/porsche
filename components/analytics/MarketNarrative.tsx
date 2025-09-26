@@ -93,14 +93,18 @@ export function MarketNarrativeCard({
       return;
     }
 
-    // Create a stable key based on the actual values, not object references
-    const fetchKey = `${model}-${trim}-${generation}-${trends.threeMonth}-${trends.sixMonth}-${trends.oneYear}-${currentPrice}`;
+    // Create a stable key with rounded values to prevent floating point differences
+    // Round to 1 decimal place for trends and nearest 1000 for price
+    const roundedPrice = Math.round(currentPrice / 1000) * 1000;
+    const fetchKey = `${model}-${trim}-${generation}-${trends.threeMonth?.toFixed(1)}-${trends.sixMonth?.toFixed(1)}-${trends.oneYear?.toFixed(1)}-${roundedPrice}`;
 
     // Only fetch if the key actually changed
     if (fetchKey !== lastFetchKey) {
-      console.log(`MarketNarrative: Fetching for new key: ${fetchKey}`);
+      console.log(`MarketNarrative: Fetching for key: ${fetchKey}`);
       setLastFetchKey(fetchKey);
       fetchNarrative();
+    } else {
+      console.log(`MarketNarrative: Using existing narrative (key unchanged: ${fetchKey})`);
     }
   }, [model, trim, generation, trends, currentPrice, lastFetchKey]);
 

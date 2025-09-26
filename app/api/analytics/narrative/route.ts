@@ -48,8 +48,8 @@ export async function POST(req: NextRequest) {
       const { data: cachedNarrative, error: cacheError } = await supabaseAdmin
         .from('market_narratives')
         .select('*')
-        .eq('model', model)
-        .eq('trim', trim)
+        .ilike('model', `%${model}%`)  // Use flexible matching like analytics API
+        .ilike('trim', trim)
         .eq('generation', generation)
         .gte('updated_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
         .order('updated_at', { ascending: false })
@@ -77,8 +77,8 @@ export async function POST(req: NextRequest) {
     const { count: listingCount } = await supabaseAdmin
       .from('listings')
       .select('*', { count: 'exact', head: true })
-      .eq('model', model)
-      .eq('trim', trim)
+      .ilike('model', `%${model}%`)  // Match "Cayman", "718 Cayman", etc.
+      .ilike('trim', trim)
       .eq('generation', generation)
       .not('sold_date', 'is', null)
       .gte('sold_date', new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString());
@@ -86,6 +86,7 @@ export async function POST(req: NextRequest) {
     // Check if we have sufficient data (at least 10 listings in past year)
     if (!listingCount || listingCount < 10) {
       console.log(`Insufficient data for ${generation} ${model} ${trim}: only ${listingCount || 0} listings in past year`);
+      console.log('Note: This might be due to model name mismatch. Check if model names in DB match the request.');
       return NextResponse.json(
         { error: 'Insufficient data for market narrative' },
         { status: 404 }

@@ -187,36 +187,6 @@ export function MarketNarrativeCard({
     );
   }
 
-  if (!narrative && !loading) {
-    // Show informative message when there's insufficient data
-    return (
-      <Card className={cn("relative overflow-hidden shadow-md border border-gray-200 bg-gradient-to-br from-gray-50 to-white", className)}>
-        <CardHeader className="pb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg">
-              <Info className="w-5 h-5 text-gray-500" />
-            </div>
-            <CardTitle className="text-lg font-semibold text-gray-700">
-              Market Analysis Not Available
-            </CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-gray-600 leading-relaxed">
-            Insufficient sales data to generate market narrative for the {generation} {model} {trim}.
-            Market narratives require at least 10 recent sales to provide accurate trend analysis.
-          </p>
-          <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-            <p className="text-xs text-blue-700">
-              <span className="font-semibold">Note:</span> As more sales data becomes available,
-              detailed market insights and trends will appear here automatically.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   if (!narrative) {
     return null;
   }

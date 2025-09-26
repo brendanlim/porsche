@@ -41,12 +41,21 @@ export function interpretTrends(trends: TrendData): {
     };
   }
 
-  // Bottom Detection - 6 month is the most positive
-  if (Math.abs(sixMonth) > Math.abs(oneYear) && Math.abs(sixMonth) > Math.abs(threeMonth) && sixMonth > 10) {
+  // Recent Peak - 6 month positive but 3 month negative (peaked ~3 months ago)
+  if (sixMonth > 10 && threeMonth < -2) {
+    return {
+      pattern: 'recent peak correction',
+      phase: 'correction',
+      interpretation: 'The market peaked around 3 months ago after strong gains. Prices are now pulling back from recent highs.'
+    };
+  }
+
+  // True Bottom Detection - prices were down but now recovering (negative 6mo, positive 3mo)
+  if (sixMonth < -10 && threeMonth > 2) {
     return {
       pattern: 'recovery from bottom',
       phase: 'recovery',
-      interpretation: 'The market bottomed around 6 months ago and is now recovering. Buyers are returning as values become attractive.'
+      interpretation: 'The market appears to have bottomed and is beginning to recover. Buyers are returning as values stabilize.'
     };
   }
 
@@ -287,15 +296,26 @@ function generateFallbackNarrative(
       recommendation = 'Buyers: Entry opportunities emerging. Sellers: Wait for recovery.';
       break;
 
-    case 'recovery from bottom':
-      summary = `Market recovering, up ${sixMonth.toFixed(1)}% from bottom.`;
-      detailedStory = `Found floor 6 months ago, recovered ${sixMonth.toFixed(1)}%. Pace normalizing.`;
+    case 'recent peak correction':
+      summary = `Market peaked 3 months ago, now correcting.`;
+      detailedStory = `After ${sixMonth.toFixed(1)}% gains, prices pulled back ${Math.abs(threeMonth).toFixed(1)}% from peak. Natural consolidation after rally.`;
       keyInsights = [
-        'Market bottomed and recovering',
-        'Recovery pace normalizing',
+        `Up ${sixMonth.toFixed(1)}% over six months`,
+        `Down ${Math.abs(threeMonth).toFixed(1)}% from recent peak`,
+        'Healthy consolidation phase'
+      ];
+      recommendation = 'Buyers: Wait for stabilization. Sellers: Consider if gains sufficient.';
+      break;
+
+    case 'recovery from bottom':
+      summary = `Market recovering, up ${threeMonth.toFixed(1)}% from lows.`;
+      detailedStory = `After declining ${Math.abs(sixMonth).toFixed(1)}%, market found support and gained ${threeMonth.toFixed(1)}% recently.`;
+      keyInsights = [
+        'Bottom appears established',
+        `Recovery gaining momentum`,
         'Buyer confidence returning'
       ];
-      recommendation = 'Buyers: Act before further gains. Sellers: Improving conditions.';
+      recommendation = 'Buyers: Early recovery opportunity. Sellers: Wait for further gains.';
       break;
 
     case 'bubble formation':

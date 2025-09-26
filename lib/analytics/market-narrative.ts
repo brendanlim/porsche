@@ -201,14 +201,14 @@ export async function generateMarketNarrative(
     const analysis = JSON.parse(response.choices[0].message.content || '{}');
 
     return {
-      summary: analysis.summary || interpretation,
+      summary: analysis.summary || interpretation.split('.')[0] + '.',  // Use first sentence only for summary
       detailedStory: analysis.detailedStory || interpretation,
       marketPhase: {
         phase,
         confidence: calculateConfidence(trends),
         description: pattern
       },
-      keyInsights: analysis.keyInsights || [interpretation],
+      keyInsights: analysis.keyInsights || generateQuickInsights(trends),
       recommendation: analysis.recommendation || 'Monitor market conditions closely.',
       confidence: calculateConfidence(trends)
     };
@@ -219,6 +219,40 @@ export async function generateMarketNarrative(
     // Fallback to rule-based narrative
     return generateFallbackNarrative(model, trim, generation, trends, pattern, phase, interpretation);
   }
+}
+
+/**
+ * Generate quick insights from trend data
+ */
+function generateQuickInsights(trends: TrendData): string[] {
+  const insights: string[] = [];
+
+  // Add trend descriptions
+  if (trends.threeMonth > 5) {
+    insights.push(`Strong recent momentum (+${trends.threeMonth.toFixed(1)}%)`);
+  } else if (trends.threeMonth < -5) {
+    insights.push(`Recent weakness (${trends.threeMonth.toFixed(1)}%)`);
+  } else {
+    insights.push(`Stable recent performance (${trends.threeMonth > 0 ? '+' : ''}${trends.threeMonth.toFixed(1)}%)`);
+  }
+
+  // Six month perspective
+  if (Math.abs(trends.sixMonth) > Math.abs(trends.threeMonth)) {
+    insights.push('Momentum changing direction');
+  } else if (trends.sixMonth > 10) {
+    insights.push('Sustained appreciation trend');
+  }
+
+  // Year perspective
+  if (trends.oneYear > 20) {
+    insights.push('Exceptional annual performance');
+  } else if (trends.oneYear < -10) {
+    insights.push('Significant annual correction');
+  } else {
+    insights.push(`${trends.oneYear > 0 ? '+' : ''}${trends.oneYear.toFixed(1)}% over twelve months`);
+  }
+
+  return insights.slice(0, 3);  // Always return exactly 3
 }
 
 /**

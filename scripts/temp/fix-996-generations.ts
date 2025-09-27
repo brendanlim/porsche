@@ -83,21 +83,31 @@ async function fixGenerations() {
   // Fix generation field by removing .1 and .2 suffixes
   let totalUpdated = 0;
 
-  // Update each variant type separately for better control
+  // Update each variant type separately, in batches to avoid URI too large errors
   for (const [change, ids] of Object.entries(updateMap)) {
     const [oldGen, newGen] = change.split('→');
 
-    const { error, count } = await supabase
-      .from('listings')
-      .update({ generation: newGen })
-      .in('id', ids);
+    // Process in batches of 100
+    const batchSize = 100;
+    let batchCount = 0;
 
-    if (error) {
-      console.error(`Error updating ${oldGen}→${newGen}:`, error);
-    } else {
-      console.log(`✅ Updated ${count || 0} listings: ${oldGen} → ${newGen}`);
-      totalUpdated += count || 0;
+    for (let i = 0; i < ids.length; i += batchSize) {
+      const batch = ids.slice(i, i + batchSize);
+
+      const { error, count } = await supabase
+        .from('listings')
+        .update({ generation: newGen })
+        .in('id', batch);
+
+      if (error) {
+        console.error(`Error updating batch for ${oldGen}→${newGen}:`, error.message);
+      } else {
+        batchCount += count || 0;
+      }
     }
+
+    console.log(`✅ Updated ${batchCount} listings: ${oldGen} → ${newGen}`);
+    totalUpdated += batchCount;
   }
 
   console.log(`\n✅ Total: Updated ${totalUpdated} listings with generation normalization`);

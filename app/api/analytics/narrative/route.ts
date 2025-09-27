@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
       console.log(`No sales data for ${generation} ${model} ${trim} in past year`);
 
       // Try to get ANY historical data for this model/trim/generation
-      const { count: allTimeCount } = await supabase
+      const { count: allTimeCount } = await supabaseAdmin
         .from('listings')
         .select('*', { count: 'exact', head: true })
         .ilike('model', `%${model.replace('-', ' ')}%`)

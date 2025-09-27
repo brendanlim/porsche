@@ -64,3 +64,4 @@ gh workflow run "Daily Data Collection" -f source=bat -f max_pages=2
 - Use existing scrapers, don't create new ones
 - Validate all data before saving
 - Update notes after significant changes
+- never push without validating if the build has no errors

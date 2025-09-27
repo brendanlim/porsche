@@ -317,7 +317,10 @@ export class CarsAndBidsScraperSB extends BaseScraper {
                 if (decoded.valid && decoded.confidence === 'high') {
                   if (decoded.model) listing.model = decoded.model;
                   if (decoded.engineType) listing.trim = decoded.engineType;
-                  if (decoded.generation) listing.generation = decoded.generation;
+                  if (decoded.generation) {
+                    // Normalize generation to base (remove .1, .2 suffixes)
+                    listing.generation = decoded.generation.split('.')[0];
+                  }
                   if (decoded.modelYear) listing.year = decoded.modelYear;
                 }
               } else {
@@ -476,7 +479,10 @@ export class CarsAndBidsScraperSB extends BaseScraper {
         if (decoded.valid && decoded.confidence === 'high') {
           if (decoded.model) model = decoded.model;
           if (decoded.engineType) trim = decoded.engineType;
-          if (decoded.generation) generation = decoded.generation;
+          if (decoded.generation) {
+            // Normalize generation to base (remove .1, .2 suffixes)
+            generation = decoded.generation.split('.')[0];
+          }
           if (decoded.modelYear) year = decoded.modelYear;
         }
       }

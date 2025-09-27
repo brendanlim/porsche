@@ -78,7 +78,10 @@ function parseListingDetails(listing: ScrapedListing): ScrapedListing {
         if (decoded.modelYear) year = decoded.modelYear;
         if (decoded.model && decoded.model !== 'Unknown') model = decoded.model;
         if (decoded.engineType) trim = decoded.engineType;
-        if (decoded.generation) generation = decoded.generation;
+        if (decoded.generation) {
+          // Normalize generation to base (remove .1, .2 suffixes)
+          generation = decoded.generation.split('.')[0];
+        }
 
         // Update listing with decoded values
         listing.year = year;
@@ -96,7 +99,10 @@ function parseListingDetails(listing: ScrapedListing): ScrapedListing {
         if (!year && decoded.modelYear) year = decoded.modelYear;
         if (!model && decoded.model && decoded.model !== 'Unknown') model = decoded.model;
         if (!trim && decoded.engineType) trim = decoded.engineType;
-        if (!generation && decoded.generation) generation = decoded.generation;
+        if (!generation && decoded.generation) {
+          // Normalize generation to base (remove .1, .2 suffixes)
+          generation = decoded.generation.split('.')[0];
+        }
       }
     } catch (error) {
       console.log(`    ⚠️  VIN decode error: ${error instanceof Error ? error.message : 'Unknown error'}`);

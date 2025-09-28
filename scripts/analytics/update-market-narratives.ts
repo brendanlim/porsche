@@ -122,23 +122,80 @@ async function updateNarrative(model: string, trim: string, generation: string, 
   console.log(`  Generating narrative for ${generation} ${model} ${trim}...`);
 
   try {
-    // First fetch the trend data for this specific model/trim/generation
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/api/analytics/${model}/${trim}?generation=${generation}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+    // Calculate the analytics data directly from the database
+    const now = new Date();
+    const threeMonthsAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    const sixMonthsAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+    const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
 
-    if (!response.ok) {
-      console.log(`    ⚠️  Could not fetch analytics for ${generation} ${model} ${trim}`);
-      return;
+    // Get recent sales data
+    const { data: recentData } = await supabase
+      .from('listings')
+      .select('price, sold_date')
+      .eq('model', model)
+      .eq('trim', trim)
+      .eq('generation', generation)
+      .not('sold_date', 'is', null)
+      .gte('sold_date', threeMonthsAgo.toISOString())
+      .order('sold_date', { ascending: false });
+
+    // Get 3-month ago baseline
+    const { data: threeMonthData } = await supabase
+      .from('listings')
+      .select('price')
+      .eq('model', model)
+      .eq('trim', trim)
+      .eq('generation', generation)
+      .not('sold_date', 'is', null)
+      .gte('sold_date', new Date(threeMonthsAgo.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString())
+      .lte('sold_date', new Date(threeMonthsAgo.getTime() + 15 * 24 * 60 * 60 * 1000).toISOString());
+
+    // Get 6-month ago baseline
+    const { data: sixMonthData } = await supabase
+      .from('listings')
+      .select('price')
+      .eq('model', model)
+      .eq('trim', trim)
+      .eq('generation', generation)
+      .not('sold_date', 'is', null)
+      .gte('sold_date', new Date(sixMonthsAgo.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString())
+      .lte('sold_date', new Date(sixMonthsAgo.getTime() + 15 * 24 * 60 * 60 * 1000).toISOString());
+
+    // Get 1-year ago baseline
+    const { data: oneYearData } = await supabase
+      .from('listings')
+      .select('price')
+      .eq('model', model)
+      .eq('trim', trim)
+      .eq('generation', generation)
+      .not('sold_date', 'is', null)
+      .gte('sold_date', new Date(oneYearAgo.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString())
+      .lte('sold_date', new Date(oneYearAgo.getTime() + 15 * 24 * 60 * 60 * 1000).toISOString());
+
+    // Calculate current average price
+    const currentPrice = avgPrice || (recentData && recentData.length > 0
+      ? recentData.reduce((sum, d) => sum + (d.price || 0), 0) / recentData.length
+      : 0);
+
+    // Calculate trend percentages
+    let wowAppreciation = 0;
+    let momAppreciation = 0;
+    let yoyAppreciation = 0;
+
+    if (threeMonthData && threeMonthData.length > 0) {
+      const avgThreeMonth = threeMonthData.reduce((sum, d) => sum + (d.price || 0), 0) / threeMonthData.length;
+      wowAppreciation = ((currentPrice - avgThreeMonth) / avgThreeMonth) * 100;
     }
 
-    const analytics = await response.json();
+    if (sixMonthData && sixMonthData.length > 0) {
+      const avgSixMonth = sixMonthData.reduce((sum, d) => sum + (d.price || 0), 0) / sixMonthData.length;
+      momAppreciation = ((currentPrice - avgSixMonth) / avgSixMonth) * 100;
+    }
+
+    if (oneYearData && oneYearData.length > 0) {
+      const avgOneYear = oneYearData.reduce((sum, d) => sum + (d.price || 0), 0) / oneYearData.length;
+      yoyAppreciation = ((currentPrice - avgOneYear) / avgOneYear) * 100;
+    }
 
     // Calculate 3-year trend if we have enough historical data
     let threeYearTrend: number | undefined;
@@ -160,7 +217,6 @@ async function updateNarrative(model: string, trim: string, generation: string, 
     // Many models won't have 3 years of history and that's perfectly fine
     if (historicalData && historicalData.length >= 5) {
       const avgThreeYearPrice = historicalData.reduce((sum, d) => sum + (d.price || 0), 0) / historicalData.length;
-      const currentPrice = avgPrice || analytics.averagePrice;
       if (avgThreeYearPrice > 0 && currentPrice > 0) {
         threeYearTrend = ((currentPrice - avgThreeYearPrice) / avgThreeYearPrice) * 100;
         console.log(`    📊 3-year trend available: ${threeYearTrend > 0 ? '+' : ''}${threeYearTrend.toFixed(1)}% (strengthens confidence)`);
@@ -171,9 +227,9 @@ async function updateNarrative(model: string, trim: string, generation: string, 
     // No log if no 3-year data - this is expected for newer models
 
     const trends: TrendData = {
-      threeMonth: analytics.wowAppreciation || 0,
-      sixMonth: analytics.momAppreciation || 0,
-      oneYear: analytics.yoyAppreciation || 0,
+      threeMonth: wowAppreciation || 0,
+      sixMonth: momAppreciation || 0,
+      oneYear: yoyAppreciation || 0,
       threeYear: threeYearTrend
     };
 
@@ -183,7 +239,7 @@ async function updateNarrative(model: string, trim: string, generation: string, 
       trim,
       generation,
       trends,
-      avgPrice || analytics.averagePrice
+      currentPrice
     );
 
     if (!narrative) {
@@ -205,7 +261,7 @@ async function updateNarrative(model: string, trim: string, generation: string, 
         recommendation: narrative.recommendation,
         confidence: narrative.confidence,
         trends_data: trends,
-        current_price: avgPrice || analytics.averagePrice,
+        current_price: currentPrice,
         updated_at: new Date().toISOString()
       }, {
         onConflict: 'model,trim,generation'

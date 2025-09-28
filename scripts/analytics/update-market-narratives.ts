@@ -128,11 +128,17 @@ async function updateNarrative(model: string, trim: string, generation: string, 
     const sixMonthsAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
     const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
 
+    // Convert hyphenated model names to spaces for database queries
+    // e.g., '718-cayman' -> '718 Cayman'
+    const dbModel = model.split('-').map(part =>
+      part.charAt(0).toUpperCase() + part.slice(1)
+    ).join(' ');
+
     // Get recent sales data
     const { data: recentData } = await supabase
       .from('listings')
       .select('price, sold_date')
-      .eq('model', model)
+      .eq('model', dbModel)
       .eq('trim', trim)
       .eq('generation', generation)
       .not('sold_date', 'is', null)
@@ -143,7 +149,7 @@ async function updateNarrative(model: string, trim: string, generation: string, 
     const { data: threeMonthData } = await supabase
       .from('listings')
       .select('price')
-      .eq('model', model)
+      .eq('model', dbModel)
       .eq('trim', trim)
       .eq('generation', generation)
       .not('sold_date', 'is', null)
@@ -154,7 +160,7 @@ async function updateNarrative(model: string, trim: string, generation: string, 
     const { data: sixMonthData } = await supabase
       .from('listings')
       .select('price')
-      .eq('model', model)
+      .eq('model', dbModel)
       .eq('trim', trim)
       .eq('generation', generation)
       .not('sold_date', 'is', null)
@@ -165,7 +171,7 @@ async function updateNarrative(model: string, trim: string, generation: string, 
     const { data: oneYearData } = await supabase
       .from('listings')
       .select('price')
-      .eq('model', model)
+      .eq('model', dbModel)
       .eq('trim', trim)
       .eq('generation', generation)
       .not('sold_date', 'is', null)
@@ -205,7 +211,7 @@ async function updateNarrative(model: string, trim: string, generation: string, 
     const { data: historicalData } = await supabase
       .from('listings')
       .select('price')
-      .eq('model', model)
+      .eq('model', dbModel)
       .eq('trim', trim)
       .eq('generation', generation)
       .not('sold_date', 'is', null)

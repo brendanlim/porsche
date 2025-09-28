@@ -690,7 +690,23 @@ export default function ModelsPage() {
                           {(() => {
                             // Get recent sales for this trim (last 10 sales)
                             const trimListings = (allListings || [])
-                              .filter((l: any) => l.model === trim.model && l.trim === trim.trim && l.price > 0)
+                              .filter((l: any) => {
+                                // Normalize listing model to match with trim.model
+                                const listingModel = l.model?.toLowerCase() || '';
+                                let normalizedListingModel = listingModel;
+
+                                // Handle all 718 variants
+                                if (listingModel === '718-cayman' || listingModel === '718 cayman' ||
+                                    (listingModel === '718' && l.trim?.toLowerCase().includes('gt4'))) {
+                                  normalizedListingModel = 'cayman';
+                                } else if (listingModel === '718-boxster' || listingModel === '718 boxster') {
+                                  normalizedListingModel = 'boxster';
+                                }
+
+                                return normalizedListingModel === trim.model.toLowerCase() &&
+                                       l.trim === trim.trim &&
+                                       l.price > 0;
+                              })
                               .sort((a: any, b: any) => new Date(b.sold_date || b.created_at).getTime() - new Date(a.sold_date || a.created_at).getTime())
                               .slice(0, 10);
                             

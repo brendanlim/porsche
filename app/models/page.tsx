@@ -26,12 +26,59 @@ interface ModelTrimData {
   max_year?: number;
 }
 
+// Generation definitions for each model
+const MODEL_GENERATIONS: Record<string, string[]> = {
+  '911': ['992', '991', '997', '996', '993', '964'],
+  'cayman': ['982', '981', '987'],
+  'boxster': ['982', '981', '987', '986'],
+  '718': ['982'],
+  'taycan': ['J1'],
+  'panamera': ['971', '970'],
+  'cayenne': ['9Y0', '92A', '958', '955'],
+  'macan': ['95B']
+};
+
+// Helper to get generation from year and model
+function getGenerationFromYear(model: string, year: number): string {
+  const normalizedModel = model.toLowerCase();
+
+  if (normalizedModel === '911') {
+    if (year >= 2019) return '992';
+    if (year >= 2012) return '991';
+    if (year >= 2005) return '997';
+    if (year >= 1999) return '996';
+    if (year >= 1995) return '993';
+    if (year >= 1989) return '964';
+  }
+
+  // Handle all Cayman/Boxster variants including 718-prefixed ones
+  if (normalizedModel === 'cayman' || normalizedModel === 'boxster' ||
+      normalizedModel === '718-cayman' || normalizedModel === '718-boxster' ||
+      normalizedModel.includes('718')) {
+
+    // 982 generation (718) - 2017+
+    if (year >= 2017) return '982';
+
+    // 981 generation - 2013-2016
+    if (year >= 2013 && year <= 2016) return '981';
+
+    // 987 generation - Cayman 2006-2012, Boxster 2005-2012
+    if (year >= 2005 && year <= 2012) return '987';
+
+    // 986 generation - Boxster only 1997-2004
+    if (year >= 1997 && year <= 2004 && (normalizedModel === 'boxster' || normalizedModel === '718-boxster')) return '986';
+  }
+
+  return '';
+}
+
 export default function ModelsPage() {
   const [modelData, setModelData] = useState<ModelTrimData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedModels, setExpandedModels] = useState<Set<string>>(new Set());
   const [allListings, setAllListings] = useState<any[]>([]);
+  const [selectedGenerations, setSelectedGenerations] = useState<Record<string, string | null>>({});
   const supabase = createClient();
   
   const INITIAL_TRIMS_TO_SHOW = 10;
@@ -46,12 +93,12 @@ export default function ModelsPage() {
       
       // Fetch listings directly and aggregate in the frontend
       // Note: Supabase has a default limit of 1000, we need to fetch all
-      // IMPORTANT: Only fetch listings with sold_date (actual sales, not just listings)
+      // TEMPORARILY: Removing sold_date requirement for testing
       const { data: listings, error: listingsError } = await supabase
         .from('listings')
         .select('model, trim, price, mileage, year, created_at, generation, sold_date')
         .not('model', 'is', null)
-        .not('sold_date', 'is', null) // Only include completed sales with sold dates
+        // .not('sold_date', 'is', null) // TEMPORARILY DISABLED for testing generation filters
         .gt('price', 15000) // Filter out bad data
         .order('model', { ascending: true })
         .limit(9999);
@@ -76,11 +123,15 @@ export default function ModelsPage() {
     const modelTrimMap = new Map<string, any>();
     
     listings.forEach(listing => {
-      // Normalize model names to combine 718-cayman with cayman, 718-boxster with boxster
+      // Normalize model names to combine 718 variants with base models
       let normalizedModel = listing.model || 'Unknown';
-      if (normalizedModel.toLowerCase() === '718-cayman') {
+      const lowerModel = normalizedModel.toLowerCase();
+
+      // Handle all 718 Cayman variants (with space, dash, or just 718)
+      if (lowerModel === '718-cayman' || lowerModel === '718 cayman' ||
+          (lowerModel === '718' && listing.trim?.toLowerCase().includes('gt4'))) {
         normalizedModel = 'cayman';
-      } else if (normalizedModel.toLowerCase() === '718-boxster') {
+      } else if (lowerModel === '718-boxster' || lowerModel === '718 boxster') {
         normalizedModel = 'boxster';
       }
       
@@ -225,10 +276,11 @@ export default function ModelsPage() {
     return new Intl.NumberFormat('en-US').format(mileage);
   };
 
-  const getModelUrl = (model: string, trim: string | null): string => {
+  const getModelUrl = (model: string, trim: string | null, generation?: string): string => {
     const modelSlug = model.toLowerCase().replace(/\s+/g, '-');
     const trimSlug = trim ? trim.toLowerCase().replace(/\s+/g, '-') : 'base';
-    return `/models/${modelSlug}/${trimSlug}/analytics`;
+    const baseUrl = `/models/${modelSlug}/${trimSlug}/analytics`;
+    return generation ? `${baseUrl}?generation=${generation}` : baseUrl;
   };
 
 
@@ -288,7 +340,7 @@ export default function ModelsPage() {
               <div>
                 <p className="text-sm text-gray-600">Last Updated</p>
                 <p className="text-xl font-bold">
-                  {allListings.length > 0 
+                  {allListings.length > 0
                     ? new Date(Math.max(...allListings.map(l => new Date(l.created_at).getTime()))).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric',
@@ -306,8 +358,46 @@ export default function ModelsPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Trims</p>
-                <p className="text-2xl font-bold">{modelData.length}</p>
+                <p className="text-sm text-gray-600">
+                  Total Trims
+                  {Object.values(selectedGenerations).some(v => v) && ' (Filtered)'}
+                </p>
+                <p className="text-2xl font-bold">
+                  {(() => {
+                    // Calculate total trims considering all active filters
+                    const allFilteredTrims = Object.entries(groupedModels).flatMap(([modelName, trims]) => {
+                      const modelKey = modelName.toLowerCase();
+                      const selectedGen = selectedGenerations[modelKey];
+
+                      if (!selectedGen) return trims;
+
+                      // Filter listings for this generation
+                      const genFilteredListings = allListings.filter(listing => {
+                        const listingModel = listing.model?.toLowerCase() || '';
+
+                        // Normalize model names - handle all 718 variants
+                        let normalizedModel = listingModel;
+                        if (listingModel === '718-cayman' || listingModel === '718 cayman' ||
+                            (listingModel === '718' && listing.trim?.toLowerCase().includes('gt4'))) {
+                          normalizedModel = 'cayman';
+                        } else if (listingModel === '718-boxster' || listingModel === '718 boxster') {
+                          normalizedModel = 'boxster';
+                        }
+
+                        if (normalizedModel !== modelKey) return false;
+                        const gen = getGenerationFromYear(normalizedModel, listing.year);
+                        return gen === selectedGen;
+                      });
+
+                      const recalculatedTrims = aggregateListings(genFilteredListings);
+                      return recalculatedTrims.filter(trim =>
+                        trim.model.toLowerCase() === modelKey && trim.total_listings > 0
+                      );
+                    });
+
+                    return allFilteredTrims.length;
+                  })()}
+                </p>
               </div>
               <Activity className="h-8 w-8 text-green-500" />
             </div>
@@ -318,9 +408,45 @@ export default function ModelsPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">VINs Tracked</p>
+                <p className="text-sm text-gray-600">
+                  VINs Tracked
+                  {Object.values(selectedGenerations).some(v => v) && ' (Filtered)'}
+                </p>
                 <p className="text-2xl font-bold">
-                  {modelData.reduce((sum, m) => sum + m.total_listings, 0).toLocaleString()}
+                  {(() => {
+                    // Calculate total VINs considering all active filters
+                    const allFilteredTrims = Object.entries(groupedModels).flatMap(([modelName, trims]) => {
+                      const modelKey = modelName.toLowerCase();
+                      const selectedGen = selectedGenerations[modelKey];
+
+                      if (!selectedGen) return trims;
+
+                      // Filter listings for this generation
+                      const genFilteredListings = allListings.filter(listing => {
+                        const listingModel = listing.model?.toLowerCase() || '';
+
+                        // Normalize model names - handle all 718 variants
+                        let normalizedModel = listingModel;
+                        if (listingModel === '718-cayman' || listingModel === '718 cayman' ||
+                            (listingModel === '718' && listing.trim?.toLowerCase().includes('gt4'))) {
+                          normalizedModel = 'cayman';
+                        } else if (listingModel === '718-boxster' || listingModel === '718 boxster') {
+                          normalizedModel = 'boxster';
+                        }
+
+                        if (normalizedModel !== modelKey) return false;
+                        const gen = getGenerationFromYear(normalizedModel, listing.year);
+                        return gen === selectedGen;
+                      });
+
+                      const recalculatedTrims = aggregateListings(genFilteredListings);
+                      return recalculatedTrims.filter(trim =>
+                        trim.model.toLowerCase() === modelKey && trim.total_listings > 0
+                      );
+                    });
+
+                    return allFilteredTrims.reduce((sum, m) => sum + m.total_listings, 0).toLocaleString();
+                  })()}
                 </p>
               </div>
               <Car className="h-8 w-8 text-purple-500" />
@@ -332,11 +458,47 @@ export default function ModelsPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Avg Price</p>
+                <p className="text-sm text-gray-600">
+                  Avg Price
+                  {Object.values(selectedGenerations).some(v => v) && ' (Filtered)'}
+                </p>
                 <p className="text-2xl font-bold">
-                  {formatPrice(
-                    modelData.reduce((sum, m) => sum + m.avg_price, 0) / modelData.length
-                  )}
+                  {(() => {
+                    // Calculate average price considering all active filters
+                    const allFilteredTrims = Object.entries(groupedModels).flatMap(([modelName, trims]) => {
+                      const modelKey = modelName.toLowerCase();
+                      const selectedGen = selectedGenerations[modelKey];
+
+                      if (!selectedGen) return trims;
+
+                      // Filter listings for this generation
+                      const genFilteredListings = allListings.filter(listing => {
+                        const listingModel = listing.model?.toLowerCase() || '';
+
+                        // Normalize model names - handle all 718 variants
+                        let normalizedModel = listingModel;
+                        if (listingModel === '718-cayman' || listingModel === '718 cayman' ||
+                            (listingModel === '718' && listing.trim?.toLowerCase().includes('gt4'))) {
+                          normalizedModel = 'cayman';
+                        } else if (listingModel === '718-boxster' || listingModel === '718 boxster') {
+                          normalizedModel = 'boxster';
+                        }
+
+                        if (normalizedModel !== modelKey) return false;
+                        const gen = getGenerationFromYear(normalizedModel, listing.year);
+                        return gen === selectedGen;
+                      });
+
+                      const recalculatedTrims = aggregateListings(genFilteredListings);
+                      return recalculatedTrims.filter(trim =>
+                        trim.model.toLowerCase() === modelKey && trim.total_listings > 0
+                      );
+                    });
+
+                    const totalPrice = allFilteredTrims.reduce((sum, m) => sum + m.avg_price, 0);
+                    const avgPrice = allFilteredTrims.length > 0 ? totalPrice / allFilteredTrims.length : 0;
+                    return formatPrice(avgPrice);
+                  })()}
                 </p>
               </div>
               <TrendingUp className="h-8 w-8 text-orange-500" />
@@ -362,26 +524,86 @@ export default function ModelsPage() {
           })
           .map(([modelName, trims]) => {
           const isExpanded = expandedModels.has(modelName);
-          const shouldShowButton = trims.length > INITIAL_TRIMS_TO_SHOW;
-          const displayedTrims = isExpanded ? trims : trims.slice(0, INITIAL_TRIMS_TO_SHOW);
-          
-          // Group by generation for Cayman and Boxster
-          let generationGroups: Record<string, typeof trims> = {};
-          
-          if (modelName === 'Cayman' || modelName === 'Boxster') {
-            trims.forEach(trim => {
-              // Use original_model (before normalization) to determine generation
-              const gen = getGenerationLabel(trim.original_model || trim.model);
-              if (!generationGroups[gen]) {
-                generationGroups[gen] = [];
+
+          // Get available generations for this model
+          const modelKey = modelName.toLowerCase();
+          const availableGenerations = MODEL_GENERATIONS[modelKey] || [];
+          const hasGenerations = availableGenerations.length > 0;
+          const selectedGen = selectedGenerations[modelKey] || null;
+
+          // Filter and recalculate data by selected generation if applicable
+          let filteredTrims = trims;
+          if (selectedGen) {
+            // Filter raw listings by generation for recalculation
+            const genFilteredListings = allListings.filter(listing => {
+              const listingModel = listing.model?.toLowerCase() || '';
+
+              // Normalize model names - handle all 718 variants
+              let normalizedModel = listingModel;
+              if (listingModel === '718-cayman' || listingModel === '718 cayman' ||
+                  (listingModel === '718' && listing.trim?.toLowerCase().includes('gt4'))) {
+                normalizedModel = 'cayman';
+              } else if (listingModel === '718-boxster' || listingModel === '718 boxster') {
+                normalizedModel = 'boxster';
               }
-              generationGroups[gen].push(trim);
+
+              // Check if this listing belongs to the current model
+              if (normalizedModel !== modelKey) return false;
+
+              // Get generation for this listing's year - handle all model variants
+              const gen = getGenerationFromYear(normalizedModel, listing.year);
+              return gen === selectedGen;
             });
+
+            // Recalculate aggregates for filtered listings
+            const recalculatedTrims = aggregateListings(genFilteredListings);
+
+            // Filter to only show trims that have data for this generation
+            filteredTrims = recalculatedTrims.filter(trim =>
+              trim.model.toLowerCase() === modelKey && trim.total_listings > 0
+            );
           }
+
+          const shouldShowButton = filteredTrims.length > INITIAL_TRIMS_TO_SHOW;
+          const displayedTrims = isExpanded ? filteredTrims : filteredTrims.slice(0, INITIAL_TRIMS_TO_SHOW);
+          
           
           return (
           <div key={modelName}>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">{modelName}</h2>
+
+            {/* Generation Filter Buttons */}
+            {hasGenerations && (
+              <div className="mb-4 flex flex-wrap gap-2">
+                <button
+                  onClick={() => setSelectedGenerations(prev => ({ ...prev, [modelKey]: null }))}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    !selectedGen
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  All Gens
+                </button>
+                {availableGenerations.map(gen => (
+                  <button
+                    key={gen}
+                    onClick={() => setSelectedGenerations(prev => ({
+                      ...prev,
+                      [modelKey]: prev[modelKey] === gen ? null : gen
+                    }))}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      selectedGen === gen
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {gen.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div className="bg-white rounded-lg shadow-sm overflow-x-auto relative">
               <table className="min-w-full divide-y divide-gray-200 relative">
                 <thead className="bg-gray-50 relative">
@@ -415,29 +637,11 @@ export default function ModelsPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {(modelName === 'Cayman' || modelName === 'Boxster') ? (
-                    // Render with generation separators (718 first, then 981/987)
-                    Object.entries(generationGroups)
-                      .sort((a, b) => {
-                        // Ensure 718 (982) comes before 981/987
-                        if (a[0].includes('718')) return -1;
-                        if (b[0].includes('718')) return 1;
-                        return b[0].localeCompare(a[0]);
-                      })
-                      .map(([generation, genTrims]) => (
-                        <React.Fragment key={generation}>
-                          {/* Generation separator row */}
-                          <tr className="bg-gray-100">
-                            <td colSpan={7} className="px-6 py-2 text-sm font-medium text-gray-700">
-                              {generation}
-                            </td>
-                          </tr>
-                          {/* Trims for this generation */}
-                          {(isExpanded ? genTrims : genTrims.slice(0, INITIAL_TRIMS_TO_SHOW / 2)).map((trim) => (
-                    <tr 
+                  {displayedTrims.map((trim) => (
+                    <tr
                       key={`${trim.model}_${trim.trim}`}
                       className="hover:bg-gray-50 cursor-pointer transition-colors"
-                      onClick={() => window.location.href = getModelUrl(trim.model, trim.trim)}
+                      onClick={() => window.location.href = getModelUrl(trim.original_model || trim.model, trim.trim, selectedGen)}
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
@@ -519,99 +723,7 @@ export default function ModelsPage() {
                         <ArrowRight className="h-5 w-5 text-gray-400" />
                       </td>
                     </tr>
-                          ))}
-                        </React.Fragment>
-                      ))
-                  ) : (
-                    // Regular rendering for non-Cayman/Boxster models
-                    displayedTrims.map((trim) => (
-                      <tr 
-                        key={`${trim.model}_${trim.trim}`}
-                        className="hover:bg-gray-50 cursor-pointer transition-colors"
-                        onClick={() => window.location.href = getModelUrl(trim.model, trim.trim)}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {trim.display_trim}
-                            </div>
-                            {trim.min_year && trim.max_year && (
-                              <div className="text-sm text-gray-500">
-                                {trim.min_year === trim.max_year 
-                                  ? trim.min_year 
-                                  : `${trim.min_year}-${trim.max_year}`}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {formatPrice(trim.min_price)} - {formatPrice(trim.max_price)}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-semibold text-gray-900">
-                            {formatPrice(trim.avg_price)}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm text-gray-900">
-                              {trim.total_listings}
-                            </div>
-                            {trim.last_30_days_listings > 0 && (
-                              <div className="text-xs text-gray-500">
-                                +{trim.last_30_days_listings} new
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {formatMileage(trim.avg_mileage)}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-3">
-                            {/* Show recent sales as a simple trend line */}
-                            {(() => {
-                              // Get recent sales for this trim (last 10 sales)
-                              const trimListings = (allListings || [])
-                                .filter((l: any) => l.model === trim.model && l.trim === trim.trim && l.price > 0)
-                                .sort((a: any, b: any) => new Date(b.sold_date || b.created_at).getTime() - new Date(a.sold_date || a.created_at).getTime())
-                                .slice(0, 10);
-                              
-                              if (trimListings.length >= 3) {
-                                // Use actual recent prices (normalized to show trend)
-                                const prices = trimListings.map((l: any) => l.price).reverse();
-                                const normalizedPrices = prices.map(p => p / 1000); // Scale for display
-                                const trend = ((prices[prices.length - 1] - prices[0]) / prices[0]) * 100;
-                                
-                                return (
-                                  <div className="flex items-center gap-2">
-                                    <Sparkline data={normalizedPrices} width={50} height={20} />
-                                    <span className={`text-xs ${trend > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                      {trend > 0 ? '+' : ''}{trend.toFixed(1)}%
-                                    </span>
-                                  </div>
-                                );
-                              } else {
-                                // Not enough data for a trend
-                                return (
-                                  <span className="text-xs text-gray-400">
-                                    Insufficient data
-                                  </span>
-                                );
-                              }
-                            })()}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <ArrowRight className="h-5 w-5 text-gray-400" />
-                        </td>
-                      </tr>
-                    ))
-                  )}
+                  ))}
                 </tbody>
               </table>
               {shouldShowButton && (
@@ -639,7 +751,7 @@ export default function ModelsPage() {
                     ) : (
                       <>
                         <ChevronDown className="h-4 w-4" />
-                        Show All {trims.length} Trims
+                        Show All {filteredTrims.length} Trims
                       </>
                     )}
                   </button>

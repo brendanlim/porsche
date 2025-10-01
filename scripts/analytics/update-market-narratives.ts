@@ -127,6 +127,48 @@ async function getModelsWithSufficientData(): Promise<ModelTrimGenerationCombo[]
   return data || [];
 }
 
+// Helper function to calculate trend with fallback logic (DRY)
+function calculateTrendWithFallback(
+  currentSales: any[],
+  historicalSales: any[],
+  allSales: any[],
+  currentPrice: number,
+  mostRecentDate: Date,
+  twoMonthsFromRecent: Date,
+  targetMonths: number,
+  MIN_SAMPLE_SIZE: number
+): { trend: number; method: string } {
+  // Try exact period first
+  if (currentSales.length >= MIN_SAMPLE_SIZE && historicalSales.length >= MIN_SAMPLE_SIZE) {
+    const pastPrices = historicalSales.map(s => s.price).sort((a, b) => a - b);
+    const pastMedian = pastPrices[Math.floor(pastPrices.length / 2)];
+    const trend = ((currentPrice - pastMedian) / pastMedian) * 100;
+    return { trend, method: 'exact' };
+  }
+
+  // Fallback: find any older data and scale
+  if (allSales.length >= 4 && currentSales.length > 0) {
+    const lookbackMonths = Math.max(targetMonths + 2, 8); // Look further back
+    const oldDate = new Date(mostRecentDate.getTime() - lookbackMonths * 30 * 24 * 60 * 60 * 1000);
+    const olderSales = allSales.filter(s => {
+      const saleDate = new Date(s.sold_date);
+      return saleDate < twoMonthsFromRecent && saleDate > oldDate;
+    });
+
+    if (olderSales.length > 0) {
+      const olderPrices = olderSales.map(s => s.price).sort((a, b) => a - b);
+      const olderMedian = olderPrices[Math.floor(olderPrices.length / 2)];
+      const avgOlderDate = olderSales.reduce((sum, s) => sum + new Date(s.sold_date).getTime(), 0) / olderSales.length;
+      const monthsDiff = (mostRecentDate.getTime() - avgOlderDate) / (1000 * 60 * 60 * 24 * 30);
+      const totalTrend = ((currentPrice - olderMedian) / olderMedian) * 100;
+      const scaledTrend = (totalTrend / monthsDiff) * targetMonths;
+      return { trend: scaledTrend, method: `scaled from ${monthsDiff.toFixed(1)}mo` };
+    }
+  }
+
+  return { trend: 0, method: 'insufficient data' };
+}
+
 async function updateNarrative(model: string, trim: string, generation: string, avgPrice: number) {
   console.log(`  Generating narrative for ${generation} ${model} ${trim}...`);
 
@@ -187,62 +229,48 @@ async function updateNarrative(model: string, trim: string, generation: string, 
     const currentPrice = currentPrices[Math.floor(currentPrices.length / 2)];
     console.log(`    💰 Current price (median of ${currentSales.length} sales): $${currentPrice.toLocaleString()}`);
 
-    // 3 MONTH TREND: Compare to 3 months ago from most recent sale
+    // 3 MONTH TREND
     const threeMonthsAgoEnd = new Date(mostRecentDate.getTime() - 90 * 24 * 60 * 60 * 1000);
     const fourMonthsAgoStart = new Date(mostRecentDate.getTime() - 120 * 24 * 60 * 60 * 1000);
-
     const threeMonthAgoSales = allSales.filter(s => {
       const saleDate = new Date(s.sold_date);
       return saleDate > fourMonthsAgoStart && saleDate <= threeMonthsAgoEnd;
     });
 
-    let wowAppreciation = 0;
-    if (currentSales.length >= MIN_SAMPLE_SIZE && threeMonthAgoSales.length >= MIN_SAMPLE_SIZE) {
-      const pastPrices = threeMonthAgoSales.map(s => s.price).sort((a, b) => a - b);
-      const pastMedian = pastPrices[Math.floor(pastPrices.length / 2)];
-      wowAppreciation = ((currentPrice - pastMedian) / pastMedian) * 100;
-      console.log(`    📊 3-month trend: ${wowAppreciation > 0 ? '+' : ''}${wowAppreciation.toFixed(2)}% (vs $${pastMedian.toLocaleString()})`);
-    } else {
-      console.log(`    ⚠️  Insufficient data for 3-month trend (current: ${currentSales.length}, 3mo ago: ${threeMonthAgoSales.length})`);
-    }
+    const threeMonthResult = calculateTrendWithFallback(
+      currentSales, threeMonthAgoSales, allSales, currentPrice, mostRecentDate, twoMonthsFromRecent, 3, MIN_SAMPLE_SIZE
+    );
+    const wowAppreciation = threeMonthResult.trend;
+    console.log(`    📊 3-month: ${wowAppreciation > 0 ? '+' : ''}${wowAppreciation.toFixed(2)}% (${threeMonthResult.method})`);
 
-    // 6 MONTH TREND: Compare to 6 months ago from most recent sale
+    // 6 MONTH TREND
     const sixMonthsAgoEnd = new Date(mostRecentDate.getTime() - 180 * 24 * 60 * 60 * 1000);
     const sevenMonthsAgoStart = new Date(mostRecentDate.getTime() - 210 * 24 * 60 * 60 * 1000);
-
     const sixMonthAgoSales = allSales.filter(s => {
       const saleDate = new Date(s.sold_date);
       return saleDate > sevenMonthsAgoStart && saleDate <= sixMonthsAgoEnd;
     });
 
-    let momAppreciation = 0;
-    if (currentSales.length >= MIN_SAMPLE_SIZE && sixMonthAgoSales.length >= MIN_SAMPLE_SIZE) {
-      const pastPrices = sixMonthAgoSales.map(s => s.price).sort((a, b) => a - b);
-      const pastMedian = pastPrices[Math.floor(pastPrices.length / 2)];
-      momAppreciation = ((currentPrice - pastMedian) / pastMedian) * 100;
-      console.log(`    📊 6-month trend: ${momAppreciation > 0 ? '+' : ''}${momAppreciation.toFixed(2)}% (vs $${pastMedian.toLocaleString()})`);
-    } else {
-      console.log(`    ⚠️  Insufficient data for 6-month trend (current: ${currentSales.length}, 6mo ago: ${sixMonthAgoSales.length})`);
-    }
+    const sixMonthResult = calculateTrendWithFallback(
+      currentSales, sixMonthAgoSales, allSales, currentPrice, mostRecentDate, twoMonthsFromRecent, 6, MIN_SAMPLE_SIZE
+    );
+    const momAppreciation = sixMonthResult.trend;
+    console.log(`    📊 6-month: ${momAppreciation > 0 ? '+' : ''}${momAppreciation.toFixed(2)}% (${sixMonthResult.method})`);
 
-    // 1 YEAR TREND: Compare to 1 year ago from most recent sale
+    // 1 YEAR TREND
     const twelveMonthsAgoEnd = new Date(mostRecentDate.getTime() - 365 * 24 * 60 * 60 * 1000);
     const thirteenMonthsAgoStart = new Date(mostRecentDate.getTime() - 395 * 24 * 60 * 60 * 1000);
-
     const oneYearAgoSales = allSales.filter(s => {
       const saleDate = new Date(s.sold_date);
       return saleDate > thirteenMonthsAgoStart && saleDate <= twelveMonthsAgoEnd;
     });
 
-    let yoyAppreciation = 0;
-    if (currentSales.length >= MIN_SAMPLE_SIZE && oneYearAgoSales.length >= MIN_SAMPLE_SIZE) {
-      const pastPrices = oneYearAgoSales.map(s => s.price).sort((a, b) => a - b);
-      const pastMedian = pastPrices[Math.floor(pastPrices.length / 2)];
-      yoyAppreciation = ((currentPrice - pastMedian) / pastMedian) * 100;
-      console.log(`    📊 1-year trend: ${yoyAppreciation > 0 ? '+' : ''}${yoyAppreciation.toFixed(2)}% (vs $${pastMedian.toLocaleString()})`);
-    } else {
-      console.log(`    ⚠️  Insufficient data for 1-year trend (current: ${currentSales.length}, 1yr ago: ${oneYearAgoSales.length})`);
-    }
+    const oneYearResult = calculateTrendWithFallback(
+      currentSales, oneYearAgoSales, allSales, currentPrice, mostRecentDate, twoMonthsFromRecent, 12, MIN_SAMPLE_SIZE
+    );
+    const yoyAppreciation = oneYearResult.trend;
+    console.log(`    📊 1-year: ${yoyAppreciation > 0 ? '+' : ''}${yoyAppreciation.toFixed(2)}% (${oneYearResult.method})`);
+
 
     // Calculate 3-year trend if we have enough historical data
     let threeYearTrend: number | undefined;

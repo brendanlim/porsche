@@ -1,15 +1,18 @@
 # API Cost Reduction Summary
 
 ## Problem
-$8,000+ in API costs from Sept 21 - Oct 1, 2025 (10 days)
+**$7,999 in Gemini API costs over 10 days** (Sept 21 - Oct 1, 2025)
+= **~$24,000/month** if left running
 
 ## Root Causes
 
-### 1. Gemini 2.5 Flash - EVERY Listing ($$$$$)
+### 1. Gemini 2.5 Flash - EVERY Listing (💀💀💀💀💀)
 - **File**: `lib/services/normalizer.ts`
 - **Issue**: Called Gemini API for EVERY scraped listing to parse titles/descriptions
+- **Actual Cost**: $7,999 in just 10 days = **$24,000/month** projected
 - **Scale**: 100s-1000s of listings per day = 100s-1000s of API calls daily
 - **Fix**: ✅ Removed Gemini entirely, switched to regex-based parsing
+- **Fix 2**: ✅ Removed `@google/generative-ai` package completely
 
 ### 2. GPT-4 Turbo - Expensive Model ($$$$)
 - **Files**: 
@@ -85,12 +88,14 @@ await new Promise(resolve => setTimeout(resolve, 10000));
 
 ## Expected Monthly Savings
 
-| Item | Before | After | Savings |
-|------|--------|-------|---------|
-| Gemini normalization | ~$5,000 | $0 | $5,000 |
-| GPT-4 Turbo → mini | ~$2,500 | $12.50 | $2,487.50 |
+| Item | Before (projected) | After | Savings |
+|------|-------------------|-------|---------|
+| Gemini normalization | **~$24,000** | $0 | **$24,000** |
+| GPT-4 Turbo → mini | ~$2,000 | $10 | $1,990 |
 | Daily workflow | ~$500 | $0 | $500 |
-| **TOTAL** | **~$8,000/mo** | **~$12.50/mo** | **~$7,987.50/mo** |
+| **TOTAL** | **~$26,500/mo** | **~$10/mo** | **~$26,490/mo** |
+
+**Reality Check**: $7,999 spent in just 10 days = $799.90/day on Gemini alone!
 
 ## Verified No Images Sent to LLMs
 ✅ Searched entire codebase - no image data being sent to any LLM APIs

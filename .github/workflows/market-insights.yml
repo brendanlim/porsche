@@ -1,11 +1,11 @@
 name: AI Chart Predictions Generation
 
 on:
-  # Schedule runs - daily at 6 AM UTC (includes weekly on Mondays)
-  schedule:
-    - cron: '0 6 * * *'  # Daily insights at 6 AM UTC (2 AM EST)
-  
-  # Allow manual triggering
+  # DISABLED - Was causing excessive API costs ($8k+ from Sept 21-Oct 1)
+  # schedule:
+  #   - cron: '0 6 * * *'  # Daily insights at 6 AM UTC (2 AM EST)
+
+  # Allow manual triggering only
   workflow_dispatch:
     inputs:
       insight_type:

@@ -309,6 +309,25 @@ async function updateNarrative(model: string, trim: string, generation: string, 
     };
 
     // Generate the narrative using the market narrative function
+    // Check if we already have a recent narrative (within last 7 days)
+    const { data: existingNarrative } = await supabase
+      .from('market_narratives')
+      .select('updated_at')
+      .eq('model', model)
+      .eq('trim', trim)
+      .eq('generation', generation)
+      .single();
+
+    if (existingNarrative) {
+      const lastUpdated = new Date(existingNarrative.updated_at);
+      const daysSinceUpdate = (Date.now() - lastUpdated.getTime()) / (1000 * 60 * 60 * 24);
+
+      if (daysSinceUpdate < 7) {
+        console.log(`    ⏭️  Skipping - narrative updated ${daysSinceUpdate.toFixed(1)} days ago (cache valid for 7 days)`);
+        return;
+      }
+    }
+
     const narrative = await generateMarketNarrative(
       model,
       trim,
@@ -410,8 +429,8 @@ async function main() {
   for (const { model, trim, generation, avg_price } of modelTrims) {
     await updateNarrative(model, trim, generation, avg_price);
 
-    // Add a small delay to avoid overwhelming the API
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Add delay to avoid overwhelming OpenAI API and reduce costs
+    await new Promise(resolve => setTimeout(resolve, 10000));
 
     successCount++;
   }

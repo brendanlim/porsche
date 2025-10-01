@@ -1,4 +1,3 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { validateVIN, validateModelYear, validatePrice, detectPaintToSample } from '@/lib/utils';
 
@@ -13,14 +12,12 @@ export interface NormalizationResult {
 }
 
 export class DataNormalizer {
-  private genAI: GoogleGenerativeAI;
-
   constructor() {
-    this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+    // Removed Gemini - using regex-based parsing only to reduce API costs
   }
 
   /**
-   * Normalize listing data using Gemini AI
+   * Normalize listing data using regex-based parsing only
    */
   async normalizeListing(listing: {
     title: string;
@@ -43,8 +40,8 @@ export class DataNormalizer {
       validation_errors.push(`Invalid VIN format: ${listing.vin}`);
     }
 
-    // Parse title to extract model, trim, and generation
-    const parsedInfo = await this.parseWithGemini(listing);
+    // Parse title using regex-based parsing only (no LLM calls)
+    const parsedInfo = this.basicParse(listing);
     
     // Look up IDs from database
     if (parsedInfo.model) {
@@ -94,61 +91,9 @@ export class DataNormalizer {
     return result;
   }
 
-  /**
-   * Use Gemini to parse listing information
-   */
-  private async parseWithGemini(listing: any): Promise<{
-    model?: string;
-    trim?: string;
-    generation?: string;
-    options?: string[];
-  }> {
-    const prompt = `
-      You are a Porsche vehicle expert and data normalization specialist. Analyze this listing and extract structured information.
-
-      Listing Title: ${listing.title}
-      Year: ${listing.year || 'Unknown'}
-      Price: $${listing.price}
-      Mileage: ${listing.mileage || 'Unknown'}
-      Color: ${listing.exterior_color || 'Unknown'}
-      Options Text: ${listing.options_text || 'None provided'}
-      
-      Extract and return ONLY a JSON object with these fields:
-      - model: The Porsche model (e.g., "911", "718 Cayman", "718 Boxster", "Cayenne", "Macan", "Panamera", "Taycan")
-      - trim: The specific trim (e.g., "GT3", "GT3 RS", "GT4 RS", "Turbo S", "Carrera", "GTS", "Base")
-      - generation: The generation code if identifiable (e.g., "992.1", "992.2", "991.2", "982", "981")
-      - options: Array of normalized option names found in the listing
-      
-      Important rules:
-      1. For model, use exact names: "911", "718 Cayman", "718 Boxster" (not just "Cayman" or "Boxster")
-      2. For trim, normalize variations (e.g., "GT3 Manthey" → "GT3", "GT4 RS Weissach" → "GT4 RS")
-      3. Only include options that are actual factory options, not standard features
-      4. Normalize option abbreviations (e.g., "PDK" → "Porsche Doppelkupplung (PDK)", "PCCB" → "Porsche Ceramic Composite Brakes (PCCB)")
-      
-      Return ONLY the JSON object, no other text.
-    `;
-
-    try {
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-      const result = await model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
-      
-      // Extract JSON from response
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
-      }
-    } catch (error) {
-      console.error('Gemini parsing failed:', error);
-    }
-
-    // Fallback to basic parsing
-    return this.basicParse(listing);
-  }
 
   /**
-   * Basic parsing fallback when Gemini fails
+   * Regex-based parsing (primary method - no LLM costs)
    */
   private basicParse(listing: any): { model?: string; trim?: string; generation?: string; options?: string[] } {
     const title = listing.title.toLowerCase();

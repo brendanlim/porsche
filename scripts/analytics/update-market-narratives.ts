@@ -70,13 +70,13 @@ async function getModelsWithSufficientData(): Promise<ModelTrimGenerationCombo[]
       ORDER BY model, trim, generation;
     `;
 
-    // Execute raw SQL query
-    const { data: rawData, error: queryError } = await supabase
+    // Execute raw SQL query - match 911, 718, Cayman, Boxster models (case-insensitive, with or without spaces)
+    const { data: rawData, error: queryError} = await supabase
       .from('listings')
-      .select('model, trim, generation, price')
+      .select('model, trim, generation, price, sold_date')
       .not('sold_date', 'is', null)
       .not('generation', 'is', null)
-      .in('model', ['911', '718', 'cayman', 'boxster']);
+      .or('model.eq.911,model.ilike.%718%,model.ilike.%cayman%,model.ilike.%boxster%');
 
     if (queryError) {
       console.error('Error getting models with data:', queryError);

@@ -291,32 +291,45 @@ export async function GET(
 
     const mostRecentDate = sortedByDate.length > 0 ? new Date(sortedByDate[0].sold_date) : now;
 
-    // 3 Month Trend: Compare current prices to 3 months ago
-    // Get listings from the last month (most recent 30 days of data)
-    const recentMonth = new Date(mostRecentDate);
-    recentMonth.setMonth(recentMonth.getMonth() - 1);
-    const recentMonthListings = filteredListings.filter(l =>
-      l.sold_date && new Date(l.sold_date) > recentMonth && new Date(l.sold_date) <= mostRecentDate
+    // Calculate trends like stock prices: compare current to specific past periods
+    // Current window: last 30 days from the most recent date
+    const oneMonthFromRecent = new Date(mostRecentDate);
+    oneMonthFromRecent.setMonth(oneMonthFromRecent.getMonth() - 1);
+    const currentWindowListings = filteredListings.filter(l =>
+      l.sold_date && new Date(l.sold_date) > oneMonthFromRecent && new Date(l.sold_date) <= mostRecentDate
     );
 
-    // Get listings from around 3 months ago (wider window for better data capture)
+    // For better sample size when current window is small, expand to 2 months
     const twoMonthsAgo = new Date(mostRecentDate);
     twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
-    const fourMonthsAgo = new Date(mostRecentDate);
-    fourMonthsAgo.setMonth(fourMonthsAgo.getMonth() - 4);
+    const currentExpandedListings = filteredListings.filter(l =>
+      l.sold_date && new Date(l.sold_date) > twoMonthsAgo && new Date(l.sold_date) <= mostRecentDate
+    );
+
+    // 3 MONTH TREND: Compare to 3 months ago
+    // Target: 30 days around 3 months ago
+    const threeMonthsAgoEnd = new Date(mostRecentDate);
+    threeMonthsAgoEnd.setMonth(threeMonthsAgoEnd.getMonth() - 3);
+    const fourMonthsAgoStart = new Date(mostRecentDate);
+    fourMonthsAgoStart.setMonth(fourMonthsAgoStart.getMonth() - 4);
 
     const threeMonthAgoListings = filteredListings.filter(l =>
-      l.sold_date && new Date(l.sold_date) >= fourMonthsAgo && new Date(l.sold_date) <= twoMonthsAgo
+      l.sold_date && new Date(l.sold_date) > fourMonthsAgoStart && new Date(l.sold_date) <= threeMonthsAgoEnd
     );
 
     let threeMonthTrend = 0;
-    if (recentMonthListings.length > 0 && threeMonthAgoListings.length > 0) {
-      // Use median for more robust calculation
-      const recentPrices = recentMonthListings.map(l => l.price).sort((a, b) => a - b);
-      const recentMedian = recentPrices[Math.floor(recentPrices.length / 2)];
-      const threeMonthAgoPrices = threeMonthAgoListings.map(l => l.price).sort((a, b) => a - b);
-      const threeMonthAgoMedian = threeMonthAgoPrices[Math.floor(threeMonthAgoPrices.length / 2)];
-      threeMonthTrend = ((recentMedian - threeMonthAgoMedian) / threeMonthAgoMedian) * 100;
+    const MIN_SAMPLE_SIZE = 2; // Minimum 2 sales per period
+
+    // Try current window first, then expanded if needed
+    const currentListingsFor3M = currentWindowListings.length >= MIN_SAMPLE_SIZE ?
+      currentWindowListings : currentExpandedListings;
+
+    if (currentListingsFor3M.length >= MIN_SAMPLE_SIZE && threeMonthAgoListings.length >= MIN_SAMPLE_SIZE) {
+      const currentPrices = currentListingsFor3M.map(l => l.price).sort((a, b) => a - b);
+      const currentMedian = currentPrices[Math.floor(currentPrices.length / 2)];
+      const pastPrices = threeMonthAgoListings.map(l => l.price).sort((a, b) => a - b);
+      const pastMedian = pastPrices[Math.floor(pastPrices.length / 2)];
+      threeMonthTrend = ((currentMedian - pastMedian) / pastMedian) * 100;
     } else if (filteredListings.length >= 4) {
       // Fallback: If we don't have data from exactly 3 months ago, find any older data
       const oldDate = new Date(mostRecentDate);
@@ -325,9 +338,9 @@ export async function GET(
         l.sold_date && new Date(l.sold_date) < twoMonthsAgo && new Date(l.sold_date) > oldDate
       );
 
-      if (recentMonthListings.length > 0 && olderListings.length > 0) {
+      if (currentWindowListings.length > 0 && olderListings.length > 0) {
         // We have recent data and some older data (not exactly 3 months)
-        const recentPrices = recentMonthListings.map(l => l.price).sort((a, b) => a - b);
+        const recentPrices = currentWindowListings.map(l => l.price).sort((a, b) => a - b);
         const recentMedian = recentPrices[Math.floor(recentPrices.length / 2)];
         const olderPrices = olderListings.map(l => l.price).sort((a, b) => a - b);
         const olderMedian = olderPrices[Math.floor(olderPrices.length / 2)];
@@ -347,38 +360,41 @@ export async function GET(
       }
     }
 
-    // 6 Month Trend: Compare current prices to 6 months ago
-    // Use wider windows to capture data "around" those time periods
-    const fiveMonthsAgo = new Date(mostRecentDate);
-    fiveMonthsAgo.setMonth(fiveMonthsAgo.getMonth() - 5);
-    const sevenMonthsAgo = new Date(mostRecentDate);
-    sevenMonthsAgo.setMonth(sevenMonthsAgo.getMonth() - 7);
+    // 6 MONTH TREND: Compare to 6 months ago
+    // Target: 30 days around 6 months ago
+    const sixMonthsAgoEnd = new Date(mostRecentDate);
+    sixMonthsAgoEnd.setMonth(sixMonthsAgoEnd.getMonth() - 6);
+    const sevenMonthsAgoStart = new Date(mostRecentDate);
+    sevenMonthsAgoStart.setMonth(sevenMonthsAgoStart.getMonth() - 7);
 
-    // Look for data in a 2-month window around 6 months ago
     const sixMonthAgoListings = filteredListings.filter(l =>
-      l.sold_date && new Date(l.sold_date) >= sevenMonthsAgo && new Date(l.sold_date) <= fiveMonthsAgo
+      l.sold_date && new Date(l.sold_date) > sevenMonthsAgoStart && new Date(l.sold_date) <= sixMonthsAgoEnd
     );
 
     let sixMonthTrend = 0;
-    if (recentMonthListings.length > 0 && sixMonthAgoListings.length > 0) {
-      // Use median for more robust calculation
-      const recentPrices = recentMonthListings.map(l => l.price).sort((a, b) => a - b);
-      const recentMedian = recentPrices[Math.floor(recentPrices.length / 2)];
-      const sixMonthAgoPrices = sixMonthAgoListings.map(l => l.price).sort((a, b) => a - b);
-      const sixMonthAgoMedian = sixMonthAgoPrices[Math.floor(sixMonthAgoPrices.length / 2)];
-      sixMonthTrend = ((recentMedian - sixMonthAgoMedian) / sixMonthAgoMedian) * 100;
+
+    // Use same current window as 3M for consistency
+    const currentListingsFor6M = currentWindowListings.length >= MIN_SAMPLE_SIZE ?
+      currentWindowListings : currentExpandedListings;
+
+    if (currentListingsFor6M.length >= MIN_SAMPLE_SIZE && sixMonthAgoListings.length >= MIN_SAMPLE_SIZE) {
+      const currentPrices = currentListingsFor6M.map(l => l.price).sort((a, b) => a - b);
+      const currentMedian = currentPrices[Math.floor(currentPrices.length / 2)];
+      const pastPrices = sixMonthAgoListings.map(l => l.price).sort((a, b) => a - b);
+      const pastMedian = pastPrices[Math.floor(pastPrices.length / 2)];
+      sixMonthTrend = ((currentMedian - pastMedian) / pastMedian) * 100;
     } else if (filteredListings.length >= 4) {
       // Fallback: If we don't have data from exactly 6 months ago, use linear regression or estimate
       // Try to find any older data to compare with
       const oldDate = new Date(mostRecentDate);
       oldDate.setMonth(oldDate.getMonth() - 8); // Look for data 8 months ago
       const olderListings = filteredListings.filter(l =>
-        l.sold_date && new Date(l.sold_date) < fiveMonthsAgo && new Date(l.sold_date) > oldDate
+        l.sold_date && new Date(l.sold_date) < sixMonthsAgoEnd && new Date(l.sold_date) > oldDate
       );
 
-      if (recentMonthListings.length > 0 && olderListings.length > 0) {
+      if (currentWindowListings.length > 0 && olderListings.length > 0) {
         // We have recent data and some older data (not exactly 6 months)
-        const recentPrices = recentMonthListings.map(l => l.price).sort((a, b) => a - b);
+        const recentPrices = currentWindowListings.map(l => l.price).sort((a, b) => a - b);
         const recentMedian = recentPrices[Math.floor(recentPrices.length / 2)];
         const olderPrices = olderListings.map(l => l.price).sort((a, b) => a - b);
         const olderMedian = olderPrices[Math.floor(olderPrices.length / 2)];
@@ -398,40 +414,40 @@ export async function GET(
       }
     }
 
-    // 1 Year Trend: Compare current prices to 1 year ago
-    const oneYearAgoDate = new Date(mostRecentDate);
-    oneYearAgoDate.setFullYear(oneYearAgoDate.getFullYear() - 1);
-    const thirteenMonthsAgoDate = new Date(mostRecentDate);
-    thirteenMonthsAgoDate.setMonth(thirteenMonthsAgoDate.getMonth() - 13);
-    const elevenMonthsAgoDate = new Date(mostRecentDate);
-    elevenMonthsAgoDate.setMonth(elevenMonthsAgoDate.getMonth() - 11);
+    // 1 YEAR TREND: Compare to 1 year ago
+    // Target: 30 days around 12 months ago
+    const twelveMonthsAgoEnd = new Date(mostRecentDate);
+    twelveMonthsAgoEnd.setMonth(twelveMonthsAgoEnd.getMonth() - 12);
+    const thirteenMonthsAgoStart = new Date(mostRecentDate);
+    thirteenMonthsAgoStart.setMonth(thirteenMonthsAgoStart.getMonth() - 13);
 
-    // Get listings from around a year ago (11-13 months ago for wider window)
     const yearAgoListings = filteredListings.filter(l =>
-      l.sold_date &&
-      new Date(l.sold_date) >= thirteenMonthsAgoDate &&
-      new Date(l.sold_date) <= elevenMonthsAgoDate
+      l.sold_date && new Date(l.sold_date) > thirteenMonthsAgoStart && new Date(l.sold_date) <= twelveMonthsAgoEnd
     );
 
     let oneYearTrend = 0;
-    if (recentMonthListings.length > 0 && yearAgoListings.length > 0) {
-      // Use median for more robust calculation
-      const recentPrices = recentMonthListings.map(l => l.price).sort((a, b) => a - b);
-      const recentMedian = recentPrices[Math.floor(recentPrices.length / 2)];
-      const yearAgoPrices = yearAgoListings.map(l => l.price).sort((a, b) => a - b);
-      const yearAgoMedian = yearAgoPrices[Math.floor(yearAgoPrices.length / 2)];
-      oneYearTrend = ((recentMedian - yearAgoMedian) / yearAgoMedian) * 100;
+
+    // Use same current window as other trends for consistency
+    const currentListingsFor1Y = currentWindowListings.length >= MIN_SAMPLE_SIZE ?
+      currentWindowListings : currentExpandedListings;
+
+    if (currentListingsFor1Y.length >= MIN_SAMPLE_SIZE && yearAgoListings.length >= MIN_SAMPLE_SIZE) {
+      const currentPrices = currentListingsFor1Y.map(l => l.price).sort((a, b) => a - b);
+      const currentMedian = currentPrices[Math.floor(currentPrices.length / 2)];
+      const pastPrices = yearAgoListings.map(l => l.price).sort((a, b) => a - b);
+      const pastMedian = pastPrices[Math.floor(pastPrices.length / 2)];
+      oneYearTrend = ((currentMedian - pastMedian) / pastMedian) * 100;
     } else if (filteredListings.length >= 4) {
       // Fallback: If we don't have data from exactly 1 year ago, find any older data
       const oldDate = new Date(mostRecentDate);
       oldDate.setMonth(oldDate.getMonth() - 16); // Look for data up to 16 months ago
       const olderListings = filteredListings.filter(l =>
-        l.sold_date && new Date(l.sold_date) < elevenMonthsAgoDate && new Date(l.sold_date) > oldDate
+        l.sold_date && new Date(l.sold_date) < twelveMonthsAgoEnd && new Date(l.sold_date) > oldDate
       );
 
-      if (recentMonthListings.length > 0 && olderListings.length > 0) {
+      if (currentWindowListings.length > 0 && olderListings.length > 0) {
         // We have recent data and some older data (not exactly 1 year)
-        const recentPrices = recentMonthListings.map(l => l.price).sort((a, b) => a - b);
+        const recentPrices = currentWindowListings.map(l => l.price).sort((a, b) => a - b);
         const recentMedian = recentPrices[Math.floor(recentPrices.length / 2)];
         const olderPrices = olderListings.map(l => l.price).sort((a, b) => a - b);
         const olderMedian = olderPrices[Math.floor(olderPrices.length / 2)];

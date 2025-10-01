@@ -141,21 +141,32 @@ export class CarsAndBidsScraperSB extends BaseScraper {
         let status = 'active';
 
         // Check for sold price - only "Sold for" or "Sold after for" means it actually sold
+        // The HTML structure concatenates price and year: "$125,0001985" or "$12,7502005"
+        // We need to extract just the price part before the 4-digit year
         const soldMatch = fullText.match(/Sold (?:for|after for) \$([0-9,]+)/i);
         if (soldMatch) {
-          price = parseInt(soldMatch[1].replace(/,/g, ''));
+          // Remove commas to get clean digit string
+          const priceWithYear = soldMatch[1].replace(/,/g, '');
+          // The year is the last 4 digits, so price is everything before that
+          // Extract price by removing the last 4 digits (year)
+          const priceStr = priceWithYear.length > 4 ? priceWithYear.slice(0, -4) : priceWithYear;
+          price = parseInt(priceStr);
           status = 'sold';
         } else {
           // Check for "Bid to" (for past auctions that didn't meet reserve)
           const bidToMatch = fullText.match(/Bid to \$([0-9,]+)/);
           if (bidToMatch) {
-            price = parseInt(bidToMatch[1].replace(/,/g, ''));
+            const priceWithYear = bidToMatch[1].replace(/,/g, '');
+            const priceStr = priceWithYear.length > 4 ? priceWithYear.slice(0, -4) : priceWithYear;
+            price = parseInt(priceStr);
             status = 'unsold'; // Didn't meet reserve
           } else {
             // Extract current bid - look for the pattern "Bid $XXX" (with space)
             const bidMatch = fullText.match(/Bid \$([0-9,]+)/);
             if (bidMatch) {
-              price = parseInt(bidMatch[1].replace(/,/g, ''));
+              const priceWithYear = bidMatch[1].replace(/,/g, '');
+              const priceStr = priceWithYear.length > 4 ? priceWithYear.slice(0, -4) : priceWithYear;
+              price = parseInt(priceStr);
               status = 'active';
             }
           }
@@ -194,11 +205,6 @@ export class CarsAndBidsScraperSB extends BaseScraper {
       });
 
       console.log(`📦 Found ${listings.length} listings from search page`);
-
-      // Debug: Show what we found
-      if (listings.length < 5) {
-        console.log('🔍 Debug - Found listings:', listings.slice(0, 3));
-      }
 
       // Convert listings to ScrapedListing format
       for (const listing of listings) {
@@ -257,7 +263,7 @@ export class CarsAndBidsScraperSB extends BaseScraper {
       if (allListings.length > 0) {
         console.log('\n📥 Fetching detail pages for VIN extraction...');
 
-        for (let i = 0; i < Math.min(allListings.length, 3); i++) {
+        for (let i = 0; i < Math.min(allListings.length, 2); i++) {
           const listing = allListings[i];
           console.log(`  [${i + 1}/${Math.min(allListings.length, 5)}] ${listing.title}`);
 
@@ -269,9 +275,11 @@ export class CarsAndBidsScraperSB extends BaseScraper {
               render_js: 'true',
               premium_proxy: 'true',
               country_code: 'us',
-              wait: '8000',  // Wait longer for JS to load VIN
-              wait_for: '.quick-facts, .vehicle-details, [data-vin]',  // Wait for specific elements
-              json_response: 'true'
+              wait: '5000',  // Wait 5 seconds for JS to render
+              wait_for: 'dt',  // Wait for dt elements to appear
+              json_response: 'true',
+              custom_google: 'false',  // Disable custom Google settings
+              stealth_proxy: 'true'  // Use stealth mode
             };
 
             const urlParams = new URLSearchParams(detailParams);
@@ -288,11 +296,13 @@ export class CarsAndBidsScraperSB extends BaseScraper {
               // Parse HTML to extract VIN
               const $ = cheerio.load(data.body);
 
-              // Method 1: Look in quick-facts div specifically (where VIN is located on Cars & Bids)
+              // Method 1: Look in dt/dd tags (Cars & Bids uses definition lists)
               let vin: string | undefined;
-              $('.quick-facts dt').each((_, el) => {
+
+              // Find all dt elements and look for VIN
+              $('dt').each((_, el) => {
                 const label = $(el).text().trim().toLowerCase();
-                if (label.includes('vin')) {
+                if (label === 'vin') {
                   const value = $(el).next('dd').text().trim();
                   if (value && value.match(/[A-Z0-9]{17}/)) {
                     vin = value;
@@ -300,7 +310,7 @@ export class CarsAndBidsScraperSB extends BaseScraper {
                 }
               });
 
-              // Method 2: Look for VIN in all text as fallback
+              // Method 3: Look for VIN in all text as final fallback
               if (!vin) {
                 const bodyText = $.text();
                 const vinMatch = bodyText.match(/VIN[:\s]*([A-Z0-9]{17})/i);
@@ -327,11 +337,53 @@ export class CarsAndBidsScraperSB extends BaseScraper {
                 console.log(`    ⚠️ No VIN found in HTML`);
               }
 
-              // Extract mileage
+              // Extract mileage from dt/dd
+              $('dt').each((_, el) => {
+                const label = $(el).text().trim().toLowerCase();
+                if (label === 'mileage') {
+                  const value = $(el).next('dd').text().trim();
+                  const mileageMatch = value.match(/([\d,]+)/);
+                  if (mileageMatch) {
+                    listing.mileage = parseInt(mileageMatch[1].replace(/,/g, ''));
+                  }
+                }
+              });
+
+              // Extract other fields from dt/dd
+              $('dt').each((_, el) => {
+                const label = $(el).text().trim().toLowerCase();
+                const value = $(el).next('dd').text().trim();
+
+                if (label === 'exterior color' && !listing.exterior_color) {
+                  listing.exterior_color = value;
+                } else if (label === 'interior color' && !listing.interior_color) {
+                  listing.interior_color = value;
+                }
+              });
+
+              // Extract sold date from page - look for the date format in the header
+              // Format from search page: "9/30/25" or from detail: "Ended September 30th at 12:40 PM PDT"
               const bodyText = $.text();
-              const mileageMatch = bodyText.match(/([\d,]+)\s*(?:miles?|mi\b)/i);
-              if (mileageMatch) {
-                listing.mileage = parseInt(mileageMatch[1].replace(/,/g, ''));
+
+              // Try to find "Ended <full date>" format first
+              const longDateMatch = bodyText.match(/Ended\s+(\w+\s+\d+(?:st|nd|rd|th)?(?:,?\s+\d{4})?(?:\s+at\s+[\d:]+\s+[AP]M\s+[A-Z]{3})?)/i);
+              if (longDateMatch) {
+                const dateStr = longDateMatch[1].replace(/(\d+)(st|nd|rd|th)/, '$1');
+                const parsedDate = new Date(dateStr);
+                if (!isNaN(parsedDate.getTime())) {
+                  listing.sold_date = parsedDate;
+                }
+              }
+
+              // Fallback: Look for short date format "9/30/25" near "Sold for"
+              if (!listing.sold_date) {
+                const shortDateMatch = bodyText.match(/(\d{1,2}\/\d{1,2}\/\d{2,4})/);
+                if (shortDateMatch) {
+                  const parsedDate = new Date(shortDateMatch[1]);
+                  if (!isNaN(parsedDate.getTime())) {
+                    listing.sold_date = parsedDate;
+                  }
+                }
               }
 
               // Store HTML
@@ -424,12 +476,12 @@ export class CarsAndBidsScraperSB extends BaseScraper {
       let status = 'active';
       const bodyText = $.text();
 
-      const soldMatch = bodyText.match(/Sold (?:for|after for) \$([0-9,]+)/i);
+      const soldMatch = bodyText.match(/Sold (?:for|after for) \$([0-9,]+)(?:\D|$)/i);
       if (soldMatch) {
         price = parseInt(soldMatch[1].replace(/,/g, ''));
         status = 'sold';
       } else {
-        const bidMatch = bodyText.match(/Bid \$([0-9,]+)/);
+        const bidMatch = bodyText.match(/Bid \$([0-9,]+)(?:\D|$)/);
         if (bidMatch) {
           price = parseInt(bidMatch[1].replace(/,/g, ''));
         }

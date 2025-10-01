@@ -17,8 +17,10 @@ on:
         options:
           - all
           - bat
+          - bat-sb
           - classic
-          - carsandbids
+          - classic-sb
+          - carsandbids-sb
           - cars
           - edmunds
           - autotrader
@@ -62,6 +64,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
           BRIGHT_DATA_CUSTOMER_ID: ${{ secrets.BRIGHT_DATA_CUSTOMER_ID }}
           BRIGHT_DATA_BROWSER_PASSWORD: ${{ secrets.BRIGHT_DATA_BROWSER_PASSWORD }}
           BRIGHT_DATA_ZONE_PASSWORD: ${{ secrets.BRIGHT_DATA_ZONE_PASSWORD }}

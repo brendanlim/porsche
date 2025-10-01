@@ -98,6 +98,12 @@ function decodePositions4to6(vin: string, year: number): { model: string; trim?:
     return { model: '911', trim: 'Special' };
   }
 
+  // 997 GT3 RS pattern MUST be checked FIRST: AC2 in positions 4-6 with 99 or A9 in positions 7-8
+  if (pos456 === 'AC2' && (vin.substring(6, 8) === '99' || vin.substring(6, 8) === 'A9')) {
+    // This is a 997 GT3 RS
+    return { model: '911', trim: 'GT3 RS', bodyStyle: 'Coupe' };
+  }
+
   // Classic 911 patterns
   if (pos4 === 'J' && pos5 === 'B') return { model: '911', trim: 'Turbo', bodyStyle: 'Coupe' };
   if (pos4 === 'J' && pos5 === 'A') return { model: '911', trim: 'Turbo', bodyStyle: 'Coupe' };

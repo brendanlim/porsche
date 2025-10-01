@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import { ScrapedListing } from '../../lib/scrapers/base';
 import { processListingOptions } from '../../lib/services/options-manager';
 import { decodePorscheVIN } from '../../lib/utils/porsche-vin-decoder';
+import { normalizeColor } from '../../lib/color-normalizer';
 
 // Function to load environment variables (for local development only)
 async function loadEnvironmentVariables() {
@@ -287,6 +288,18 @@ async function saveListings(listings: ScrapedListing[], source: string, supabase
       // Parse listing details
       const parsed = parseListingDetails(listing);
 
+      // VALIDATION: Skip listings missing critical fields
+      if (!listing.vin || !listing.sold_date || !listing.mileage) {
+        const missing = [];
+        if (!listing.vin) missing.push('VIN');
+        if (!listing.sold_date) missing.push('sold_date');
+        if (!listing.mileage) missing.push('mileage');
+
+        console.log(`  ⏭️  SKIP: Missing required fields: ${missing.join(', ')} | ${listing.source_url}`);
+        skippedCount++;
+        continue;
+      }
+
       // If VIN exists, check for duplicates
       if (listing.vin) {
         const { data: existingWithVin } = await supabase
@@ -311,8 +324,10 @@ async function saveListings(listings: ScrapedListing[], source: string, supabase
               if (!existingWithVin.price && listing.price) mergedUpdates.price = listing.price;
               if (!existingWithVin.mileage && listing.mileage) mergedUpdates.mileage = listing.mileage;
               if (!existingWithVin.options_text && listing.options_text) mergedUpdates.options_text = listing.options_text;
-              if (listing.exterior_color) mergedUpdates.exterior_color = listing.exterior_color;
-              if (listing.interior_color) mergedUpdates.interior_color = listing.interior_color;
+              const normalizedExterior = normalizeColor(listing.exterior_color);
+              const normalizedInterior = normalizeColor(listing.interior_color);
+              if (normalizedExterior) mergedUpdates.exterior_color = normalizedExterior;
+              if (normalizedInterior) mergedUpdates.interior_color = normalizedInterior;
 
               if (Object.keys(mergedUpdates).length > 0) {
                 const { error: updateError } = await supabase
@@ -347,8 +362,8 @@ async function saveListings(listings: ScrapedListing[], source: string, supabase
                   sold_date: listing.sold_date,
                   mileage: listing.mileage || existingWithVin.mileage,
                   options_text: listing.options_text || existingWithVin.options_text,
-                  exterior_color: listing.exterior_color,
-                  interior_color: listing.interior_color,
+                  exterior_color: normalizeColor(listing.exterior_color),
+                  interior_color: normalizeColor(listing.interior_color),
                   scraped_at: new Date().toISOString()
                 })
                 .eq('vin', listing.vin);
@@ -391,8 +406,8 @@ async function saveListings(listings: ScrapedListing[], source: string, supabase
           generation: parsed.generation,
           price: listing.price,
           mileage: listing.mileage,
-          exterior_color: listing.exterior_color,
-          interior_color: listing.interior_color,
+          exterior_color: normalizeColor(listing.exterior_color),
+          interior_color: normalizeColor(listing.interior_color),
           dealer_name: listing.dealer_name,
           location: listing.location,
           title: listing.title,
@@ -709,7 +724,7 @@ async function main() {
       }
     }
 
-    if (source === 'carsandbids' || !source) {
+    if (source === 'carsandbids' || source === 'carsandbids-sb' || !source) {
       // Run Cars and Bids scraper
       console.log('\n' + '═'.repeat(60));
       console.log('🎯 [3/7] CARS AND BIDS');

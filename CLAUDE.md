@@ -9,6 +9,16 @@
 
 ## Critical Rules
 
+### Database Safety
+- **ALWAYS CREATE BACKUP BEFORE DESTRUCTIVE OPERATIONS**
+- Run `npx tsx scripts/backup/backup-database.ts` before:
+  - Bulk updates or deletions
+  - Schema changes
+  - Data migrations
+  - Any operation affecting >10 records
+- To restore: `npx tsx scripts/backup/restore-database.ts [backup-name]`
+- Backups stored in `/backups/` (gitignored)
+
 ### Scraping
 - **Primary scraper:** `/scripts/scraping/scrape-and-save.ts` (USE THIS)
 - **Daily workflow:** Daily Data Collection at 3 AM UTC
@@ -27,7 +37,11 @@
 - **NO FAKE DATA:** Never use Math.random() or mock data
 - **Sports cars only:** No SUVs (Cayenne/Macan) or sedans (Panamera/Taycan)
 - **Fix bugs immediately:** Don't wait to be told
-- **Script organization:** Use proper subfolders (`/scripts/scraping/`, `/scripts/temp/`, etc.)
+- **Script organization:** Use proper subfolders (`/scripts/scraping/`, `/scripts/analytics/`, etc.)
+- **NO ONE-OFF SCRIPTS:** Use reusable scripts with CLI arguments instead of creating temp scripts
+  - Test narratives: `npx tsx scripts/analytics/test-narrative.ts --model="911" --trim="GT3" --generation="996"`
+  - Update narratives: `npx tsx scripts/analytics/update-market-narratives.ts --model="911" --trim="GT3"`
+  - Clean up `/scripts/temp/` regularly
 
 ### Data Validation
 - GT4 RS min price: $220,000

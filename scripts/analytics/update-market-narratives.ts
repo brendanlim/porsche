@@ -55,7 +55,7 @@ async function getModelsWithSufficientData(): Promise<ModelTrimGenerationCombo[]
           COUNT(*) as total_count
         FROM listings
         WHERE sold_date IS NOT NULL
-          AND model IN ('911', '718', 'cayman', 'boxster')
+          AND (model IN ('911', '718', 'cayman', 'boxster') OR model ILIKE '%718%' OR model ILIKE '%cayman%' OR model ILIKE '%boxster%')
           AND generation IS NOT NULL
         GROUP BY model, trim, generation
       )

@@ -1,6 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 import { generateMarketNarrative } from '../../lib/analytics/market-narrative';
 import type { TrendData } from '../../lib/analytics/market-narrative';
+import * as dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
+
+// Load environment variables
+const envPath = path.resolve(process.cwd(), '.env.local');
+if (fs.existsSync(envPath)) {
+  dotenv.config({ path: envPath });
+}
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -134,73 +143,105 @@ async function updateNarrative(model: string, trim: string, generation: string, 
       part.charAt(0).toUpperCase() + part.slice(1)
     ).join(' ');
 
-    // Get recent sales data
-    const { data: recentData } = await supabase
+    // Get ALL sales data for this model/trim/generation to calculate trends properly
+    // This matches the logic in the frontend API route
+    const { data: allSales } = await supabase
       .from('listings')
       .select('price, sold_date')
       .eq('model', dbModel)
-      .eq('trim', trim)
+      .ilike('trim', trim)
       .eq('generation', generation)
       .not('sold_date', 'is', null)
-      .gte('sold_date', threeMonthsAgo.toISOString())
+      .not('price', 'is', null)
+      .gt('price', 0)
       .order('sold_date', { ascending: false });
 
-    // Get 3-month ago baseline
-    const { data: threeMonthData } = await supabase
-      .from('listings')
-      .select('price')
-      .eq('model', dbModel)
-      .eq('trim', trim)
-      .eq('generation', generation)
-      .not('sold_date', 'is', null)
-      .gte('sold_date', new Date(threeMonthsAgo.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString())
-      .lte('sold_date', new Date(threeMonthsAgo.getTime() + 15 * 24 * 60 * 60 * 1000).toISOString());
+    if (!allSales || allSales.length === 0) {
+      console.log(`    ⚠️  No sales data found for ${generation} ${model} ${trim}`);
+      return;
+    }
 
-    // Get 6-month ago baseline
-    const { data: sixMonthData } = await supabase
-      .from('listings')
-      .select('price')
-      .eq('model', dbModel)
-      .eq('trim', trim)
-      .eq('generation', generation)
-      .not('sold_date', 'is', null)
-      .gte('sold_date', new Date(sixMonthsAgo.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString())
-      .lte('sold_date', new Date(sixMonthsAgo.getTime() + 15 * 24 * 60 * 60 * 1000).toISOString());
+    // Find the most recent sale date as our reference point (matching frontend logic)
+    const mostRecentDate = new Date(allSales[0].sold_date);
+    console.log(`    📅 Most recent sale: ${mostRecentDate.toISOString().split('T')[0]}`);
 
-    // Get 1-year ago baseline
-    const { data: oneYearData } = await supabase
-      .from('listings')
-      .select('price')
-      .eq('model', dbModel)
-      .eq('trim', trim)
-      .eq('generation', generation)
-      .not('sold_date', 'is', null)
-      .gte('sold_date', new Date(oneYearAgo.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString())
-      .lte('sold_date', new Date(oneYearAgo.getTime() + 15 * 24 * 60 * 60 * 1000).toISOString());
+    // Current window: last 30-60 days from most recent sale
+    const oneMonthFromRecent = new Date(mostRecentDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const twoMonthsFromRecent = new Date(mostRecentDate.getTime() - 60 * 24 * 60 * 60 * 1000);
 
-    // Calculate current average price
-    const currentPrice = avgPrice || (recentData && recentData.length > 0
-      ? recentData.reduce((sum, d) => sum + (d.price || 0), 0) / recentData.length
-      : 0);
+    const currentWindow = allSales.filter(s => new Date(s.sold_date) > oneMonthFromRecent);
+    const currentExpandedWindow = allSales.filter(s => new Date(s.sold_date) > twoMonthsFromRecent);
 
-    // Calculate trend percentages
+    const MIN_SAMPLE_SIZE = 2;
+
+    // Use current window, or expanded if not enough samples
+    const currentSales = currentWindow.length >= MIN_SAMPLE_SIZE ? currentWindow : currentExpandedWindow;
+
+    if (currentSales.length === 0) {
+      console.log(`    ⚠️  No recent sales data for ${generation} ${model} ${trim}`);
+      return;
+    }
+
+    // Calculate current median price (use median instead of average for robustness)
+    const currentPrices = currentSales.map(s => s.price).sort((a, b) => a - b);
+    const currentPrice = currentPrices[Math.floor(currentPrices.length / 2)];
+    console.log(`    💰 Current price (median of ${currentSales.length} sales): $${currentPrice.toLocaleString()}`);
+
+    // 3 MONTH TREND: Compare to 3 months ago from most recent sale
+    const threeMonthsAgoEnd = new Date(mostRecentDate.getTime() - 90 * 24 * 60 * 60 * 1000);
+    const fourMonthsAgoStart = new Date(mostRecentDate.getTime() - 120 * 24 * 60 * 60 * 1000);
+
+    const threeMonthAgoSales = allSales.filter(s => {
+      const saleDate = new Date(s.sold_date);
+      return saleDate > fourMonthsAgoStart && saleDate <= threeMonthsAgoEnd;
+    });
+
     let wowAppreciation = 0;
+    if (currentSales.length >= MIN_SAMPLE_SIZE && threeMonthAgoSales.length >= MIN_SAMPLE_SIZE) {
+      const pastPrices = threeMonthAgoSales.map(s => s.price).sort((a, b) => a - b);
+      const pastMedian = pastPrices[Math.floor(pastPrices.length / 2)];
+      wowAppreciation = ((currentPrice - pastMedian) / pastMedian) * 100;
+      console.log(`    📊 3-month trend: ${wowAppreciation > 0 ? '+' : ''}${wowAppreciation.toFixed(2)}% (vs $${pastMedian.toLocaleString()})`);
+    } else {
+      console.log(`    ⚠️  Insufficient data for 3-month trend (current: ${currentSales.length}, 3mo ago: ${threeMonthAgoSales.length})`);
+    }
+
+    // 6 MONTH TREND: Compare to 6 months ago from most recent sale
+    const sixMonthsAgoEnd = new Date(mostRecentDate.getTime() - 180 * 24 * 60 * 60 * 1000);
+    const sevenMonthsAgoStart = new Date(mostRecentDate.getTime() - 210 * 24 * 60 * 60 * 1000);
+
+    const sixMonthAgoSales = allSales.filter(s => {
+      const saleDate = new Date(s.sold_date);
+      return saleDate > sevenMonthsAgoStart && saleDate <= sixMonthsAgoEnd;
+    });
+
     let momAppreciation = 0;
+    if (currentSales.length >= MIN_SAMPLE_SIZE && sixMonthAgoSales.length >= MIN_SAMPLE_SIZE) {
+      const pastPrices = sixMonthAgoSales.map(s => s.price).sort((a, b) => a - b);
+      const pastMedian = pastPrices[Math.floor(pastPrices.length / 2)];
+      momAppreciation = ((currentPrice - pastMedian) / pastMedian) * 100;
+      console.log(`    📊 6-month trend: ${momAppreciation > 0 ? '+' : ''}${momAppreciation.toFixed(2)}% (vs $${pastMedian.toLocaleString()})`);
+    } else {
+      console.log(`    ⚠️  Insufficient data for 6-month trend (current: ${currentSales.length}, 6mo ago: ${sixMonthAgoSales.length})`);
+    }
+
+    // 1 YEAR TREND: Compare to 1 year ago from most recent sale
+    const twelveMonthsAgoEnd = new Date(mostRecentDate.getTime() - 365 * 24 * 60 * 60 * 1000);
+    const thirteenMonthsAgoStart = new Date(mostRecentDate.getTime() - 395 * 24 * 60 * 60 * 1000);
+
+    const oneYearAgoSales = allSales.filter(s => {
+      const saleDate = new Date(s.sold_date);
+      return saleDate > thirteenMonthsAgoStart && saleDate <= twelveMonthsAgoEnd;
+    });
+
     let yoyAppreciation = 0;
-
-    if (threeMonthData && threeMonthData.length > 0) {
-      const avgThreeMonth = threeMonthData.reduce((sum, d) => sum + (d.price || 0), 0) / threeMonthData.length;
-      wowAppreciation = ((currentPrice - avgThreeMonth) / avgThreeMonth) * 100;
-    }
-
-    if (sixMonthData && sixMonthData.length > 0) {
-      const avgSixMonth = sixMonthData.reduce((sum, d) => sum + (d.price || 0), 0) / sixMonthData.length;
-      momAppreciation = ((currentPrice - avgSixMonth) / avgSixMonth) * 100;
-    }
-
-    if (oneYearData && oneYearData.length > 0) {
-      const avgOneYear = oneYearData.reduce((sum, d) => sum + (d.price || 0), 0) / oneYearData.length;
-      yoyAppreciation = ((currentPrice - avgOneYear) / avgOneYear) * 100;
+    if (currentSales.length >= MIN_SAMPLE_SIZE && oneYearAgoSales.length >= MIN_SAMPLE_SIZE) {
+      const pastPrices = oneYearAgoSales.map(s => s.price).sort((a, b) => a - b);
+      const pastMedian = pastPrices[Math.floor(pastPrices.length / 2)];
+      yoyAppreciation = ((currentPrice - pastMedian) / pastMedian) * 100;
+      console.log(`    📊 1-year trend: ${yoyAppreciation > 0 ? '+' : ''}${yoyAppreciation.toFixed(2)}% (vs $${pastMedian.toLocaleString()})`);
+    } else {
+      console.log(`    ⚠️  Insufficient data for 1-year trend (current: ${currentSales.length}, 1yr ago: ${oneYearAgoSales.length})`);
     }
 
     // Calculate 3-year trend if we have enough historical data
@@ -212,7 +253,7 @@ async function updateNarrative(model: string, trim: string, generation: string, 
       .from('listings')
       .select('price')
       .eq('model', dbModel)
-      .eq('trim', trim)
+      .ilike('trim', trim)  // Case-insensitive match
       .eq('generation', generation)
       .not('sold_date', 'is', null)
       .gte('sold_date', new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000 - 30 * 24 * 60 * 60 * 1000).toISOString())
@@ -287,8 +328,40 @@ async function main() {
   console.log('=== Market Narrative Update Started ===');
   console.log(`Timestamp: ${new Date().toISOString()}`);
 
+  // Check for command line arguments to filter by specific model/trim/generation
+  const args = process.argv.slice(2);
+  let filterModel: string | undefined;
+  let filterTrim: string | undefined;
+  let filterGeneration: string | undefined;
+
+  // Parse command line arguments
+  // Usage: --model=911 --trim=GT3 --generation=996
+  args.forEach(arg => {
+    const [key, value] = arg.split('=');
+    if (key === '--model') filterModel = value;
+    if (key === '--trim') filterTrim = value;
+    if (key === '--generation') filterGeneration = value;
+  });
+
+  if (filterModel || filterTrim || filterGeneration) {
+    console.log('Filtering for:');
+    if (filterModel) console.log(`  Model: ${filterModel}`);
+    if (filterTrim) console.log(`  Trim: ${filterTrim}`);
+    if (filterGeneration) console.log(`  Generation: ${filterGeneration}`);
+  }
+
   // Get all model/trim combinations with sufficient data
-  const modelTrims = await getModelsWithSufficientData();
+  let modelTrims = await getModelsWithSufficientData();
+
+  // Apply filters if specified
+  if (filterModel || filterTrim || filterGeneration) {
+    modelTrims = modelTrims.filter(mtg => {
+      const matchModel = !filterModel || mtg.model.toLowerCase() === filterModel.toLowerCase();
+      const matchTrim = !filterTrim || mtg.trim.toLowerCase() === filterTrim.toLowerCase();
+      const matchGeneration = !filterGeneration || mtg.generation.toLowerCase() === filterGeneration.toLowerCase();
+      return matchModel && matchTrim && matchGeneration;
+    });
+  }
 
   if (modelTrims.length === 0) {
     console.log('No models found with sufficient data for analysis');

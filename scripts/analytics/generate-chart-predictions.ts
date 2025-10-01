@@ -186,7 +186,7 @@ class ChartPredictionsGenerator {
 
     try {
       const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
+        model: 'gpt-4o-mini',  // Using mini model to reduce costs (was gpt-4-turbo-preview)
         messages: [
           {
             role: 'system',
@@ -297,7 +297,7 @@ class ChartPredictionsGenerator {
 
     try {
       const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
+        model: 'gpt-4o-mini',  // Using mini model to reduce costs (was gpt-4-turbo-preview)
         messages: [
           {
             role: 'system',
@@ -392,7 +392,7 @@ class ChartPredictionsGenerator {
 
     try {
       const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
+        model: 'gpt-4o-mini',  // Using mini model to reduce costs (was gpt-4-turbo-preview)
         messages: [
           {
             role: 'system',

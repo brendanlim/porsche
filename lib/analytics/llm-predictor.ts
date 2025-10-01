@@ -143,7 +143,7 @@ export interface PromptTemplate {
  */
 export class LLMPredictor {
   private openai: OpenAI;
-  private defaultModel: string = 'gpt-4-turbo-preview';
+  private defaultModel: string = 'gpt-4o-mini';  // Using mini model to reduce costs (was gpt-4-turbo-preview)
   private cacheManager: CacheManager;
   private promptManager: PromptManager;
   private costTracker: CostTracker;
@@ -809,7 +809,7 @@ class PromptManager {
         file: 'market-summary.md',
         modelConfig: {
           modelProvider: 'openai',
-          modelName: 'gpt-4-turbo-preview',
+          modelName: 'gpt-4o-mini',  // Using mini model to reduce costs
           temperature: 0.7,
           maxTokens: 1000
         }
@@ -818,7 +818,7 @@ class PromptManager {
         file: 'anomaly-detection.md',
         modelConfig: {
           modelProvider: 'openai',
-          modelName: 'gpt-4-turbo-preview',
+          modelName: 'gpt-4o-mini',  // Using mini model to reduce costs
           temperature: 0.3,
           maxTokens: 800
         }
@@ -827,7 +827,7 @@ class PromptManager {
         file: 'price-prediction.md',
         modelConfig: {
           modelProvider: 'openai',
-          modelName: 'gpt-4-turbo-preview',
+          modelName: 'gpt-4o-mini',  // Using mini model to reduce costs
           temperature: 0.5,
           maxTokens: 600
         }
@@ -836,7 +836,7 @@ class PromptManager {
         file: 'trend-analysis.md',
         modelConfig: {
           modelProvider: 'openai',
-          modelName: 'gpt-4-turbo-preview',
+          modelName: 'gpt-4o-mini',  // Using mini model to reduce costs
           temperature: 0.6,
           maxTokens: 800
         }
@@ -845,7 +845,7 @@ class PromptManager {
         file: 'trend-analysis.md',
         modelConfig: {
           modelProvider: 'openai',
-          modelName: 'gpt-4-turbo-preview',
+          modelName: 'gpt-4o-mini',  // Using mini model to reduce costs
           temperature: 0.6,
           maxTokens: 800
         }
@@ -854,7 +854,7 @@ class PromptManager {
         file: 'investment-recommendation.md',
         modelConfig: {
           modelProvider: 'openai',
-          modelName: 'gpt-4-turbo-preview',
+          modelName: 'gpt-4o-mini',  // Using mini model to reduce costs
           temperature: 0.5,
           maxTokens: 1200
         }
@@ -863,7 +863,7 @@ class PromptManager {
         file: 'investment-recommendation.md',
         modelConfig: {
           modelProvider: 'openai',
-          modelName: 'gpt-4-turbo-preview',
+          modelName: 'gpt-4o-mini',  // Using mini model to reduce costs
           temperature: 0.5,
           maxTokens: 1200
         }
@@ -884,7 +884,7 @@ class PromptManager {
             systemPrompt,
             userPromptTemplate: userPrompt,
             modelProvider: config.modelConfig?.modelProvider || 'openai',
-            modelName: config.modelConfig?.modelName || 'gpt-4-turbo-preview',
+            modelName: config.modelConfig?.modelName || 'gpt-4o-mini',
             temperature: config.modelConfig?.temperature || 0.7,
             maxTokens: config.modelConfig?.maxTokens || 1000,
             isActive: true

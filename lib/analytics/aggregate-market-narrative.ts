@@ -109,7 +109,7 @@ export async function generateAggregateMarketNarrative(
       `;
 
       const response = await openai.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
+        model: 'gpt-4o-mini',  // Using mini model to reduce costs (was gpt-4-turbo-preview)
         messages: [
           {
             role: 'system',

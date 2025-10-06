@@ -59,19 +59,19 @@
 
 ### Common Commands
 ```bash
-# Run scraper locally
-npx tsx scripts/scraping/scrape-and-save.ts --source=bat --max-pages=2
+# Run scraper locally (using ScrapingBee)
+npx tsx scripts/scraping/scrape-and-save.ts --source=bat-sb --max-pages=2
 
 # Check database
 npx tsx scripts/temp/check-db-status.ts
 
 # Trigger GitHub workflow
-gh workflow run "Daily Data Collection" -f source=bat -f max_pages=2
+gh workflow run "Daily Data Collection" -f source=bat-sb -f max_pages=2
 ```
 
 ### Environment Variables
 - Supabase: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
-- Bright Data: `BRIGHT_DATA_CUSTOMER_ID`, `BRIGHT_DATA_BROWSER_PASSWORD`
+- ScrapingBee: `SCRAPINGBEE_API_KEY` (replaces expensive Bright Data)
 
 ## Remember
 - Check `/notes/` first for context

@@ -80,16 +80,14 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          BRIGHT_DATA_CUSTOMER_ID: ${{ secrets.BRIGHT_DATA_CUSTOMER_ID }}
-          BRIGHT_DATA_BROWSER_PASSWORD: ${{ secrets.BRIGHT_DATA_BROWSER_PASSWORD }}
-          BRIGHT_DATA_ZONE_PASSWORD: ${{ secrets.BRIGHT_DATA_ZONE_PASSWORD }}
+          SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
         run: |
           echo "🎯 Focused scraping for model: ${{ needs.determine-model.outputs.model }}"
           echo "Max pages: ${{ github.event.inputs.max_pages || '2' }}"
-          echo "Source: Bring a Trailer"
+          echo "Source: Bring a Trailer (ScrapingBee)"
 
           npx tsx scripts/scraping/scrape-and-save.ts \
-            --source=bat \
+            --source=bat-sb \
             --model=${{ needs.determine-model.outputs.model }} \
             --max-pages=${{ github.event.inputs.max_pages || '2' }}
 

@@ -16,15 +16,12 @@ on:
         type: choice
         options:
           - all
-          - bat
           - bat-sb
-          - classic
           - classic-sb
           - carsandbids-sb
-          - cars
-          - edmunds
-          - autotrader
-          - cargurus
+          - cars-sb
+          - edmunds-sb
+          - autotrader-sb
       model:
         description: 'Specific model to scrape (e.g., 911, 718-cayman)'
         required: false
@@ -65,9 +62,6 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
-          BRIGHT_DATA_CUSTOMER_ID: ${{ secrets.BRIGHT_DATA_CUSTOMER_ID }}
-          BRIGHT_DATA_BROWSER_PASSWORD: ${{ secrets.BRIGHT_DATA_BROWSER_PASSWORD }}
-          BRIGHT_DATA_ZONE_PASSWORD: ${{ secrets.BRIGHT_DATA_ZONE_PASSWORD }}
         run: |
           echo "🚀 Starting daily data collection..."
           echo "Source: ${{ github.event.inputs.source || 'all' }}"

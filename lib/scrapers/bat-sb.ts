@@ -823,20 +823,34 @@ export class BaTScraperSB extends BaseScraper {
     if (vin) return vin;
 
     // Method 2: Chassis label in listing details
+    // For older Porsches (pre-1980s), extract whatever comes after "Chassis:"
     $('ul li').each((i, el) => {
       const text = $(el).text().trim();
       if (text.includes('Chassis:')) {
-        const match = text.match(/WP[01][A-Z0-9]{14}/);
-        if (match) {
-          vin = match[0];
+        // First try modern VIN format
+        const modernMatch = text.match(/WP[01][A-Z0-9]{14}/);
+        if (modernMatch) {
+          vin = modernMatch[0];
           return false;
+        }
+
+        // For older cars, extract the chassis number after "Chassis:"
+        // Example: "Chassis: 9309800390"
+        const chassisMatch = text.match(/Chassis:\s*([A-Z0-9]+)/i);
+        if (chassisMatch && chassisMatch[1]) {
+          const chassisNumber = chassisMatch[1].trim();
+          // Validate it's at least 6 characters (reasonable chassis number length)
+          if (chassisNumber.length >= 6 && chassisNumber.length <= 17) {
+            vin = chassisNumber;
+            return false;
+          }
         }
       }
     });
 
     if (vin) return vin;
 
-    // Method 3: Fallback - search entire body text
+    // Method 3: Fallback - search entire body text for modern VIN only
     const bodyText = $('body').text();
     const vinMatch = bodyText.match(/WP[01][A-Z0-9]{14}/);
     return vinMatch ? vinMatch[0] : undefined;
@@ -884,8 +898,9 @@ export class BaTScraperSB extends BaseScraper {
       }
     }
 
-    // Fallback: Look for standalone "XXk Miles" pattern
-    const kMilesMatch = essentialsText.match(/[^\d](\d{1,3})k\s*Miles/i);
+    // Third try: Look for standalone "XXk Miles" pattern (for older chassis numbers)
+    // Example: "Chassis: 9309800390160k Miles" - need to avoid matching the chassis number
+    const kMilesMatch = essentialsText.match(/(\d{1,3})k\s*Miles/i);
     if (kMilesMatch) {
       const mileage = parseInt(kMilesMatch[1]) * 1000;
       if (!isNaN(mileage) && mileage > 0 && mileage < 500000) {

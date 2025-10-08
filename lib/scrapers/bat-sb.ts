@@ -860,13 +860,25 @@ export class BaTScraperSB extends BaseScraper {
       }
     }
 
-    // Method 2: Look for "XXk Miles" pattern after VIN in BaT Essentials
-    // Text is concatenated: "Chassis: WP0CB2A89FK13075248k Miles"
-    // Match VIN (17 chars) followed by mileage
+    // Method 2: Look for mileage pattern after VIN in BaT Essentials
+    // Text is concatenated in various ways:
+    // - "WP0CB2A89FK13075248k Miles" (VIN + "48k Miles")
+    // - "WP0AF2A9XGS1950794,500 Miles" (VIN + "4,500 Miles")
     const essentialsText = $('.essentials, .listing-details, [class*="essential"]').text();
-    const vinMileageMatch = essentialsText.match(/WP[01][A-Z0-9]{14}(\d{1,3})k\s*Miles/i);
-    if (vinMileageMatch) {
-      const mileage = parseInt(vinMileageMatch[1]) * 1000;
+
+    // First try: VIN followed by "Xk Miles" format
+    const vinKMilesMatch = essentialsText.match(/WP[01][A-Z0-9]{14}(\d{1,3})k\s*Miles/i);
+    if (vinKMilesMatch) {
+      const mileage = parseInt(vinKMilesMatch[1]) * 1000;
+      if (!isNaN(mileage) && mileage > 0 && mileage < 500000) {
+        return mileage;
+      }
+    }
+
+    // Second try: VIN followed by "X,XXX Miles" format (e.g., "4,500 Miles")
+    const vinCommaMatch = essentialsText.match(/WP[01][A-Z0-9]{14}(\d{1,3}(?:,\d{3})*)\s*Miles/i);
+    if (vinCommaMatch) {
+      const mileage = parseInt(vinCommaMatch[1].replace(/,/g, ''));
       if (!isNaN(mileage) && mileage > 0 && mileage < 500000) {
         return mileage;
       }
@@ -876,15 +888,6 @@ export class BaTScraperSB extends BaseScraper {
     const kMilesMatch = essentialsText.match(/[^\d](\d{1,3})k\s*Miles/i);
     if (kMilesMatch) {
       const mileage = parseInt(kMilesMatch[1]) * 1000;
-      if (!isNaN(mileage) && mileage > 0 && mileage < 500000) {
-        return mileage;
-      }
-    }
-
-    // Method 3: Look for standard mileage format in essentials
-    const standardMilesMatch = essentialsText.match(/(\d{1,3}(?:,\d{3})*)\s*Miles/i);
-    if (standardMilesMatch) {
-      const mileage = parseInt(standardMilesMatch[1].replace(/,/g, ''));
       if (!isNaN(mileage) && mileage > 0 && mileage < 500000) {
         return mileage;
       }

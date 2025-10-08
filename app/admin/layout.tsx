@@ -36,6 +36,14 @@ export default function AdminLayout({
             </Link>
 
             <Link
+              href="/admin/models"
+              className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-800 transition"
+            >
+              <Car className="h-5 w-5" />
+              <span>Models</span>
+            </Link>
+
+            <Link
               href="/admin/listings"
               className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-800 transition"
             >

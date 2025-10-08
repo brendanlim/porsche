@@ -95,10 +95,10 @@ export function WaitlistModal({ isOpen, onClose, currentModel }: WaitlistModalPr
                 <CheckCircle className="h-6 w-6 text-green-600" />
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                You're on the list!
+                You&apos;re on the list!
               </h3>
               <p className="text-gray-600">
-                We'll notify you when we launch. Refreshing...
+                We&apos;ll notify you when we launch. Refreshing...
               </p>
             </div>
           ) : (

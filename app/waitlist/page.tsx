@@ -71,10 +71,10 @@ export default function WaitlistPage() {
                 </div>
                 <div className="ml-3">
                   <h3 className="text-sm font-medium text-green-800">
-                    You're on the waitlist!
+                    You&apos;re on the waitlist!
                   </h3>
                   <p className="mt-2 text-sm text-green-700">
-                    We'll notify you when we launch. Redirecting...
+                    We&apos;ll notify you when we launch. Redirecting...
                   </p>
                 </div>
               </div>
@@ -171,7 +171,7 @@ export default function WaitlistPage() {
                 </div>
 
                 <p className="text-xs text-center text-gray-500">
-                  Free to join. No credit card required. We'll notify you when we launch.
+                  Free to join. No credit card required. We&apos;ll notify you when we launch.
                 </p>
               </form>
             </>

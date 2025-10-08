@@ -31,12 +31,18 @@ export async function normalizeOptions(rawOptionsText: string): Promise<string[]
 
   try {
     const systemPrompt = getSystemPrompt();
-    
+
+    // CRITICAL: Limit input to 500 chars to avoid high token costs
+    // Never send full descriptions or long text blocks
+    const truncatedText = rawOptionsText.length > 500
+      ? rawOptionsText.substring(0, 500) + '...'
+      : rawOptionsText;
+
     const completion = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Raw options text:\n${rawOptionsText}\n\nReturn ONLY a JSON array of normalized option names that match our database options exactly.` }
+        { role: 'user', content: `Raw options text:\n${truncatedText}\n\nReturn ONLY a JSON array of normalized option names that match our database options exactly.` }
       ],
       temperature: 0.1,
       response_format: { type: "json_object" },

@@ -42,21 +42,27 @@ export async function normalizeModelTrim(title: string): Promise<ModelTrimResult
       return fallbackParsing(title);
     }
 
+    // CRITICAL: Limit title length to avoid high token costs
+    // Titles should be short anyway, but truncate just in case
+    const truncatedTitle = title.length > 200
+      ? title.substring(0, 200)
+      : title;
+
     // Use OpenAI with structured output
     let completion;
-    
+
     try {
       // Retry logic for overload errors
       let retries = 3;
       let lastError;
-      
+
       while (retries > 0) {
         try {
           completion = await getOpenAI().chat.completions.create({
             model: 'gpt-4o-mini',
             messages: [
               { role: 'system', content: SYSTEM_PROMPT },
-              { role: 'user', content: `Extract model and trim from this title:\n"${title}"` }
+              { role: 'user', content: `Extract model and trim from this title:\n"${truncatedTitle}"` }
             ],
             temperature: 0.1,
             response_format: { type: "json_object" },

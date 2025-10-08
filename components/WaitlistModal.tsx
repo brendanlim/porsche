@@ -192,10 +192,6 @@ export function WaitlistModal({ isOpen, onClose, currentModel }: WaitlistModalPr
                 >
                   {loading ? 'Joining...' : 'Join Waitlist'}
                 </button>
-
-                <p className="text-xs text-center text-gray-500">
-                  Free to join. No credit card required.
-                </p>
               </form>
             </div>
           </>

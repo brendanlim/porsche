@@ -170,9 +170,6 @@ export default function WaitlistPage() {
                   </button>
                 </div>
 
-                <p className="text-xs text-center text-gray-500">
-                  Free to join. No credit card required. We&apos;ll notify you when we launch.
-                </p>
               </form>
             </>
           )}

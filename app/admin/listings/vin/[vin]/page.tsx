@@ -184,15 +184,49 @@ export default function VINDetailPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Color
+                        Exterior Color
                       </label>
                       <input
                         type="text"
-                        value={editData.color || ''}
-                        onChange={(e) => setEditData({ ...editData, color: e.target.value })}
+                        value={editData.exterior_color || ''}
+                        onChange={(e) => setEditData({ ...editData, exterior_color: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       />
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Interior Color
+                      </label>
+                      <input
+                        type="text"
+                        value={editData.interior_color || ''}
+                        onChange={(e) => setEditData({ ...editData, interior_color: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Transmission
+                      </label>
+                      <input
+                        type="text"
+                        value={editData.transmission || ''}
+                        onChange={(e) => setEditData({ ...editData, transmission: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Options & Features
+                    </label>
+                    <textarea
+                      value={editData.options_text || ''}
+                      onChange={(e) => setEditData({ ...editData, options_text: e.target.value })}
+                      rows={6}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="One option per line"
+                    />
                   </div>
                   <div className="flex gap-2">
                     <button

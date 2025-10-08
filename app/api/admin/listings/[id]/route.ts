@@ -23,6 +23,10 @@ export async function PATCH(
       'price',
       'mileage',
       'color',
+      'exterior_color',
+      'interior_color',
+      'transmission',
+      'options_text',
     ];
 
     const updateData: Record<string, any> = {};

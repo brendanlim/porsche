@@ -221,17 +221,39 @@ export class BaTScraperSB extends BaseScraper {
       modelsToScrape = BAT_MODELS.filter(m => {
         // Check model match if provided
         if (model) {
-          // Convert clean model name to BaT slug for comparison
-          let targetSlug = model.toLowerCase();
-          if (isCleanModelName(model)) {
-            targetSlug = getModelSlug(model as CleanModelName, 'bat');
-            // Remove 'porsche-' prefix for comparison
-            targetSlug = targetSlug.replace('porsche-', '');
-          }
+          const modelLower = model.toLowerCase();
 
-          const modelMatch = m.slug.toLowerCase() === targetSlug ||
-                           m.name.toLowerCase().replace(' ', '-') === targetSlug;
-          if (!modelMatch) return false;
+          // Handle special filters: 911-gt, 911-996, 911-997, 911-991, 911-992
+          if (modelLower.startsWith('911-')) {
+            const suffix = modelLower.split('-')[1];
+
+            // 911-gt: Filter for GT models (GT2, GT3, GT4)
+            if (suffix === 'gt') {
+              const isGT = m.name === '911' && m.trim && (
+                m.trim.includes('GT2') ||
+                m.trim.includes('GT3') ||
+                m.trim.includes('GT4')
+              );
+              if (!isGT) return false;
+            }
+            // 911-[generation]: Filter by specific generation
+            else if (['996', '997', '991', '992', '993', '964'].includes(suffix)) {
+              const generationMatch = m.name === '911' && m.generation === suffix;
+              if (!generationMatch) return false;
+            }
+          } else {
+            // Standard model matching
+            let targetSlug = modelLower;
+            if (isCleanModelName(model)) {
+              targetSlug = getModelSlug(model as CleanModelName, 'bat');
+              // Remove 'porsche-' prefix for comparison
+              targetSlug = targetSlug.replace('porsche-', '');
+            }
+
+            const modelMatch = m.slug.toLowerCase() === targetSlug ||
+                             m.name.toLowerCase().replace(' ', '-') === targetSlug;
+            if (!modelMatch) return false;
+          }
         }
 
         // Check trim match if provided

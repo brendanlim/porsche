@@ -77,7 +77,26 @@ export class CarsAndBidsScraperSB extends BaseScraper {
         model = '911';  // Default to 911 if not specified
       }
 
-      const searchQuery = `porsche%20${model.toLowerCase().replace(/\s+/g, '%20')}`;
+      // Handle special filters: 911-gt, 911-996, etc.
+      let searchTerm = model.toLowerCase();
+      if (searchTerm.startsWith('911-')) {
+        const suffix = searchTerm.split('-')[1];
+
+        // 911-gt: Search for all GT models
+        if (suffix === 'gt') {
+          searchTerm = 'porsche 911 gt';  // Will match GT2, GT3, GT4
+        }
+        // 911-[generation]: Search for specific generation
+        else if (['996', '997', '991', '992', '993', '964'].includes(suffix)) {
+          searchTerm = `porsche 911 ${suffix}`;
+        } else {
+          searchTerm = '911';  // Fallback to just 911
+        }
+      } else {
+        searchTerm = `porsche ${searchTerm}`;
+      }
+
+      const searchQuery = searchTerm.replace(/\s+/g, '%20');
 
       if (onlySold) {
         // Past auctions with specific model query

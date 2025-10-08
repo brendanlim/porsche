@@ -1,14 +1,22 @@
 name: Focused Model Scraping (BaT + Cars & Bids)
 
 on:
-  # Run multiple times per day for different models
+  # Run multiple times per day for different models and generations
   schedule:
-    # 911 models at 1 AM UTC
+    # 911 GT models at 1 AM UTC (GT3, GT2, GT4, etc.)
     - cron: '0 1 * * *'
-    # Cayman models at 5 AM UTC
+    # 911 996 generation at 3 AM UTC
+    - cron: '0 3 * * *'
+    # 911 997 generation at 5 AM UTC
     - cron: '0 5 * * *'
-    # Boxster models at 9 AM UTC
+    # 911 991 generation at 7 AM UTC
+    - cron: '0 7 * * *'
+    # 911 992 generation at 9 AM UTC
     - cron: '0 9 * * *'
+    # Cayman models at 11 AM UTC
+    - cron: '0 11 * * *'
+    # Boxster models at 13 PM UTC
+    - cron: '0 13 * * *'
 
   # Allow manual triggering
   workflow_dispatch:
@@ -18,13 +26,17 @@ on:
         required: true
         type: choice
         options:
-          - 911
+          - 911-gt
+          - 911-996
+          - 911-997
+          - 911-991
+          - 911-992
           - cayman
           - boxster
       max_pages:
         description: 'Maximum pages to scrape'
         required: false
-        default: '2'
+        default: '1'
         type: string
 
 env:
@@ -46,13 +58,21 @@ jobs:
             # Determine model based on hour
             HOUR=$(date -u +%H)
             if [ "$HOUR" == "01" ]; then
-              echo "model=911" >> $GITHUB_OUTPUT
+              echo "model=911-gt" >> $GITHUB_OUTPUT
+            elif [ "$HOUR" == "03" ]; then
+              echo "model=911-996" >> $GITHUB_OUTPUT
             elif [ "$HOUR" == "05" ]; then
-              echo "model=cayman" >> $GITHUB_OUTPUT
+              echo "model=911-997" >> $GITHUB_OUTPUT
+            elif [ "$HOUR" == "07" ]; then
+              echo "model=911-991" >> $GITHUB_OUTPUT
             elif [ "$HOUR" == "09" ]; then
+              echo "model=911-992" >> $GITHUB_OUTPUT
+            elif [ "$HOUR" == "11" ]; then
+              echo "model=cayman" >> $GITHUB_OUTPUT
+            elif [ "$HOUR" == "13" ]; then
               echo "model=boxster" >> $GITHUB_OUTPUT
             else
-              echo "model=911" >> $GITHUB_OUTPUT  # Default
+              echo "model=911-gt" >> $GITHUB_OUTPUT  # Default
             fi
           fi
 
@@ -83,13 +103,13 @@ jobs:
           SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
         run: |
           echo "🎯 Focused scraping for model: ${{ needs.determine-model.outputs.model }}"
-          echo "Max pages: ${{ github.event.inputs.max_pages || '2' }}"
+          echo "Max pages: ${{ github.event.inputs.max_pages || '1' }}"
           echo "Source: Bring a Trailer (ScrapingBee)"
 
           npx tsx scripts/scraping/scrape-and-save.ts \
             --source=bat-sb \
             --model=${{ needs.determine-model.outputs.model }} \
-            --max-pages=${{ github.event.inputs.max_pages || '2' }}
+            --max-pages=${{ github.event.inputs.max_pages || '1' }}
 
       - name: Run focused scraper for Cars and Bids
         env:
@@ -103,7 +123,7 @@ jobs:
           npx tsx scripts/scraping/scrape-and-save.ts \
             --source=carsandbids-sb \
             --model=${{ needs.determine-model.outputs.model }} \
-            --max-pages=${{ github.event.inputs.max_pages || '2' }}
+            --max-pages=${{ github.event.inputs.max_pages || '1' }}
 
       - name: Generate report
         if: always()

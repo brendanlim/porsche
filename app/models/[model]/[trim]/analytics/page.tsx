@@ -10,6 +10,7 @@ import { OptionsAnalysis } from '@/components/OptionsAnalysis';
 import { MarketNarrativeCard } from '@/components/analytics/MarketNarrative';
 import { WaitlistModal } from '@/components/WaitlistModal';
 import { useWaitlistGate } from '@/hooks/useWaitlistGate';
+import { formatModelName } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 
 const ApexChart = dynamic(() => import('react-apexcharts'), {
@@ -237,8 +238,8 @@ export default function TrimAnalyticsPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const modelDisplay = model.replace('-', ' ').toUpperCase();
-  const trimDisplay = trim.replace(/-/g, ' ').toUpperCase();
+  const modelDisplay = formatModelName(model.replace('-', ' '));
+  const trimDisplay = formatModelName(trim.replace(/-/g, ' '));
   
   // Update URL when filters change
   const updateUrlParams = (newGeneration?: string, newRange?: string) => {

@@ -24,27 +24,62 @@ export function validateVIN(vin: string): boolean {
   return vinRegex.test(vin)
 }
 
+/**
+ * Format model/trim names to proper title case
+ * Handles special cases like GT3, RS, etc.
+ */
+export function formatModelName(name: string): string {
+  if (!name) return '';
+
+  // Special cases that should stay uppercase
+  const upperCaseWords = new Set(['GT2', 'GT3', 'GT4', 'RS', 'GTS', 'PDK', 'AWD', '4WD']);
+
+  // Split on spaces and hyphens, preserve separators
+  const parts = name.split(/(\s+|-)/);
+
+  return parts.map(part => {
+    // Preserve whitespace and hyphens
+    if (/^\s+$/.test(part) || part === '-') {
+      return part;
+    }
+
+    // Check if it's a special uppercase word
+    const upper = part.toUpperCase();
+    if (upperCaseWords.has(upper)) {
+      return upper;
+    }
+
+    // Check if it's a number
+    if (/^\d+$/.test(part)) {
+      return part;
+    }
+
+    // Otherwise, title case (first letter uppercase, rest lowercase)
+    return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+  }).join('');
+}
+
 export function validateModelYear(modelName: string, trimName: string, year: number): boolean {
   // GT4 RS only exists 2022+
   if (trimName === 'GT4 RS' && year < 2022) {
     return false
   }
-  
+
   // Spyder RS only exists 2024+
   if (trimName === 'Spyder RS' && year < 2024) {
     return false
   }
-  
+
   // 718 models don't exist before 2017
   if (modelName.includes('718') && year < 2017) {
     return false
   }
-  
+
   // 992 generation started in 2020
   if (modelName === '911' && trimName.includes('992') && year < 2020) {
     return false
   }
-  
+
   return true
 }
 

@@ -8,6 +8,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, L
 import { TrendingUp, TrendingDown, Minus, DollarSign, Calendar, Car, Activity } from 'lucide-react';
 import { WaitlistModal } from '@/components/WaitlistModal';
 import { useWaitlistGate } from '@/hooks/useWaitlistGate';
+import { formatModelName } from '@/lib/utils';
 
 interface ModelAnalytics {
   model: string;
@@ -172,7 +173,7 @@ export default function ModelAnalyticsPage() {
     return <div>No data available</div>;
   }
 
-  const modelDisplay = model.replace('-', ' ').toUpperCase();
+  const modelDisplay = formatModelName(model.replace('-', ' '));
   const priceChange = analytics.medianPrice > 0 
     ? ((analytics.averagePrice - analytics.medianPrice) / analytics.medianPrice) * 100 
     : 0;

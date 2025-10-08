@@ -378,10 +378,10 @@ export default function HomePage() {
           </p>
           <div className="flex gap-4 justify-center">
             <Link
-              href="/signup"
+              href="/waitlist"
               className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
             >
-              Start Free Trial
+              Join Waitlist
             </Link>
             <Link
               href="/models"

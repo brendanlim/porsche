@@ -15,6 +15,8 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
+    <html lang="en">
+      <body>
     <div className="min-h-screen bg-gray-100">
       {/* Sidebar */}
       <div className="fixed inset-y-0 left-0 w-64 bg-gray-900 text-white">
@@ -96,5 +98,7 @@ export default function AdminLayout({
         </div>
       </div>
     </div>
+      </body>
+    </html>
   );
 }

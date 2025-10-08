@@ -9,13 +9,20 @@ const supabase = createClient(
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const limit = parseInt(searchParams.get('limit') || '100');
+    const limit = parseInt(searchParams.get('limit') || '50');
+    const offset = parseInt(searchParams.get('offset') || '0');
 
+    // Get total count
+    const { count } = await supabase
+      .from('listings')
+      .select('*', { count: 'exact', head: true });
+
+    // Get paginated listings
     const { data: listings, error } = await supabase
       .from('listings')
       .select('id, title, model, trim, year, price, mileage, source, scraped_at')
       .order('scraped_at', { ascending: false })
-      .limit(limit);
+      .range(offset, offset + limit - 1);
 
     if (error) {
       console.error('Listings fetch error:', error);
@@ -25,7 +32,12 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ listings });
+    return NextResponse.json({
+      listings,
+      total: count || 0,
+      limit,
+      offset
+    });
   } catch (error) {
     console.error('Admin listings error:', error);
     return NextResponse.json(

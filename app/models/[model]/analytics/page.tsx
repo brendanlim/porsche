@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter } from 'recharts';
 import { TrendingUp, TrendingDown, Minus, DollarSign, Calendar, Car, Activity } from 'lucide-react';
+import { WaitlistModal } from '@/components/WaitlistModal';
+import { useWaitlistGate } from '@/hooks/useWaitlistGate';
 
 interface ModelAnalytics {
   model: string;
@@ -100,6 +102,9 @@ export default function ModelAnalyticsPage() {
   const [analytics, setAnalytics] = useState<ModelAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('3y');
+
+  // Waitlist gate
+  const { showWaitlist, closeWaitlist } = useWaitlistGate();
 
   useEffect(() => {
     fetchAnalytics();
@@ -491,6 +496,13 @@ export default function ModelAnalyticsPage() {
         </CardContent>
       </Card>
     </div>
+
+      {/* Waitlist Modal */}
+      <WaitlistModal
+        isOpen={showWaitlist}
+        onClose={closeWaitlist}
+        currentModel={model}
+      />
     </div>
   );
 }

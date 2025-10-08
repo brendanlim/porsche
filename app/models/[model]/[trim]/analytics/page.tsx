@@ -8,6 +8,8 @@ import { TrendingUp, TrendingDown, Minus, DollarSign, Calendar, Car, Activity, T
 import { DepreciationTable } from '@/components/DepreciationTable';
 import { OptionsAnalysis } from '@/components/OptionsAnalysis';
 import { MarketNarrativeCard } from '@/components/analytics/MarketNarrative';
+import { WaitlistModal } from '@/components/WaitlistModal';
+import { useWaitlistGate } from '@/hooks/useWaitlistGate';
 import dynamic from 'next/dynamic';
 
 const ApexChart = dynamic(() => import('react-apexcharts'), {
@@ -200,6 +202,9 @@ export default function TrimAnalyticsPage() {
   const trim = params.trim as string;
   const [analytics, setAnalytics] = useState<TrimAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Waitlist gate
+  const { showWaitlist, closeWaitlist } = useWaitlistGate();
   
   // Initialize from URL params or defaults
   const [selectedGeneration, setSelectedGeneration] = useState<string>(
@@ -1978,6 +1983,13 @@ export default function TrimAnalyticsPage() {
         </Card>
 
       </div>
+
+      {/* Waitlist Modal */}
+      <WaitlistModal
+        isOpen={showWaitlist}
+        onClose={closeWaitlist}
+        currentModel={`${model} ${trim}`}
+      />
     </div>
   );
 }

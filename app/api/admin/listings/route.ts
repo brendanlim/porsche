@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     // Get paginated listings
     const { data: listings, error } = await supabase
       .from('listings')
-      .select('id, title, model, trim, year, price, mileage, source, scraped_at')
+      .select('id, title, model, trim, year, price, mileage, source, scraped_at, vin')
       .order('scraped_at', { ascending: false })
       .range(offset, offset + limit - 1);
 

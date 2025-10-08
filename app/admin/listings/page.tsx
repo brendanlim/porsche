@@ -14,6 +14,7 @@ interface Listing {
   mileage: number;
   source: string;
   scraped_at: string;
+  vin: string;
 }
 
 export default function ListingsPage() {
@@ -97,18 +98,34 @@ export default function ListingsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200">
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">VIN</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Model</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Trim</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Title</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Year</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Price</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Mileage</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Source</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Scraped</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredListings.map((listing) => (
                   <tr key={listing.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4 text-sm font-medium">{listing.title}</td>
+                    <td className="py-3 px-4 text-sm">
+                      {listing.vin ? (
+                        <a
+                          href={`/admin/listings/vin/${listing.vin}`}
+                          className="text-blue-600 hover:text-blue-800 hover:underline font-mono text-xs"
+                        >
+                          {listing.vin.substring(listing.vin.length - 8)}
+                        </a>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-sm font-medium">{listing.model || '-'}</td>
+                    <td className="py-3 px-4 text-sm">{listing.trim || '-'}</td>
+                    <td className="py-3 px-4 text-sm">{listing.title}</td>
                     <td className="py-3 px-4 text-sm">{listing.year}</td>
                     <td className="py-3 px-4 text-sm">
                       ${listing.price?.toLocaleString() || '-'}
@@ -120,9 +137,6 @@ export default function ListingsPage() {
                       <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
                         {listing.source}
                       </span>
-                    </td>
-                    <td className="py-3 px-4 text-sm text-gray-600">
-                      {new Date(listing.scraped_at).toLocaleDateString()}
                     </td>
                   </tr>
                 ))}

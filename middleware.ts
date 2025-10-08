@@ -57,6 +57,10 @@ export async function middleware(request: NextRequest) {
   // Get user session
   const { data: { user }, error } = await supabase.auth.getUser();
 
+  // Define admin routes that require specific email
+  const adminRoutes = ['/admin'];
+  const ADMIN_EMAIL = 'brendangl@gmail.com';
+
   // Define protected routes that require authentication
   const protectedRoutes = [
     '/garage',
@@ -72,6 +76,25 @@ export async function middleware(request: NextRequest) {
   ];
 
   const pathname = request.nextUrl.pathname;
+
+  // Check if the route is admin
+  const isAdminRoute = adminRoutes.some(route =>
+    pathname.startsWith(route)
+  );
+
+  // Check admin access
+  if (isAdminRoute) {
+    if (!user || error) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    // Check if user is admin
+    if (user.email !== ADMIN_EMAIL) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+  }
 
   // Check if the route is protected
   const isProtectedRoute = protectedRoutes.some(route =>

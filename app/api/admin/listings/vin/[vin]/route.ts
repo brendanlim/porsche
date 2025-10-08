@@ -8,13 +8,14 @@ const supabase = createClient(
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { vin: string } }
+  { params }: { params: Promise<{ vin: string }> }
 ) {
   try {
+    const { vin } = await params;
     const { data: listings, error } = await supabase
       .from('listings')
       .select('*')
-      .eq('vin', params.vin)
+      .eq('vin', vin)
       .order('scraped_at', { ascending: false });
 
     if (error) {

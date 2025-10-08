@@ -39,8 +39,8 @@ function formatMileage(mileage: number): string {
 }
 
 function TrimCard({ trim }: { trim: TrimData }) {
-  const modelSlug = trim.model.toLowerCase().replace(/\s+/g, '-');
-  const trimSlug = trim.name.toLowerCase().replace(/\s+/g, '-');
+  const modelSlug = (trim.model || '').toLowerCase().replace(/\s+/g, '-');
+  const trimSlug = (trim.name || '').toLowerCase().replace(/\s+/g, '-');
   const analyticsUrl = `/models/${modelSlug}/${trimSlug}/analytics`;
 
   return (
@@ -159,11 +159,16 @@ function TrimCard({ trim }: { trim: TrimData }) {
   );
 }
 
-export default function BrowsePage() {
+export default function MarketPage() {
   const [trims, setTrims] = useState<TrimData[]>([]);
   const [loading, setLoading] = useState(true);
   const [modelFilter, setModelFilter] = useState<string>('all');
   const [performanceFilter, setPerformanceFilter] = useState<string>('all');
+  const [marketMovers, setMarketMovers] = useState<{
+    topAppreciating: TrimData[];
+    mostActive: TrimData[];
+    biggestDrops: TrimData[];
+  } | null>(null);
 
   useEffect(() => {
     fetchTrims();
@@ -175,6 +180,25 @@ export default function BrowsePage() {
       if (!response.ok) throw new Error('Failed to fetch trims');
       const data = await response.json();
       setTrims(data);
+
+      // Calculate market movers
+      const sortedByAppreciation = [...data]
+        .filter(t => t.stats.appreciation > 0)
+        .sort((a, b) => b.stats.appreciation - a.stats.appreciation);
+
+      const sortedByActivity = [...data]
+        .filter(t => t.stats.recentListings > 0)
+        .sort((a, b) => b.stats.recentListings - a.stats.recentListings);
+
+      const sortedByDrops = [...data]
+        .filter(t => t.stats.appreciation < 0)
+        .sort((a, b) => a.stats.appreciation - b.stats.appreciation);
+
+      setMarketMovers({
+        topAppreciating: sortedByAppreciation.slice(0, 5),
+        mostActive: sortedByActivity.slice(0, 5),
+        biggestDrops: sortedByDrops.slice(0, 5),
+      });
     } catch (error) {
       console.error('Error fetching trims:', error);
       setTrims([]);
@@ -184,7 +208,7 @@ export default function BrowsePage() {
   };
 
   const filteredTrims = trims.filter(trim => {
-    if (modelFilter !== 'all' && !trim.model.toLowerCase().includes(modelFilter)) {
+    if (modelFilter !== 'all' && !(trim.model || '').toLowerCase().includes(modelFilter)) {
       return false;
     }
     if (performanceFilter === 'high' && !trim.is_high_performance) {
@@ -212,12 +236,131 @@ export default function BrowsePage() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Browse Porsche Models
+            Porsche Market
           </h1>
           <p className="text-lg text-gray-600">
-            Explore comprehensive market analytics for each Porsche trim level
+            Real-time analytics and insights for every Porsche model
           </p>
         </div>
+
+        {/* Market Movers Section */}
+        {marketMovers && (
+          <div className="mb-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Top Appreciating */}
+            <Card className="border-green-200 bg-gradient-to-br from-green-50 to-white">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-green-600" />
+                    Top Appreciating
+                  </CardTitle>
+                  <Badge className="bg-green-100 text-green-800 border-green-200">YoY</Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {marketMovers.topAppreciating.map((trim, idx) => (
+                  <Link
+                    key={trim.id}
+                    href={`/models/${(trim.model || '').toLowerCase().replace(/\s+/g, '-')}/${(trim.name || '').toLowerCase().replace(/\s+/g, '-')}/analytics`}
+                    className="block"
+                  >
+                    <div className="flex items-center justify-between p-3 bg-white rounded-lg hover:shadow-md transition-shadow border border-green-100 hover:border-green-300">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-100 text-green-800 font-bold text-sm">
+                          {idx + 1}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900 text-sm">{trim.model} {trim.name}</p>
+                          <p className="text-xs text-gray-600">{formatPrice(trim.stats.averagePrice)}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-green-600">+{trim.stats.appreciation.toFixed(1)}%</p>
+                        <p className="text-xs text-gray-500">{trim.stats.totalListings} sold</p>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Most Active */}
+            <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-white">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-blue-600" />
+                    Most Active
+                  </CardTitle>
+                  <Badge className="bg-blue-100 text-blue-800 border-blue-200">30d</Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {marketMovers.mostActive.map((trim, idx) => (
+                  <Link
+                    key={trim.id}
+                    href={`/models/${(trim.model || '').toLowerCase().replace(/\s+/g, '-')}/${(trim.name || '').toLowerCase().replace(/\s+/g, '-')}/analytics`}
+                    className="block"
+                  >
+                    <div className="flex items-center justify-between p-3 bg-white rounded-lg hover:shadow-md transition-shadow border border-blue-100 hover:border-blue-300">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-800 font-bold text-sm">
+                          {idx + 1}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900 text-sm">{trim.model} {trim.name}</p>
+                          <p className="text-xs text-gray-600">{trim.stats.activeListings} active</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-blue-600">{trim.stats.recentListings}</p>
+                        <p className="text-xs text-gray-500">new listings</p>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Biggest Drops */}
+            <Card className="border-orange-200 bg-gradient-to-br from-orange-50 to-white">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <TrendingDown className="h-5 w-5 text-orange-600" />
+                    Price Drops
+                  </CardTitle>
+                  <Badge className="bg-orange-100 text-orange-800 border-orange-200">YoY</Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {marketMovers.biggestDrops.map((trim, idx) => (
+                  <Link
+                    key={trim.id}
+                    href={`/models/${(trim.model || '').toLowerCase().replace(/\s+/g, '-')}/${(trim.name || '').toLowerCase().replace(/\s+/g, '-')}/analytics`}
+                    className="block"
+                  >
+                    <div className="flex items-center justify-between p-3 bg-white rounded-lg hover:shadow-md transition-shadow border border-orange-100 hover:border-orange-300">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-orange-100 text-orange-800 font-bold text-sm">
+                          {idx + 1}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900 text-sm">{trim.model} {trim.name}</p>
+                          <p className="text-xs text-gray-600">{formatPrice(trim.stats.averagePrice)}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-orange-600">{trim.stats.appreciation.toFixed(1)}%</p>
+                        <p className="text-xs text-gray-500">buying opp.</p>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Filters */}
         <div className="mb-6 flex flex-wrap gap-3">

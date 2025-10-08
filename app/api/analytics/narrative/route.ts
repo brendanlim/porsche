@@ -3,6 +3,66 @@ import { generateMarketNarrative, interpretTrends } from '@/lib/analytics/market
 import type { TrendData } from '@/lib/analytics/market-narrative';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const model = searchParams.get('model');
+    const trim = searchParams.get('trim');
+    const generation = searchParams.get('generation');
+
+    if (!model || !trim) {
+      return NextResponse.json(
+        { error: 'Missing required parameters (model, trim)' },
+        { status: 400 }
+      );
+    }
+
+    // Build query
+    let query = supabaseAdmin
+      .from('market_narratives')
+      .select('*')
+      .eq('model', model)
+      .eq('trim', trim)
+      .order('updated_at', { ascending: false })
+      .limit(1);
+
+    // Add generation filter if provided
+    if (generation) {
+      query = query.eq('generation', generation);
+    }
+
+    const { data: narrative, error } = await query.single();
+
+    if (error || !narrative) {
+      return NextResponse.json(
+        { error: 'No narrative found', narrative: null },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      narrative: {
+        model: narrative.model,
+        trim: narrative.trim,
+        generation: narrative.generation,
+        summary: narrative.summary,
+        analysis: narrative.detailed_story,
+        key_insights: narrative.key_insights,
+        market_outlook: narrative.recommendation,
+        confidence: narrative.confidence,
+        generated_at: narrative.updated_at,
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching narrative:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch narrative', narrative: null },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(req: NextRequest) {
   let body: any;
   let model: string, trim: string, generation: string, trends: TrendData, currentPrice: number, historicalData: any;

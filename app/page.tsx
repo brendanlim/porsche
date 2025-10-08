@@ -6,7 +6,7 @@ import { ChartDataPoint } from '@/lib/types/database';
 import { formatPrice } from '@/lib/utils';
 import { TrendingUp, Users, Shield, BarChart3, Bell, Zap, Search, Activity, ArrowUp, ArrowDown } from 'lucide-react';
 import Link from 'next/link';
-import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, ComposedChart, Cell } from 'recharts';
 
 export default function HomePage() {
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
@@ -79,8 +79,8 @@ export default function HomePage() {
 
   const fetchFeaturedNarrative = async () => {
     try {
-      // Fetch GT3 narrative as featured
-      const response = await fetch('/api/analytics/narrative?model=911&trim=GT3');
+      // Fetch 991.2 GT3 narrative as featured (high confidence, lots of data)
+      const response = await fetch('/api/analytics/narrative?model=911&trim=GT3&generation=991.2');
       const data = await response.json();
       if (data.narrative) {
         setFeaturedNarrative(data.narrative);
@@ -93,9 +93,9 @@ export default function HomePage() {
   const fetchNarrativeExamples = async () => {
     try {
       const narratives = await Promise.all([
-        fetch('/api/analytics/narrative?model=911&trim=GT3 RS').then(r => r.json()),
-        fetch('/api/analytics/narrative?model=718 Cayman&trim=GT4 RS').then(r => r.json()),
-        fetch('/api/analytics/narrative?model=911&trim=Turbo S').then(r => r.json()),
+        fetch('/api/analytics/narrative?model=911&trim=GT3 RS&generation=992.1').then(r => r.json()),
+        fetch('/api/analytics/narrative?model=718 Cayman&trim=GT4 RS&generation=982.2').then(r => r.json()),
+        fetch('/api/analytics/narrative?model=911&trim=Turbo S&generation=992.1').then(r => r.json()),
       ]);
       setNarrativeExamples(narratives.map(n => n.narrative).filter(Boolean));
     } catch (error) {
@@ -205,141 +205,164 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* Market Narrative Preview */}
+      {/* Market Analysis - Unique Feature Showcase */}
       {featuredNarrative && (
-        <section className="py-12 bg-gradient-to-br from-blue-50 to-gray-50">
-          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-            <div className="relative bg-white rounded-xl shadow-lg p-8">
-              {!isAuthenticated && (
-                <div className="absolute inset-0 z-10 backdrop-blur-[2px] bg-white/5 rounded-xl flex items-center justify-center">
-                  <div className="bg-white p-6 rounded-lg shadow-xl text-center max-w-sm">
-                    <h3 className="text-xl font-bold mb-3">Unlock Market Analysis</h3>
-                    <p className="text-gray-600 text-sm mb-4">
-                      Get AI-powered insights on market trends, pricing patterns, and investment opportunities.
+        <section className="py-12 bg-gradient-to-br from-blue-50 via-blue-100/30 to-indigo-50 relative overflow-hidden">
+          {/* Subtle accent */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
+
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 relative">
+            {/* Feature Highlight Header */}
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-3 py-1.5 rounded-full mb-4">
+                <TrendingUp className="w-4 h-4" />
+                <span className="text-xs font-semibold">AI MARKET INTELLIGENCE</span>
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900 mb-3">
+                Automated Market Analysis
+              </h2>
+              <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-2">
+                AI-generated intelligence for every Porsche model
+              </p>
+              <p className="text-gray-500 text-sm">
+                Free sample below — subscribers get this for 50+ models
+              </p>
+            </div>
+
+            <div className="bg-white text-gray-900 rounded-2xl shadow-2xl p-8">
+              <div className="flex items-center justify-between mb-6 pb-6 border-b border-gray-200">
+                <div className="flex items-center gap-4">
+                  <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-3 rounded-xl shadow-lg">
+                    <Activity className="w-8 h-8 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-900">{featuredNarrative.model} {featuredNarrative.trim}</h3>
+                    <p className="text-sm text-gray-500">
+                      {featuredNarrative.generation && `${featuredNarrative.generation} • `}
+                      Auto-updated {new Date(featuredNarrative.generated_at).toLocaleDateString()}
                     </p>
-                    <button className="bg-blue-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition text-sm">
-                      Start Free Trial
-                    </button>
+                  </div>
+                </div>
+                {featuredNarrative.confidence && (
+                  <span className={`px-3 py-1.5 rounded-full text-sm font-semibold ${
+                    featuredNarrative.confidence === 'high' ? 'bg-green-100 text-green-700' :
+                    featuredNarrative.confidence === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-gray-100 text-gray-700'
+                  }`}>
+                    {featuredNarrative.confidence} confidence
+                  </span>
+                )}
+              </div>
+
+              {/* Summary */}
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-gray-900 mb-3">Executive Summary</h4>
+                <p className="text-gray-700 leading-relaxed">
+                  {featuredNarrative.summary}
+                </p>
+              </div>
+
+              {/* Key Insights */}
+              {featuredNarrative.key_insights && featuredNarrative.key_insights.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-3">Key Insights</h4>
+                  <div className="space-y-3">
+                    {featuredNarrative.key_insights.map((insight: string, i: number) => (
+                      <div key={i} className="flex items-start gap-3 bg-blue-50 p-3 rounded-lg">
+                        <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center flex-shrink-0 text-sm font-bold">
+                          {i + 1}
+                        </div>
+                        <p className="text-gray-700 text-sm">{insight}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
-              <div className="flex items-center gap-3 mb-4">
-                <div className="bg-blue-100 p-2 rounded-lg">
-                  <TrendingUp className="w-6 h-6 text-blue-600" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Market Analysis</h3>
-                  <h2 className="text-2xl font-bold text-gray-900">{featuredNarrative.model} {featuredNarrative.trim}</h2>
-                </div>
-              </div>
-              <p className="text-gray-700 leading-relaxed mb-6">
-                {featuredNarrative.summary}
-              </p>
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-500">
-                  Updated {new Date(featuredNarrative.generated_at).toLocaleDateString()}
-                </div>
-                <Link
-                  href={`/models/911/gt3/analytics`}
-                  className="text-blue-600 hover:text-blue-800 font-medium text-sm flex items-center gap-1"
-                >
-                  Read Full Analysis →
-                </Link>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
 
-      {/* Market Narratives Section - Mix of Free and Premium */}
-      {narrativeExamples.length > 0 && (
-        <section className="py-12 bg-white">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-gray-900 mb-3">
-                AI-Powered Market Intelligence
-              </h2>
-              <p className="text-lg text-gray-600">
-                Deep insights on pricing trends, market sentiment, and investment opportunities
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-6">
-              {narrativeExamples.map((narrative, idx) => {
-                const showFree = idx === 0; // First one is free preview
-                return (
-                  <div key={idx} className="relative bg-gradient-to-br from-gray-50 to-white rounded-xl shadow-lg p-6 border border-gray-200">
-                    {!showFree && !isAuthenticated && (
-                      <div className="absolute inset-0 z-10 backdrop-blur-[2px] bg-white/5 rounded-xl flex items-center justify-center">
-                        <div className="bg-white p-4 rounded-lg shadow-xl text-center max-w-[200px]">
-                          <h3 className="text-sm font-bold mb-2">Unlock Analysis</h3>
-                          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition text-xs">
-                            Subscribe
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    {showFree && (
-                      <div className="absolute top-4 right-4">
-                        <span className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold">
-                          FREE PREVIEW
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-900">{narrative.model} {narrative.trim}</h3>
-                        <p className="text-xs text-gray-500">
-                          {narrative.generation && `${narrative.generation} • `}
-                          Updated {new Date(narrative.generated_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      {narrative.confidence && (
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          narrative.confidence === 'high' ? 'bg-green-100 text-green-700' :
-                          narrative.confidence === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-gray-100 text-gray-700'
-                        }`}>
-                          {narrative.confidence} confidence
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-gray-700 text-sm leading-relaxed mb-4">
-                      {narrative.summary?.substring(0, 200)}...
-                    </p>
-                    {narrative.key_insights && narrative.key_insights.length > 0 && (
-                      <div className="space-y-2 mb-4">
-                        {narrative.key_insights.slice(0, 2).map((insight: string, i: number) => (
-                          <div key={i} className="flex items-start gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-blue-600 mt-1.5 flex-shrink-0"></div>
-                            <p className="text-xs text-gray-600">{insight}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <Link
-                      href={`/models/${narrative.model.toLowerCase().replace(' ', '-')}/${narrative.trim.toLowerCase().replace(' ', '-')}/analytics`}
-                      className="text-blue-600 hover:text-blue-800 font-medium text-xs flex items-center gap-1"
-                    >
-                      View Full Analysis →
-                    </Link>
+              {/* Full Analysis */}
+              {featuredNarrative.analysis && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-3">Detailed Analysis</h4>
+                  <div className="prose prose-sm max-w-none text-gray-700">
+                    <p className="whitespace-pre-line leading-relaxed">{featuredNarrative.analysis}</p>
                   </div>
-                );
-              })}
+                </div>
+              )}
+
+              {/* Market Outlook */}
+              {featuredNarrative.market_outlook && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-blue-600" />
+                    Market Outlook
+                  </h4>
+                  <p className="text-gray-700 leading-relaxed">{featuredNarrative.market_outlook}</p>
+                </div>
+              )}
+
+              <div className="mt-8 pt-6 border-t">
+                <div className="grid md:grid-cols-4 gap-4 mb-6">
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Activity className="w-5 h-5 text-blue-600" />
+                      <h5 className="font-semibold text-gray-900">Seasonality</h5>
+                    </div>
+                    <p className="text-xs text-gray-600">Best months to buy & sell based on historical data</p>
+                  </div>
+                  <div className="bg-purple-50 p-4 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="w-5 h-5 text-purple-600" />
+                      <h5 className="font-semibold text-gray-900">Depreciation</h5>
+                    </div>
+                    <p className="text-xs text-gray-600">Year-over-year value retention analysis</p>
+                  </div>
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <BarChart3 className="w-5 h-5 text-green-600" />
+                      <h5 className="font-semibold text-gray-900">Option Impact</h5>
+                    </div>
+                    <p className="text-xs text-gray-600">How PTS, carbon, & packages affect value</p>
+                  </div>
+                  <div className="bg-orange-50 p-4 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Zap className="w-5 h-5 text-orange-600" />
+                      <h5 className="font-semibold text-gray-900">Buy Signals</h5>
+                    </div>
+                    <p className="text-xs text-gray-600">Optimal timing based on market cycles</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-gray-500">
+                    This is just one example. Get comprehensive analysis for 50+ Porsche models.
+                  </p>
+                  <Link
+                    href="/waitlist"
+                    className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition flex items-center gap-2"
+                  >
+                    Start Free Trial
+                    <ArrowUp className="w-4 h-4 rotate-45" />
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
         </section>
       )}
 
-      {/* Live Market Data - Visible Charts */}
-      <section className="py-16 bg-gray-50">
+
+      {/* Section 2: Real-Time Market Data */}
+      <section className="py-16 bg-white border-t">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-full mb-4">
+              <Activity className="w-4 h-4 text-gray-700" />
+              <span className="text-xs font-semibold text-gray-700">LIVE DATA</span>
+            </div>
             <h2 className="text-3xl font-bold text-gray-900 mb-3">
-              Live Market Data
+              Real-Time Market Tracking
             </h2>
-            <p className="text-lg text-gray-600">
-              See real pricing trends across the most sought-after models
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Pricing trends and market activity updated throughout the day from 7+ sources
             </p>
           </div>
 
@@ -348,22 +371,22 @@ export default function HomePage() {
             <div className="bg-white rounded-xl shadow-lg p-6">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900">911 GT3 (992.1)</h3>
+                  <h3 className="text-xl font-bold text-gray-900">911 GT3 (991.2)</h3>
                   <p className="text-sm text-gray-500">90-Day Price Trend</p>
                 </div>
                 <div className="text-right">
-                  <div className="text-2xl font-bold text-gray-900">$195k</div>
+                  <div className="text-2xl font-bold text-gray-900">$168k</div>
                   <div className="flex items-center gap-1 text-green-600 text-sm font-semibold">
                     <ArrowUp className="w-4 h-4" />
-                    8.2%
+                    6.5%
                   </div>
                 </div>
               </div>
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={[
-                  { date: 'Aug', price: 180000 },
-                  { date: 'Sep', price: 185000 },
-                  { date: 'Oct', price: 195000 },
+                  { date: 'Aug', price: 158000 },
+                  { date: 'Sep', price: 163000 },
+                  { date: 'Oct', price: 168000 },
                 ]}>
                   <Line type="monotone" dataKey="price" stroke="#3B82F6" strokeWidth={3} dot={{ fill: '#3B82F6', r: 5 }} />
                   <XAxis dataKey="date" />
@@ -378,11 +401,11 @@ export default function HomePage() {
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h3 className="text-xl font-bold text-gray-900">718 GT4 RS</h3>
-                  <p className="text-sm text-gray-500">Active Listings</p>
+                  <p className="text-sm text-gray-500">Recently Sold</p>
                 </div>
                 <div className="text-right">
                   <div className="text-2xl font-bold text-gray-900">47</div>
-                  <div className="text-sm text-gray-500">Available Now</div>
+                  <div className="text-sm text-gray-500">This Quarter</div>
                 </div>
               </div>
               <ResponsiveContainer width="100%" height={200}>
@@ -394,34 +417,102 @@ export default function HomePage() {
                   <Bar dataKey="count" fill="#3B82F6" radius={[8, 8, 0, 0]} />
                   <XAxis dataKey="month" />
                   <YAxis hide />
-                  <Tooltip />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                    cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Market Scatter Chart with Light Blur */}
-          <div className="mt-8 bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-xl font-bold text-gray-900">Price vs Mileage Analysis</h3>
-                <p className="text-sm text-gray-500">Current market positioning • Updated hourly</p>
+          {/* Seasonality Analysis with Blur */}
+          <div className="mt-8 bg-white rounded-xl shadow-lg p-6 relative">
+            {!isAuthenticated && (
+              <div className="absolute inset-0 z-10 backdrop-blur-[2px] bg-white/5 rounded-xl flex items-center justify-center">
+                <div className="bg-white p-6 rounded-lg shadow-xl text-center max-w-sm">
+                  <h3 className="text-xl font-bold mb-3">Unlock Seasonality Analysis</h3>
+                  <p className="text-gray-600 text-sm mb-4">
+                    See the best times to buy & sell based on historical patterns
+                  </p>
+                  <button className="bg-blue-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition text-sm">
+                    Start Free Trial
+                  </button>
+                </div>
               </div>
-              <Link href="/signup" className="text-sm text-blue-600 hover:text-blue-800 font-semibold">
-                Unlock Full Data →
+            )}
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Seasonal Pricing Analysis</h3>
+                <p className="text-xs text-gray-500">When to buy & sell for optimal value • 911 GT3 991.2</p>
+              </div>
+              <Link href="/signup" className="text-xs text-blue-600 hover:text-blue-800 font-semibold">
+                View Full Analysis →
               </Link>
             </div>
-            {!loading && chartData.length > 0 && (
-              <MarketChart
-                data={chartData.slice(0, 50)} // Show sample data
-                isBlurred={!isAuthenticated}
-                onPointClick={(point) => {
-                  if (point.url) {
-                    window.open(point.url, '_blank');
-                  }
-                }}
-              />
-            )}
+
+            {/* Seasonality Chart */}
+            <div className="mb-4">
+              <ResponsiveContainer width="100%" height={180}>
+                <ComposedChart data={[
+                  { season: 'Winter', priceImpact: -2.5, salesVolume: 45, avgPrice: 185000 },
+                  { season: 'Spring', priceImpact: 3.2, salesVolume: 78, avgPrice: 193000 },
+                  { season: 'Summer', priceImpact: 5.8, salesVolume: 92, avgPrice: 199000 },
+                  { season: 'Fall', priceImpact: -1.2, salesVolume: 63, avgPrice: 187000 },
+                ]}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="season" />
+                  <YAxis yAxisId="left" label={{ value: 'Price Impact (%)', angle: -90, position: 'insideLeft' }} />
+                  <YAxis yAxisId="right" orientation="right" label={{ value: 'Sales Volume', angle: 90, position: 'insideRight' }} />
+                  <Tooltip
+                    formatter={(value: any, name: string) => {
+                      if (name === 'Price Impact') return `${value}%`;
+                      if (name === 'Sales Volume') return value;
+                      return value;
+                    }}
+                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar yAxisId="left" dataKey="priceImpact" name="Price Impact">
+                    {[
+                      { priceImpact: -2.5 },
+                      { priceImpact: 3.2 },
+                      { priceImpact: 5.8 },
+                      { priceImpact: -1.2 }
+                    ].map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.priceImpact > 0 ? '#10b981' : '#ef4444'} />
+                    ))}
+                  </Bar>
+                  <Line yAxisId="right" type="monotone" dataKey="salesVolume" stroke="#f59e0b" strokeWidth={2} name="Sales Volume" dot={{ r: 4 }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Season Cards */}
+            <div className="grid grid-cols-4 gap-4">
+              {[
+                { season: 'Winter', priceImpact: -2.5, medianPrice: 185000, color: 'bg-blue-50 border-blue-200' },
+                { season: 'Spring', priceImpact: 3.2, medianPrice: 193000, color: 'bg-green-50 border-green-200' },
+                { season: 'Summer', priceImpact: 5.8, medianPrice: 199000, color: 'bg-yellow-50 border-yellow-200' },
+                { season: 'Fall', priceImpact: -1.2, medianPrice: 187000, color: 'bg-orange-50 border-orange-200' },
+              ].map((item, idx) => (
+                <div key={idx} className={`p-4 rounded-lg border ${item.color}`}>
+                  <div className="font-semibold text-gray-900 mb-2">{item.season}</div>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Median:</span>
+                      <span className="font-semibold">{formatPrice(item.medianPrice)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Impact:</span>
+                      <span className={`font-bold ${item.priceImpact > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {item.priceImpact > 0 ? '+' : ''}{item.priceImpact}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>

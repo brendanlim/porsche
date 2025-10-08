@@ -42,7 +42,22 @@ async function fixCarsAndBidsListings(limit: number = 100) {
       const scraped = await scraper.scrapeDetail(listing.source_url);
 
       const updates: any = {};
-      if (scraped.vin && !listing.vin) updates.vin = scraped.vin;
+
+      // Check if VIN already exists before updating
+      if (scraped.vin && !listing.vin) {
+        const { data: existing } = await supabase
+          .from('listings')
+          .select('id')
+          .eq('vin', scraped.vin)
+          .single();
+
+        if (!existing) {
+          updates.vin = scraped.vin;
+        } else {
+          console.log(`  ⚠️ VIN ${scraped.vin} already exists in another listing`);
+        }
+      }
+
       if (scraped.options_text) updates.options_text = scraped.options_text;
       if (scraped.transmission) updates.transmission = scraped.transmission;
       if (scraped.exterior_color) updates.exterior_color = scraped.exterior_color;
@@ -111,7 +126,22 @@ async function fixBaTListings(limit: number = 100) {
       const scraped = await scraper.scrapeDetail(listing.source_url);
 
       const updates: any = {};
-      if (scraped.vin && !listing.vin) updates.vin = scraped.vin;
+
+      // Check if VIN already exists before updating
+      if (scraped.vin && !listing.vin) {
+        const { data: existing } = await supabase
+          .from('listings')
+          .select('id')
+          .eq('vin', scraped.vin)
+          .single();
+
+        if (!existing) {
+          updates.vin = scraped.vin;
+        } else {
+          console.log(`  ⚠️ VIN ${scraped.vin} already exists in another listing`);
+        }
+      }
+
       if (scraped.mileage) updates.mileage = scraped.mileage;
 
       if (Object.keys(updates).length > 0) {

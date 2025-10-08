@@ -25,6 +25,7 @@ export default function HomePage() {
   } | null>(null);
   const [trendingModels, setTrendingModels] = useState<any[]>([]);
   const [featuredNarrative, setFeaturedNarrative] = useState<any>(null);
+  const [narrativeExamples, setNarrativeExamples] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [selectedModel, setSelectedModel] = useState('911');
@@ -34,6 +35,7 @@ export default function HomePage() {
     fetchHomeStats();
     fetchTrendingModels();
     fetchFeaturedNarrative();
+    fetchNarrativeExamples();
   }, [selectedModel]);
 
   const fetchHomeStats = async () => {
@@ -85,6 +87,19 @@ export default function HomePage() {
       }
     } catch (error) {
       console.error('Failed to fetch narrative:', error);
+    }
+  };
+
+  const fetchNarrativeExamples = async () => {
+    try {
+      const narratives = await Promise.all([
+        fetch('/api/analytics/narrative?model=911&trim=GT3 RS').then(r => r.json()),
+        fetch('/api/analytics/narrative?model=718 Cayman&trim=GT4 RS').then(r => r.json()),
+        fetch('/api/analytics/narrative?model=911&trim=Turbo S').then(r => r.json()),
+      ]);
+      setNarrativeExamples(narratives.map(n => n.narrative).filter(Boolean));
+    } catch (error) {
+      console.error('Failed to fetch narrative examples:', error);
     }
   };
 
@@ -194,7 +209,20 @@ export default function HomePage() {
       {featuredNarrative && (
         <section className="py-12 bg-gradient-to-br from-blue-50 to-gray-50">
           <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-            <div className="bg-white rounded-xl shadow-lg p-8">
+            <div className="relative bg-white rounded-xl shadow-lg p-8">
+              {!isAuthenticated && (
+                <div className="absolute inset-0 z-10 backdrop-blur-[2px] bg-white/5 rounded-xl flex items-center justify-center">
+                  <div className="bg-white p-6 rounded-lg shadow-xl text-center max-w-sm">
+                    <h3 className="text-xl font-bold mb-3">Unlock Market Analysis</h3>
+                    <p className="text-gray-600 text-sm mb-4">
+                      Get AI-powered insights on market trends, pricing patterns, and investment opportunities.
+                    </p>
+                    <button className="bg-blue-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition text-sm">
+                      Start Free Trial
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="flex items-center gap-3 mb-4">
                 <div className="bg-blue-100 p-2 rounded-lg">
                   <TrendingUp className="w-6 h-6 text-blue-600" />
@@ -223,44 +251,169 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* Market Chart Section */}
-      <section className="py-12">
+      {/* Market Narratives Section - Mix of Free and Premium */}
+      {narrativeExamples.length > 0 && (
+        <section className="py-12 bg-white">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold text-gray-900 mb-3">
+                AI-Powered Market Intelligence
+              </h2>
+              <p className="text-lg text-gray-600">
+                Deep insights on pricing trends, market sentiment, and investment opportunities
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-6">
+              {narrativeExamples.map((narrative, idx) => {
+                const showFree = idx === 0; // First one is free preview
+                return (
+                  <div key={idx} className="relative bg-gradient-to-br from-gray-50 to-white rounded-xl shadow-lg p-6 border border-gray-200">
+                    {!showFree && !isAuthenticated && (
+                      <div className="absolute inset-0 z-10 backdrop-blur-[2px] bg-white/5 rounded-xl flex items-center justify-center">
+                        <div className="bg-white p-4 rounded-lg shadow-xl text-center max-w-[200px]">
+                          <h3 className="text-sm font-bold mb-2">Unlock Analysis</h3>
+                          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition text-xs">
+                            Subscribe
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {showFree && (
+                      <div className="absolute top-4 right-4">
+                        <span className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold">
+                          FREE PREVIEW
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">{narrative.model} {narrative.trim}</h3>
+                        <p className="text-xs text-gray-500">
+                          {narrative.generation && `${narrative.generation} • `}
+                          Updated {new Date(narrative.generated_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      {narrative.confidence && (
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          narrative.confidence === 'high' ? 'bg-green-100 text-green-700' :
+                          narrative.confidence === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {narrative.confidence} confidence
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-gray-700 text-sm leading-relaxed mb-4">
+                      {narrative.summary?.substring(0, 200)}...
+                    </p>
+                    {narrative.key_insights && narrative.key_insights.length > 0 && (
+                      <div className="space-y-2 mb-4">
+                        {narrative.key_insights.slice(0, 2).map((insight: string, i: number) => (
+                          <div key={i} className="flex items-start gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-blue-600 mt-1.5 flex-shrink-0"></div>
+                            <p className="text-xs text-gray-600">{insight}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <Link
+                      href={`/models/${narrative.model.toLowerCase().replace(' ', '-')}/${narrative.trim.toLowerCase().replace(' ', '-')}/analytics`}
+                      className="text-blue-600 hover:text-blue-800 font-medium text-xs flex items-center gap-1"
+                    >
+                      View Full Analysis →
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Live Market Data - Visible Charts */}
+      <section className="py-16 bg-gray-50">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-8">
+          <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-3">
-              Market Intelligence Dashboard
+              Live Market Data
             </h2>
             <p className="text-lg text-gray-600">
-              Analyze price patterns and market dynamics across different models
+              See real pricing trends across the most sought-after models
             </p>
           </div>
 
-          {/* Model Selector */}
-          <div className="flex justify-center gap-3 mb-8">
-            {popularModels.map(model => (
-              <button
-                key={model.name}
-                onClick={() => setSelectedModel(model.name)}
-                className={`px-5 py-2 rounded-lg font-medium transition text-sm ${
-                  selectedModel === model.name
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                {model.name}
-              </button>
-            ))}
+          <div className="grid md:grid-cols-2 gap-8">
+            {/* Price Trend Chart Example */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">911 GT3 (992.1)</h3>
+                  <p className="text-sm text-gray-500">90-Day Price Trend</p>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-gray-900">$195k</div>
+                  <div className="flex items-center gap-1 text-green-600 text-sm font-semibold">
+                    <ArrowUp className="w-4 h-4" />
+                    8.2%
+                  </div>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={[
+                  { date: 'Aug', price: 180000 },
+                  { date: 'Sep', price: 185000 },
+                  { date: 'Oct', price: 195000 },
+                ]}>
+                  <Line type="monotone" dataKey="price" stroke="#3B82F6" strokeWidth={3} dot={{ fill: '#3B82F6', r: 5 }} />
+                  <XAxis dataKey="date" />
+                  <YAxis hide />
+                  <Tooltip formatter={(value: any) => formatPrice(value)} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Volume Chart Example */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">718 GT4 RS</h3>
+                  <p className="text-sm text-gray-500">Active Listings</p>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-gray-900">47</div>
+                  <div className="text-sm text-gray-500">Available Now</div>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={[
+                  { month: 'Aug', count: 32 },
+                  { month: 'Sep', count: 41 },
+                  { month: 'Oct', count: 47 },
+                ]}>
+                  <Bar dataKey="count" fill="#3B82F6" radius={[8, 8, 0, 0]} />
+                  <XAxis dataKey="month" />
+                  <YAxis hide />
+                  <Tooltip />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
-          {/* Chart */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            {loading ? (
-              <div className="h-[500px] flex items-center justify-center">
-                <div className="text-gray-500">Loading market data...</div>
+          {/* Market Scatter Chart with Light Blur */}
+          <div className="mt-8 bg-white rounded-xl shadow-lg p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">Price vs Mileage Analysis</h3>
+                <p className="text-sm text-gray-500">Current market positioning • Updated hourly</p>
               </div>
-            ) : (
+              <Link href="/signup" className="text-sm text-blue-600 hover:text-blue-800 font-semibold">
+                Unlock Full Data →
+              </Link>
+            </div>
+            {!loading && chartData.length > 0 && (
               <MarketChart
-                data={chartData}
+                data={chartData.slice(0, 50)} // Show sample data
                 isBlurred={!isAuthenticated}
                 onPointClick={(point) => {
                   if (point.url) {

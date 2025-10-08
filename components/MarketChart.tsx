@@ -49,7 +49,7 @@ export function MarketChart({ data, isBlurred = false, onPointClick }: MarketCha
   return (
     <div className={`relative w-full h-[600px] ${isBlurred ? 'select-none' : ''}`}>
       {isBlurred && (
-        <div className="absolute inset-0 z-10 backdrop-blur-xl bg-white/30 flex items-center justify-center">
+        <div className="absolute inset-0 z-10 backdrop-blur-[2px] bg-white/5 flex items-center justify-center">
           <div className="bg-white p-8 rounded-lg shadow-xl text-center max-w-md">
             <h3 className="text-2xl font-bold mb-4">Unlock Market Data</h3>
             <p className="text-gray-600 mb-6">

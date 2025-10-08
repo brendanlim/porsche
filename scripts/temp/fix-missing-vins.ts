@@ -32,27 +32,31 @@ async function scrapeBaTVIN(url: string): Promise<{ vin: string | null; color: s
 
     const $ = cheerio.load(response.data);
 
-    // Extract VIN - BaT shows VIN in the essentials section
+    // Extract VIN - BaT shows VIN as "Chassis: WP0AB2A96FS125105" in listing details
     let vin: string | null = null;
 
-    // Method 1: Look for VIN in the essentials/details section
-    $('.essential-item, .listing-essentials dt, .listing-essentials dd').each((_, elem) => {
-      const text = $(elem).text().trim();
-      if (text.toLowerCase().includes('vin')) {
-        const nextText = $(elem).next().text().trim();
-        if (nextText && nextText.length === 17) {
-          vin = nextText;
-        }
-      }
-    });
+    // Method 1: Look for "Chassis:" label (BaT's label for VIN)
+    const bodyText = $('body').text();
+    const chassisMatch = bodyText.match(/Chassis:\s*([A-HJ-NPR-Z0-9]{17})/i);
+    if (chassisMatch) {
+      vin = chassisMatch[1];
+    }
 
-    // Method 2: Look for VIN in any paragraph or div
+    // Method 2: Look for VIN pattern anywhere in the page
     if (!vin) {
-      $('p, div, span').each((_, elem) => {
+      const vinMatch = bodyText.match(/\b([A-HJ-NPR-Z0-9]{17})\b/);
+      if (vinMatch) {
+        vin = vinMatch[1];
+      }
+    }
+
+    // Method 3: Check specific listing detail elements
+    if (!vin) {
+      $('.listing-details, .essential-item, [class*="detail"]').each((_, elem) => {
         const text = $(elem).text();
-        const vinMatch = text.match(/\b[A-HJ-NPR-Z0-9]{17}\b/);
+        const vinMatch = text.match(/\b([A-HJ-NPR-Z0-9]{17})\b/);
         if (vinMatch) {
-          vin = vinMatch[0];
+          vin = vinMatch[1];
           return false; // break
         }
       });

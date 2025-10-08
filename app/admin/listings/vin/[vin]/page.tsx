@@ -16,6 +16,9 @@ interface Listing {
   price: number;
   mileage: number;
   color: string;
+  exterior_color: string;
+  interior_color: string;
+  transmission: string;
   source: string;
   source_url: string;
   scraped_at: string;
@@ -217,8 +220,16 @@ export default function VINDetailPage() {
                     <span className="font-semibold">{listing.mileage?.toLocaleString()} mi</span>
                   </div>
                   <div>
-                    <span className="text-gray-600">Color:</span>{' '}
-                    <span className="font-semibold">{listing.color || '-'}</span>
+                    <span className="text-gray-600">Exterior:</span>{' '}
+                    <span className="font-semibold">{listing.exterior_color || listing.color || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Interior:</span>{' '}
+                    <span className="font-semibold">{listing.interior_color || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Transmission:</span>{' '}
+                    <span className="font-semibold">{listing.transmission || '-'}</span>
                   </div>
                   <div>
                     <span className="text-gray-600">Source:</span>{' '}

@@ -22,6 +22,8 @@ export default function ListingsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sourceFilter, setSourceFilter] = useState('all');
+  const [modelFilter, setModelFilter] = useState('all');
+  const [trimFilter, setTrimFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const itemsPerPage = 50;
@@ -49,10 +51,14 @@ export default function ListingsPage() {
     const matchesSearch = listing.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       listing.model?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesSource = sourceFilter === 'all' || listing.source === sourceFilter;
-    return matchesSearch && matchesSource;
+    const matchesModel = modelFilter === 'all' || listing.model === modelFilter;
+    const matchesTrim = trimFilter === 'all' || listing.trim === trimFilter;
+    return matchesSearch && matchesSource && matchesModel && matchesTrim;
   });
 
   const sources = Array.from(new Set(listings.map(l => l.source)));
+  const models = Array.from(new Set(listings.map(l => l.model).filter(Boolean))).sort();
+  const trims = Array.from(new Set(listings.map(l => l.trim).filter(Boolean))).sort();
 
   if (loading) {
     return <div className="text-center py-12">Loading...</div>;
@@ -81,9 +87,33 @@ export default function ListingsPage() {
             <div className="relative">
               <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <select
+                value={modelFilter}
+                onChange={(e) => setModelFilter(e.target.value)}
+                className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">All Models</option>
+                {models.map(model => (
+                  <option key={model} value={model}>{model}</option>
+                ))}
+              </select>
+            </div>
+            <div className="relative">
+              <select
+                value={trimFilter}
+                onChange={(e) => setTrimFilter(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">All Trims</option>
+                {trims.map(trim => (
+                  <option key={trim} value={trim}>{trim}</option>
+                ))}
+              </select>
+            </div>
+            <div className="relative">
+              <select
                 value={sourceFilter}
                 onChange={(e) => setSourceFilter(e.target.value)}
-                className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Sources</option>
                 {sources.map(source => (
@@ -106,6 +136,7 @@ export default function ListingsPage() {
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Price</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Mileage</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Source</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Scraped</th>
                 </tr>
               </thead>
               <tbody>
@@ -125,7 +156,7 @@ export default function ListingsPage() {
                     </td>
                     <td className="py-3 px-4 text-sm font-medium">{listing.model || '-'}</td>
                     <td className="py-3 px-4 text-sm">{listing.trim || '-'}</td>
-                    <td className="py-3 px-4 text-sm">{listing.title}</td>
+                    <td className="py-3 px-4 text-sm max-w-xs truncate">{listing.title}</td>
                     <td className="py-3 px-4 text-sm">{listing.year}</td>
                     <td className="py-3 px-4 text-sm">
                       ${listing.price?.toLocaleString() || '-'}
@@ -137,6 +168,9 @@ export default function ListingsPage() {
                       <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
                         {listing.source}
                       </span>
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-600">
+                      {new Date(listing.scraped_at).toLocaleDateString()}
                     </td>
                   </tr>
                 ))}

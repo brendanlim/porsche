@@ -21,6 +21,7 @@ interface Listing {
   scraped_at: string;
   sold_date: string;
   vin: string;
+  options_text: string;
 }
 
 export default function VINDetailPage() {
@@ -246,6 +247,14 @@ export default function VINDetailPage() {
                         View Original Listing
                         <ExternalLink className="h-4 w-4" />
                       </a>
+                    </div>
+                  )}
+                  {listing.options_text && (
+                    <div className="col-span-2 md:col-span-3 mt-4 pt-4 border-t border-gray-200">
+                      <div className="text-sm">
+                        <span className="font-semibold text-gray-700">Options & Features:</span>
+                        <p className="mt-2 text-gray-600 whitespace-pre-wrap">{listing.options_text}</p>
+                      </div>
                     </div>
                   )}
                 </div>

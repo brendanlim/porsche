@@ -377,8 +377,33 @@ export class CarsAndBidsScraperSB extends BaseScraper {
                   listing.exterior_color = value;
                 } else if (label === 'interior color' && !listing.interior_color) {
                   listing.interior_color = value;
+                } else if (label === 'transmission' && !listing.transmission) {
+                  listing.transmission = value;
                 }
               });
+
+              // Extract equipment/options
+              let options: string[] = [];
+              $('h1, h2, h3, h4, h5, h6').each((_, el) => {
+                const headingText = $(el).text().trim().toLowerCase();
+                if (headingText.includes('equipment') || headingText.includes('option')) {
+                  // Look for list in next sibling
+                  const next = $(el).next();
+                  const list = next.find('ul, ol').first();
+                  if (list.length > 0) {
+                    list.find('li').each((_, li) => {
+                      const item = $(li).text().trim();
+                      if (item && item.length > 0 && item.length < 200) {
+                        options.push(item);
+                      }
+                    });
+                  }
+                }
+              });
+
+              if (options.length > 0) {
+                listing.options_text = options.join('\n');
+              }
 
               // Extract sold date from page - look for the date format in the header
               // Format from search page: "9/30/25" or from detail: "Ended September 30th at 12:40 PM PDT"
@@ -444,9 +469,10 @@ export class CarsAndBidsScraperSB extends BaseScraper {
         render_js: 'true',
         premium_proxy: 'true',
         country_code: 'us',
-        wait: '8000',  // Wait longer for JS to load VIN
-        wait_for: '.quick-facts, .vehicle-details, [data-vin]',  // Wait for specific elements
-        json_response: 'true'
+        wait: '10000',  // Wait longer for JS to load VIN
+        wait_for: 'dt',  // Wait for dt elements to appear
+        json_response: 'true',
+        block_resources: 'false'
       };
 
       const urlParams = new URLSearchParams(detailParams);
@@ -495,14 +521,25 @@ export class CarsAndBidsScraperSB extends BaseScraper {
       let status = 'active';
       const bodyText = $.text();
 
-      const soldMatch = bodyText.match(/Sold (?:for|after for) \$([0-9,]+)(?:\D|$)/i);
+      // On detail pages: "Sold for $23,75010/3/25" - price followed immediately by date
+      // Match price with commas, but stop before a digit that follows without a comma
+      const soldMatch = bodyText.match(/Sold (?:for|after for) \$([0-9]+(?:,[0-9]{3})*)/i);
       if (soldMatch) {
         price = parseInt(soldMatch[1].replace(/,/g, ''));
         status = 'sold';
       } else {
-        const bidMatch = bodyText.match(/Bid \$([0-9,]+)(?:\D|$)/);
-        if (bidMatch) {
-          price = parseInt(bidMatch[1].replace(/,/g, ''));
+        // Check for "Bid to" (for past auctions that didn't meet reserve)
+        const bidToMatch = bodyText.match(/Bid to \$([0-9]+(?:,[0-9]{3})*)/);
+        if (bidToMatch) {
+          price = parseInt(bidToMatch[1].replace(/,/g, ''));
+          status = 'unsold';
+        } else {
+          // Extract current bid
+          const bidMatch = bodyText.match(/Bid \$([0-9]+(?:,[0-9]{3})*)/);
+          if (bidMatch) {
+            price = parseInt(bidMatch[1].replace(/,/g, ''));
+            status = 'active';
+          }
         }
       }
 
@@ -558,6 +595,45 @@ export class CarsAndBidsScraperSB extends BaseScraper {
         }
       }
 
+      // Extract colors, transmission, and options from dt/dd
+      let exterior_color: string | undefined;
+      let interior_color: string | undefined;
+      let transmission: string | undefined;
+
+      $('.quick-facts dt, dt').each((_, el) => {
+        const label = $(el).text().trim().toLowerCase();
+        const value = $(el).next('dd').text().trim();
+
+        if (label === 'exterior color' && !exterior_color) {
+          exterior_color = value;
+        } else if (label === 'interior color' && !interior_color) {
+          interior_color = value;
+        } else if (label === 'transmission' && !transmission) {
+          transmission = value;
+        }
+      });
+
+      // Extract equipment/options
+      let options: string[] = [];
+      $('h1, h2, h3, h4, h5, h6').each((_, el) => {
+        const headingText = $(el).text().trim().toLowerCase();
+        if (headingText.includes('equipment') || headingText.includes('option')) {
+          // Look for list in next sibling
+          const next = $(el).next();
+          const list = next.find('ul, ol').first();
+          if (list.length > 0) {
+            list.find('li').each((_, li) => {
+              const item = $(li).text().trim();
+              if (item && item.length > 0 && item.length < 200) {
+                options.push(item);
+              }
+            });
+          }
+        }
+      });
+
+      const options_text = options.length > 0 ? options.join('\n') : undefined;
+
       // Store HTML
       await this.htmlStorage.storeScrapedHTML({
         source: 'carsandbids',
@@ -581,7 +657,11 @@ export class CarsAndBidsScraperSB extends BaseScraper {
         year,
         model,
         trim,
-        generation
+        generation,
+        exterior_color,
+        interior_color,
+        transmission,
+        options_text
       };
 
       return listing;

@@ -23,6 +23,8 @@ export default function HomePage() {
     avgPrice: number;
     dataSources: number;
   } | null>(null);
+  const [trendingModels, setTrendingModels] = useState<any[]>([]);
+  const [featuredNarrative, setFeaturedNarrative] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [selectedModel, setSelectedModel] = useState('911');
@@ -30,6 +32,8 @@ export default function HomePage() {
   useEffect(() => {
     fetchMarketData();
     fetchHomeStats();
+    fetchTrendingModels();
+    fetchFeaturedNarrative();
   }, [selectedModel]);
 
   const fetchHomeStats = async () => {
@@ -59,35 +63,35 @@ export default function HomePage() {
     }
   };
 
+  const fetchTrendingModels = async () => {
+    try {
+      const response = await fetch('/api/market-insights');
+      const data = await response.json();
+      if (data.trending) {
+        setTrendingModels(data.trending.slice(0, 3));
+      }
+    } catch (error) {
+      console.error('Failed to fetch trending models:', error);
+    }
+  };
+
+  const fetchFeaturedNarrative = async () => {
+    try {
+      // Fetch GT3 narrative as featured
+      const response = await fetch('/api/analytics/narrative?model=911&trim=GT3');
+      const data = await response.json();
+      if (data.narrative) {
+        setFeaturedNarrative(data.narrative);
+      }
+    } catch (error) {
+      console.error('Failed to fetch narrative:', error);
+    }
+  };
+
   const popularModels = [
     { name: '911', trims: ['GT3', 'GT3 RS', 'Turbo S'] },
     { name: '718 Cayman', trims: ['GT4', 'GT4 RS', 'GTS 4.0'] },
     { name: '718 Boxster', trims: ['Spyder', 'Spyder RS', 'GTS 4.0'] },
-  ];
-
-  // Sample trend data for preview charts
-  const trendData = [
-    { month: 'Jan', gt3: 285000, gt4: 145000, turbo: 195000 },
-    { month: 'Feb', gt3: 289000, gt4: 148000, turbo: 198000 },
-    { month: 'Mar', gt3: 295000, gt4: 151000, turbo: 201000 },
-    { month: 'Apr', gt3: 298000, gt4: 155000, turbo: 203000 },
-    { month: 'May', gt3: 305000, gt4: 159000, turbo: 205000 },
-    { month: 'Jun', gt3: 312000, gt4: 162000, turbo: 208000 },
-  ];
-
-  const volumeData = [
-    { trim: 'GT3 RS', listings: 45, avgDays: 12 },
-    { trim: 'GT3', listings: 78, avgDays: 18 },
-    { trim: 'GT4 RS', listings: 32, avgDays: 8 },
-    { trim: 'Turbo S', listings: 65, avgDays: 22 },
-    { trim: 'GT4', listings: 89, avgDays: 15 },
-  ];
-
-  const hotModels = [
-    { model: '911 GT3 RS', change: 12.5, trend: 'up', volume: 45 },
-    { model: '718 GT4 RS', change: 15.2, trend: 'up', volume: 32 },
-    { model: '911 Turbo S', change: -2.1, trend: 'down', volume: 65 },
-    { model: '718 Spyder RS', change: 8.7, trend: 'up', volume: 28 },
   ];
 
   return (
@@ -127,57 +131,27 @@ export default function HomePage() {
               </Link>
             </div>
 
-            {/* Preview Charts Section */}
-            <div className="grid md:grid-cols-3 gap-4 mt-8">
-              {/* Mini trend chart */}
-              <div className="bg-gray-800/50 backdrop-blur rounded-lg p-4 border border-gray-700">
-                <h3 className="text-sm font-medium text-gray-300 mb-2">6-Month Price Trends</h3>
-                <ResponsiveContainer width="100%" height={80}>
-                  <LineChart data={trendData}>
-                    <Line type="monotone" dataKey="gt3" stroke="#3b82f6" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="gt4" stroke="#10b981" strokeWidth={2} dot={false} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-                      labelStyle={{ color: '#9ca3af' }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-                <p className="text-xs text-gray-400 mt-2">GT3 & GT4 appreciation</p>
-              </div>
-
-              {/* Volume indicator */}
-              <div className="bg-gray-800/50 backdrop-blur rounded-lg p-4 border border-gray-700">
-                <h3 className="text-sm font-medium text-gray-300 mb-2">Market Activity</h3>
-                <ResponsiveContainer width="100%" height={80}>
-                  <BarChart data={volumeData.slice(0, 3)}>
-                    <Bar dataKey="listings" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-                      labelStyle={{ color: '#9ca3af' }}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-                <p className="text-xs text-gray-400 mt-2">Active listings by trim</p>
-              </div>
-
-              {/* Hot models */}
-              <div className="bg-gray-800/50 backdrop-blur rounded-lg p-4 border border-gray-700">
-                <h3 className="text-sm font-medium text-gray-300 mb-3">Trending Now</h3>
-                <div className="space-y-2">
-                  {hotModels.slice(0, 3).map((model, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-xs">
-                      <span className="text-gray-300">{model.model}</span>
-                      <span className={`flex items-center gap-1 ${
-                        model.trend === 'up' ? 'text-green-400' : 'text-red-400'
+            {/* Preview - Trending Models */}
+            {trendingModels.length > 0 && (
+              <div className="grid md:grid-cols-3 gap-4 mt-8">
+                {trendingModels.map((model, idx) => (
+                  <div key={idx} className="bg-gray-800/50 backdrop-blur rounded-lg p-4 border border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-medium text-gray-300">{model.model} {model.trim}</h3>
+                      <span className={`flex items-center gap-1 text-sm font-semibold ${
+                        model.priceChange >= 0 ? 'text-green-400' : 'text-red-400'
                       }`}>
-                        {model.trend === 'up' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
-                        {Math.abs(model.change)}%
+                        {model.priceChange >= 0 ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
+                        {Math.abs(model.priceChange).toFixed(1)}%
                       </span>
                     </div>
-                  ))}
-                </div>
+                    <div className="text-xs text-gray-400">
+                      {model.volume} active listings
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
+            )}
           </div>
         </div>
       </section>
@@ -210,6 +184,39 @@ export default function HomePage() {
                   {homeStats.dataSources}
                 </div>
                 <div className="text-sm text-gray-600">Data Sources</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Market Narrative Preview */}
+      {featuredNarrative && (
+        <section className="py-12 bg-gradient-to-br from-blue-50 to-gray-50">
+          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+            <div className="bg-white rounded-xl shadow-lg p-8">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="bg-blue-100 p-2 rounded-lg">
+                  <TrendingUp className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Market Analysis</h3>
+                  <h2 className="text-2xl font-bold text-gray-900">{featuredNarrative.model} {featuredNarrative.trim}</h2>
+                </div>
+              </div>
+              <p className="text-gray-700 leading-relaxed mb-6">
+                {featuredNarrative.summary}
+              </p>
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-500">
+                  Updated {new Date(featuredNarrative.generated_at).toLocaleDateString()}
+                </div>
+                <Link
+                  href={`/models/911/gt3/analytics`}
+                  className="text-blue-600 hover:text-blue-800 font-medium text-sm flex items-center gap-1"
+                >
+                  Read Full Analysis →
+                </Link>
               </div>
             </div>
           </div>

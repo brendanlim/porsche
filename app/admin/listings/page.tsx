@@ -26,17 +26,47 @@ export default function ListingsPage() {
   const [trimFilter, setTrimFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [availableSources, setAvailableSources] = useState<string[]>([]);
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [availableTrims, setAvailableTrims] = useState<string[]>([]);
   const itemsPerPage = 50;
 
   useEffect(() => {
+    fetchFilterOptions();
+  }, []);
+
+  useEffect(() => {
     fetchListings();
-  }, [currentPage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, sourceFilter, modelFilter, trimFilter, searchTerm]);
+
+  const fetchFilterOptions = async () => {
+    try {
+      const response = await fetch('/api/admin/listings/filter-options');
+      const data = await response.json();
+      setAvailableSources(data.sources || []);
+      setAvailableModels(data.models || []);
+      setAvailableTrims(data.trims || []);
+    } catch (error) {
+      console.error('Failed to fetch filter options:', error);
+    }
+  };
 
   const fetchListings = async () => {
     setLoading(true);
     try {
       const offset = (currentPage - 1) * itemsPerPage;
-      const response = await fetch(`/api/admin/listings?limit=${itemsPerPage}&offset=${offset}`);
+      const params = new URLSearchParams({
+        limit: itemsPerPage.toString(),
+        offset: offset.toString(),
+      });
+
+      if (searchTerm) params.append('search', searchTerm);
+      if (sourceFilter !== 'all') params.append('source', sourceFilter);
+      if (modelFilter !== 'all') params.append('model', modelFilter);
+      if (trimFilter !== 'all') params.append('trim', trimFilter);
+
+      const response = await fetch(`/api/admin/listings?${params}`);
       const data = await response.json();
       setListings(data.listings || []);
       setTotalCount(data.total || 0);
@@ -47,18 +77,12 @@ export default function ListingsPage() {
     }
   };
 
-  const filteredListings = listings.filter(listing => {
-    const matchesSearch = listing.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      listing.model?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSource = sourceFilter === 'all' || listing.source === sourceFilter;
-    const matchesModel = modelFilter === 'all' || listing.model === modelFilter;
-    const matchesTrim = trimFilter === 'all' || listing.trim === trimFilter;
-    return matchesSearch && matchesSource && matchesModel && matchesTrim;
-  });
-
-  const sources = Array.from(new Set(listings.map(l => l.source)));
-  const models = Array.from(new Set(listings.map(l => l.model).filter(Boolean))).sort();
-  const trims = Array.from(new Set(listings.map(l => l.trim).filter(Boolean))).sort();
+  const handleFilterChange = (type: 'source' | 'model' | 'trim', value: string) => {
+    setCurrentPage(1); // Reset to first page when filter changes
+    if (type === 'source') setSourceFilter(value);
+    if (type === 'model') setModelFilter(value);
+    if (type === 'trim') setTrimFilter(value);
+  };
 
   if (loading) {
     return <div className="text-center py-12">Loading...</div>;
@@ -88,11 +112,11 @@ export default function ListingsPage() {
               <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <select
                 value={modelFilter}
-                onChange={(e) => setModelFilter(e.target.value)}
+                onChange={(e) => handleFilterChange('model', e.target.value)}
                 className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Models</option>
-                {models.map(model => (
+                {availableModels.map(model => (
                   <option key={model} value={model}>{model}</option>
                 ))}
               </select>
@@ -100,11 +124,11 @@ export default function ListingsPage() {
             <div className="relative">
               <select
                 value={trimFilter}
-                onChange={(e) => setTrimFilter(e.target.value)}
+                onChange={(e) => handleFilterChange('trim', e.target.value)}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Trims</option>
-                {trims.map(trim => (
+                {availableTrims.map(trim => (
                   <option key={trim} value={trim}>{trim}</option>
                 ))}
               </select>
@@ -112,11 +136,11 @@ export default function ListingsPage() {
             <div className="relative">
               <select
                 value={sourceFilter}
-                onChange={(e) => setSourceFilter(e.target.value)}
+                onChange={(e) => handleFilterChange('source', e.target.value)}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Sources</option>
-                {sources.map(source => (
+                {availableSources.map(source => (
                   <option key={source} value={source}>{source}</option>
                 ))}
               </select>
@@ -140,7 +164,7 @@ export default function ListingsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredListings.map((listing) => (
+                {listings.map((listing) => (
                   <tr key={listing.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="py-3 px-4 text-sm">
                       {listing.vin ? (
@@ -177,7 +201,7 @@ export default function ListingsPage() {
               </tbody>
             </table>
 
-            {filteredListings.length === 0 && (
+            {listings.length === 0 && !loading && (
               <div className="text-center py-12 text-gray-500">
                 No listings found
               </div>

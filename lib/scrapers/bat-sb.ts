@@ -810,6 +810,19 @@ export class BaTScraperSB extends BaseScraper {
   private extractVIN($: cheerio.CheerioAPI): string | undefined {
     let vin: string | undefined;
 
+    // Method 1: Google search link (most reliable - BaT always uses this format)
+    $('a[href*="google.com/search"]').each((_, elem) => {
+      const href = $(elem).attr('href') || '';
+      const vinMatch = href.match(/q=([A-HJ-NPR-Z0-9]{17})/);
+      if (vinMatch) {
+        vin = vinMatch[1];
+        return false; // break
+      }
+    });
+
+    if (vin) return vin;
+
+    // Method 2: Chassis label in listing details
     $('ul li').each((i, el) => {
       const text = $(el).text().trim();
       if (text.includes('Chassis:')) {
@@ -823,12 +836,14 @@ export class BaTScraperSB extends BaseScraper {
 
     if (vin) return vin;
 
+    // Method 3: Fallback - search entire body text
     const bodyText = $('body').text();
     const vinMatch = bodyText.match(/WP[01][A-Z0-9]{14}/);
     return vinMatch ? vinMatch[0] : undefined;
   }
 
   private extractMileage($: cheerio.CheerioAPI): number | undefined {
+    // Method 1: Look for "Mileage" label in essentials
     const mileageLocations = [
       $('.essentials-item:contains("Mileage")').text(),
       $('dt:contains("Mileage")').next('dd').text(),
@@ -845,6 +860,37 @@ export class BaTScraperSB extends BaseScraper {
       }
     }
 
+    // Method 2: Look for "XXk Miles" pattern after VIN in BaT Essentials
+    // Text is concatenated: "Chassis: WP0CB2A89FK13075248k Miles"
+    // Match VIN (17 chars) followed by mileage
+    const essentialsText = $('.essentials, .listing-details, [class*="essential"]').text();
+    const vinMileageMatch = essentialsText.match(/WP[01][A-Z0-9]{14}(\d{1,3})k\s*Miles/i);
+    if (vinMileageMatch) {
+      const mileage = parseInt(vinMileageMatch[1]) * 1000;
+      if (!isNaN(mileage) && mileage > 0 && mileage < 500000) {
+        return mileage;
+      }
+    }
+
+    // Fallback: Look for standalone "XXk Miles" pattern
+    const kMilesMatch = essentialsText.match(/[^\d](\d{1,3})k\s*Miles/i);
+    if (kMilesMatch) {
+      const mileage = parseInt(kMilesMatch[1]) * 1000;
+      if (!isNaN(mileage) && mileage > 0 && mileage < 500000) {
+        return mileage;
+      }
+    }
+
+    // Method 3: Look for standard mileage format in essentials
+    const standardMilesMatch = essentialsText.match(/(\d{1,3}(?:,\d{3})*)\s*Miles/i);
+    if (standardMilesMatch) {
+      const mileage = parseInt(standardMilesMatch[1].replace(/,/g, ''));
+      if (!isNaN(mileage) && mileage > 0 && mileage < 500000) {
+        return mileage;
+      }
+    }
+
+    // Method 4: Look in title
     const title = $('h1.listing-title').text().trim() || $('h1').first().text().trim();
     const titleMatch = title.match(/(\d{1,3},?\d{0,3})\s*(?:miles?|mi\b)/i);
     if (titleMatch) {

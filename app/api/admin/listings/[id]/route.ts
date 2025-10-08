@@ -8,9 +8,10 @@ const supabase = createClient(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await req.json();
 
     // Only allow updating specific fields
@@ -34,7 +35,7 @@ export async function PATCH(
     const { data, error } = await supabase
       .from('listings')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 

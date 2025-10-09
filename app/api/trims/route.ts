@@ -43,11 +43,17 @@ export async function GET() {
           };
         }
 
-        // Get listings for this trim
+        // Get listings for this trim by model and trim name (not model_year_id)
+        // Only include sold listings (those with a sold_date)
+        const modelName = trim.models.name;
+        const trimName = trim.name;
+
         const { data: listings, error: listingsError } = await supabaseAdmin
           .from('listings')
-          .select('price, mileage, created_at, status')
-          .in('model_year_id', modelYearIds)
+          .select('price, mileage, created_at, status, sold_date')
+          .ilike('model', modelName)
+          .ilike('trim', `%${trimName}%`)
+          .not('sold_date', 'is', null)
           .gt('price', 0);
 
         if (listingsError || !listings || listings.length === 0) {
@@ -75,24 +81,36 @@ export async function GET() {
           new Date(l.created_at) > thirtyDaysAgo
         ).length;
 
-        // Count active vs sold
-        const activeCount = listings.filter(l => l.status === 'active').length;
-        const soldCount = listings.filter(l => l.status === 'sold').length;
+        // All listings here are sold (we filtered for sold_date not null)
+        const soldCount = listings.length;
+        const activeCount = 0; // We're not tracking active listings yet
 
-        // Calculate appreciation (mock for now)
+        // Calculate real YoY appreciation based on sold prices
         let appreciation = 0;
-        const trimName = trim.name.toLowerCase();
-        if (trimName.includes('gt3 rs')) appreciation = 12.5;
-        else if (trimName.includes('gt3')) appreciation = 8.3;
-        else if (trimName.includes('gt4 rs')) appreciation = 15.2;
-        else if (trimName.includes('gt4')) appreciation = 7.1;
-        else if (trimName.includes('spyder rs')) appreciation = 13.8;
-        else if (trimName.includes('turbo s')) appreciation = 4.2;
-        else if (trimName.includes('turbo')) appreciation = 3.8;
-        else if (trimName.includes('gts')) appreciation = 5.5;
-        else if (trimName.includes('carrera 4s')) appreciation = 3.2;
-        else if (trimName.includes('carrera s')) appreciation = 2.8;
-        else if (trimName.includes('carrera')) appreciation = 2.1;
+
+        if (listings.length >= 10) { // Need minimum data for meaningful calculation
+          const now = new Date();
+          const oneYearAgo = new Date();
+          oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+          const twoYearsAgo = new Date();
+          twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+
+          const recentSales = listings.filter(l =>
+            new Date(l.sold_date!) > oneYearAgo && new Date(l.sold_date!) <= now
+          );
+          const olderSales = listings.filter(l =>
+            new Date(l.sold_date!) > twoYearsAgo && new Date(l.sold_date!) <= oneYearAgo
+          );
+
+          const recentPrices = recentSales.map(l => l.price).filter(p => p > 0);
+          const olderPrices = olderSales.map(l => l.price).filter(p => p > 0);
+
+          if (recentPrices.length >= 3 && olderPrices.length >= 3) {
+            const recentAvg = recentPrices.reduce((a, b) => a + b, 0) / recentPrices.length;
+            const olderAvg = olderPrices.reduce((a, b) => a + b, 0) / olderPrices.length;
+            appreciation = ((recentAvg - olderAvg) / olderAvg) * 100;
+          }
+        }
 
         return {
           ...trim,
@@ -117,15 +135,17 @@ export async function GET() {
       })
     );
 
-    // Sort by performance tier and listing count
-    const sortedTrims = trimStats.sort((a, b) => {
-      // GT models first
-      if (a.is_high_performance && !b.is_high_performance) return -1;
-      if (!a.is_high_performance && b.is_high_performance) return 1;
-      
-      // Then by listing count
-      return b.stats.totalListings - a.stats.totalListings;
-    });
+    // Filter out trims with no sold listings and sort by performance tier and listing count
+    const sortedTrims = trimStats
+      .filter(trim => trim.stats.totalListings > 0) // Only show trims with sold listings
+      .sort((a, b) => {
+        // GT models first
+        if (a.is_high_performance && !b.is_high_performance) return -1;
+        if (!a.is_high_performance && b.is_high_performance) return 1;
+
+        // Then by listing count
+        return b.stats.totalListings - a.stats.totalListings;
+      });
 
     return NextResponse.json(sortedTrims);
   } catch (error) {

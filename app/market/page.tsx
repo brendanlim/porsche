@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, Car, DollarSign, Activity, Flame, ArrowRight, Filter, Gauge } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
 interface TrimData {
   id: string;
@@ -135,10 +137,7 @@ function TrimCard({ trim }: { trim: TrimData }) {
             <div className="flex justify-between items-center text-sm">
               <div className="flex gap-3">
                 <span className="text-gray-600">
-                  <span className="font-semibold text-green-600">{trim.stats.activeListings}</span> active
-                </span>
-                <span className="text-gray-600">
-                  <span className="font-semibold text-gray-500">{trim.stats.soldListings}</span> sold
+                  <span className="font-semibold text-gray-900">{trim.stats.soldListings}</span> sold
                 </span>
               </div>
               <div className="flex items-center gap-1 text-gray-600">
@@ -160,10 +159,12 @@ function TrimCard({ trim }: { trim: TrimData }) {
 }
 
 export default function MarketPage() {
+  const searchParams = useSearchParams();
   const [trims, setTrims] = useState<TrimData[]>([]);
   const [loading, setLoading] = useState(true);
   const [modelFilter, setModelFilter] = useState<string>('all');
   const [performanceFilter, setPerformanceFilter] = useState<string>('all');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [marketMovers, setMarketMovers] = useState<{
     topAppreciating: TrimData[];
     mostActive: TrimData[];
@@ -172,7 +173,14 @@ export default function MarketPage() {
 
   useEffect(() => {
     fetchTrims();
+    checkAuth();
   }, []);
+
+  const checkAuth = async () => {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    setIsAuthenticated(!!session);
+  };
 
   const fetchTrims = async () => {
     try {
@@ -220,7 +228,9 @@ export default function MarketPage() {
     return true;
   });
 
-  const uniqueModels = Array.from(new Set(trims.map(t => t.model))).sort();
+  const uniqueModels = Array.from(new Set(trims.map(t => t.model).filter(Boolean))).sort();
+  const hasPreview = searchParams?.get('preview') === 'true';
+  const showOverlay = !isAuthenticated && !hasPreview;
 
   if (loading) {
     return (
@@ -231,7 +241,31 @@ export default function MarketPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen bg-gray-50 relative ${showOverlay ? 'overflow-hidden max-h-screen' : ''}`}>
+      {/* Auth overlay */}
+      {showOverlay && (
+        <>
+          <div className="fixed inset-0 z-50 bg-gradient-to-b from-transparent via-white/75 to-white" />
+
+          {/* CTA Bar */}
+          <div className="fixed bottom-12 left-12 right-12 z-50 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-8 text-white shadow-xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-2xl font-bold mb-1">Unlock Full Market Insights</h3>
+                <p className="text-blue-100">Get comprehensive analysis and tracking for top Porsche models</p>
+              </div>
+              <Link
+                href="/waitlist"
+                className="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors flex items-center gap-2 whitespace-nowrap"
+              >
+                Get Early Access
+                <ArrowRight className="h-5 w-5" />
+              </Link>
+            </div>
+          </div>
+        </>
+      )}
+
       <div className="container mx-auto p-6">
         {/* Header */}
         <div className="mb-8">
@@ -239,7 +273,7 @@ export default function MarketPage() {
             Porsche Market
           </h1>
           <p className="text-lg text-gray-600">
-            Real-time analytics and insights for every Porsche model
+            Market analytics and insights for top Porsche models
           </p>
         </div>
 
@@ -309,7 +343,7 @@ export default function MarketPage() {
                         </div>
                         <div>
                           <p className="font-semibold text-gray-900 text-sm">{trim.model} {trim.name}</p>
-                          <p className="text-xs text-gray-600">{trim.stats.activeListings} active</p>
+                          <p className="text-xs text-gray-600">{trim.stats.soldListings} sold</p>
                         </div>
                       </div>
                       <div className="text-right">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -158,7 +158,7 @@ function TrimCard({ trim }: { trim: TrimData }) {
   );
 }
 
-export default function MarketPage() {
+function MarketPageContent() {
   const searchParams = useSearchParams();
   const [trims, setTrims] = useState<TrimData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -496,5 +496,17 @@ export default function MarketPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function MarketPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      </div>
+    }>
+      <MarketPageContent />
+    </Suspense>
   );
 }
